@@ -20,4 +20,4 @@ def detect():
     return {"identity": result}, 200
     
 if __name__ == '__main__':
-    app.run(port=7834, debug=True)
+    app.run(port=1782, debug=True)
