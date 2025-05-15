@@ -2,6 +2,8 @@ from flask import Flask
 import pandas as pd
 from flask import request, jsonify
 import hashlib
+import requests
+from typing import Dict, List, Any
 
 app = Flask(__name__)
 
@@ -9,28 +11,34 @@ app = Flask(__name__)
 def home():
     return "matching-key-server"
 
+
 @app.route('/gen-matching-key', methods=['POST'])
 def generate_matching_key():
-    try:
-        data = request.get_json()
-        if data is None:
-            return jsonify({"error": "Invalid JSON"}), 400
-        
-        df = pd.DataFrame(data)
-
-        # dataframe의 각 컬럼 값을 ""으로 join하고, 그 값을 sha256으로 hash한 값을 matching_key 컬럼으로 추가
-        def hash_row(row):
-            concatenated = "".join(row.astype(str))
-            return hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
-
-        df['matching_key'] = df.apply(hash_row, axis=1)
-        
-        result = df.to_json()
-        print(result)
-        return result, 200
+    data: Dict[str, Dict[str, List[Any]]] = request.get_json()
+    if (
+        not data or
+        'pii-data' not in data or
+        not isinstance(data['pii-data'], dict)
+    ):
+        return jsonify({'error': '올바르지 않은 요청입니다. pii-data를 포함해야 합니다.'}), 400
     
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # JSON 데이터에서 DataFrame 생성
+    try:
+        df = pd.DataFrame(data['pii-data'])
+
+    except ValueError as e:
+        return jsonify({'error': '올바르지 않은 JSON 형식입니다.'}), 400
+    
+    def hash_row(row):
+        concatenated = "".join(row.astype(str))
+        return hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
+
+    df['matching_key'] = df.apply(hash_row, axis=1)
+
+    return df.to_json(orient='records'), 200
+    
 
 if __name__ == '__main__':
+    
+
     app.run(port=1783, debug=True)
