@@ -4,6 +4,7 @@ from flask import request, jsonify
 import hashlib
 import requests
 from typing import Dict, List, Any
+from register import Register
 
 app = Flask(__name__)
 
@@ -39,6 +40,17 @@ def generate_matching_key():
     
 
 if __name__ == '__main__':
-    
+    register_url = 'http://localhost:1780/'
+    callback_url = 'http://localhost:1783/gen-matching-key'
+
+    ok = Register.subscribe(
+        register_url=register_url,
+        topic='pii detection success',
+        callback_url=callback_url,
+        count=3,
+        interval=5
+    )
+    if not ok:
+        exit(1)
 
     app.run(port=1783, debug=True)
