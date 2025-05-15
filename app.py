@@ -20,7 +20,7 @@ def detect():
         ), 400  
 
     # TODO: 도메인 사전/임베딩 모델을 통해 식별정보 탐지하는 로직을 구현해서 넣어야함
-    # 현재는 테스트로 body로 들어온 컬럼명을 랜덤한 개수의 랜덤한 값을 식별자로 반환하도록 구현함
+    # 현재는 테스트로 body로 들어온 컬럼명을 랜덤한 개수의 랜덤한 값을 식별자 판단하고 반환하도록 구현함
     columns = data['columns']
     return jsonify(
         {'identity': random.sample(columns, k=random.randint(1, len(columns)))}
