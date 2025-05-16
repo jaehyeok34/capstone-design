@@ -1,12 +1,10 @@
 package team.j.api_gateway.controller;
 
 import java.io.IOException;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
 import jakarta.validation.Valid;
 import team.j.api_gateway.dto.RegisterDTO;
 import team.j.api_gateway.service.RegisterService;
