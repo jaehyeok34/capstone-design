@@ -1,6 +1,6 @@
 from flask import Flask
 import pandas as pd
-from flask import request, jsonify
+from flask import jsonify
 
 app = Flask(__name__)
 
@@ -8,15 +8,20 @@ app = Flask(__name__)
 def home():
     return "data-server"
 
-@app.route('/get-data', methods=['GET'])
+
+@app.route('/get-pii-data', methods=['GET'])
 def get_data():
     try:
         df = pd.read_csv('datas.csv')
-        data = df.to_dict(orient='list')
-        return jsonify(data)
+        return jsonify(df.to_dict(orient='dict')), 200
     
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"[debug]: {e}")
+        return "", 500
+
 
 if __name__ == '__main__':
-    app.run(port="1781", debug=True)
+    port = 1789
+
+    # app.run(port=port, debug=True)
+    app.run(port=port)
