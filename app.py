@@ -27,16 +27,20 @@ def detect():
     # TODO: 도메인 사전/임베딩 모델을 통해 식별정보 탐지하는 로직을 구현해서 넣어야함
     # 현재는 테스트로 body로 들어온 컬럼명을 랜덤한 개수의 랜덤한 값을 식별자 판단하고 반환하도록 구현함
     columns = data['columns']
-    return jsonify(
-        {'identity': random.sample(columns, k=random.randint(1, len(columns)))}
-    ), 200
+    result = random.sample(columns, k=random.randint(1, len(columns)))
+    print(f"[debug] result: {result}")
+
+    # API Gateway의 /event로 결과 전송 해야함(post)
+
+    return "", 200
 
     
 if __name__ == '__main__':
-    register_url = 'http://127.0.0.1:1780/'
+    register_url = 'http://127.0.0.1:1780/register'
     callback_url = 'http://127.0.1:1782/detect'
 
-    for topic in ['input', 'low_match_rate']:
+    # for topic in ['input', 'low_match_rate']:
+    for topic in ['input']:
         ok = Register.subscribe(
             register_url=register_url, 
             topic=topic, 
