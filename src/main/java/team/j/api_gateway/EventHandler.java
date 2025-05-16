@@ -1,6 +1,7 @@
 package team.j.api_gateway;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -56,28 +57,37 @@ public class EventHandler {
                 ObjectMapper om = new ObjectMapper();
                 List<RegisterDTO> topicTable = om.readValue(file, new TypeReference<List<RegisterDTO>>() {});
                 
-                // 토픽 테이블에서 이벤트를 구독한 url 탐색
-                // 이벤트를 구독한 url에 post 요청
+                // 토픽 테이블에서 이벤트를 구독한 서비스 찾기
                 for (RegisterDTO topic : topicTable) {
-                    if (topic.topic().equals(event.event())) {
+                    if (topic.topic().equals(event.event())) { // 구독한 서비스 찾음
                         // event.data를 topic.url에 post 요청하기
-                        request(topic.url(), event.data());
+                        request(topic.url(), event.data(), topic.requirePiiData());
                         System.err.println("[debug] " + topic.url() + "에 post 요청 완료");
+                        break;
                     }
                 }
             }
-        } catch (Exception ignore) {
-            System.err.println("[debug] 이벤트 처리 못함");
+        } catch (Exception e) {
+            System.err.println("[debug] 이벤트 처리 못함 " + e.getMessage());
          }
     }
 
-    private void request(String url, Map<String, List<String>> data) {
+    private void request(String url, Map<String, List<String>> data, Boolean requirePiiData) {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders() {{
             setContentType(MediaType.APPLICATION_JSON);
         }};
-        HttpEntity<Map<String, List<String>>> entity = new HttpEntity<>(data, headers);
-        
+        String dataServerUrl = "http://localhost:1789/get-pii-data";
+        Map<String, Object> body = new HashMap<>() {{
+            putAll(data);
+        }};
+
+        // 민감정보가 필요한 경우, 데이터 서버에서 데이터를 가져옴
+        if (requirePiiData) {
+            body.put("piiData", restTemplate.getForObject(dataServerUrl, Map.class));
+        }
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         restTemplate.postForObject(url, entity, Void.class); // post 요청이 잘 됐는 지, 처리가 잘 됐는지 확인 안함
     }
 }
