@@ -2,8 +2,7 @@ import random
 from flask import Flask
 from flask import request, jsonify
 from typing import Dict, List
-import requests
-from register import Register
+from api_gateway import subscribe, request_post
 
 app = Flask(__name__)
 
@@ -31,6 +30,11 @@ def detect():
     print(f"[debug] result: {result}")
 
     # API Gateway의 /event로 결과 전송 해야함(post)
+    request_post(
+        target_url='http://127.0.0.1:1780/event',
+        event='pii detection success',
+        data={'identified': result}
+    )
 
     return "", 200
 
@@ -41,7 +45,7 @@ if __name__ == '__main__':
 
     # for topic in ['input', 'low_match_rate']:
     for topic in ['input']:
-        ok = Register.subscribe(
+        ok = subscribe(
             register_url=register_url, 
             topic=topic, 
             callback_url=callback_url, 
