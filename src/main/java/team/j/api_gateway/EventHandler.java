@@ -1,7 +1,6 @@
 package team.j.api_gateway;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -49,6 +48,7 @@ public class EventHandler {
     }
 
     private void handleEvent(EventDTO event) {
+        System.err.println("[debug] " + event.event() + " 이벤트 처리 시작");
         try {
             File file = new File(RegisterService.topicTablePath);
 
@@ -68,26 +68,23 @@ public class EventHandler {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[debug] 이벤트 처리 못함 " + e.getMessage());
+            System.err.println("[debug] " + event.event() + "이벤트 처리 못함 " + e.getMessage());
          }
     }
 
-    private void request(String url, Map<String, List<String>> data, Boolean requirePiiData) {
+    private void request(String url, Map<String, Object> data, Boolean requirePiiData) {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders() {{
             setContentType(MediaType.APPLICATION_JSON);
         }};
         String dataServerUrl = "http://localhost:1789/get-pii-data";
-        Map<String, Object> body = new HashMap<>() {{
-            putAll(data);
-        }};
-
+        
         // 민감정보가 필요한 경우, 데이터 서버에서 데이터를 가져옴
         if (requirePiiData) {
-            body.put("piiData", restTemplate.getForObject(dataServerUrl, Map.class));
+            data.put("piiData", restTemplate.getForObject(dataServerUrl, Map.class));
         }
 
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(data, headers);
         restTemplate.postForObject(url, entity, Void.class); // post 요청이 잘 됐는 지, 처리가 잘 됐는지 확인 안함
     }
 }
