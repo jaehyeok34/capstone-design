@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, List
+from typing import Dict, List
 import requests
 from dataclasses import dataclass
 
@@ -19,7 +19,7 @@ def request_post(target_url: str, event: str, data: Dict[str, List[str]]) -> boo
     return response.status_code == 200
 
 
-def subscribe(register_url: str, topic: str, callback_url: str, count: int = 1, interval: int = 0) -> bool:
+def subscribe(register_url: str, topic: str, callback_url: str, require_pii_data: bool = False, count: int = 1, interval: int = 0) -> bool:
     default_interval = 10
     interval = max(0, interval)
 
@@ -33,7 +33,7 @@ def subscribe(register_url: str, topic: str, callback_url: str, count: int = 1, 
 
     for i in range(count):
         try:
-            response = requests.post(url=register_url, json={'topic': topic, 'url': callback_url})
+            response = requests.post(url=register_url, json={'topic': topic, 'url': callback_url, 'requirePiiData': require_pii_data})
             if response.status_code == 200:
                 print(f"[debug]: gateway에 {topic} 등록 성공")
                 return True

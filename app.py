@@ -11,6 +11,11 @@ def home():
     return "PII(Personally Identifiable Information) Detection API", 200
 
 
+"""
+input: {
+    "columns": ["v1", "v2", ...]
+}
+"""
 @app.route('/detect', methods=['POST'])
 def detect():
     data: Dict[str, List[str]] = request.get_json()
@@ -33,15 +38,16 @@ def detect():
     request_post(
         target_url='http://127.0.0.1:1780/event',
         event='pii detection success',
-        data={'identified': result}
+        data={'columns': result}
     )
 
     return "", 200
 
     
 if __name__ == '__main__':
+    port = 1782
     register_url = 'http://127.0.0.1:1780/register'
-    callback_url = 'http://127.0.1:1782/detect'
+    callback_url = f'http://127.0.1:{port}/detect'
 
     # for topic in ['input', 'low_match_rate']:
     for topic in ['input']:
@@ -56,4 +62,5 @@ if __name__ == '__main__':
             exit(1)
 
     # 토픽 구독 등록 이후 서버 구동
-    app.run(port=1782, debug=True)
+    # app.run(port=port, debug=True)
+    app.run(port=port)
