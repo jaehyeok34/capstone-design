@@ -15,27 +15,33 @@ import team.j.api_gateway.dto.RegisterDTO;
 
 @Service
 public class RegisterService {
+
+    public static final Object topicTableLock = new Object();
+    public static final String topicTablePath = "topic_table.json";
     
      public void register(RegisterDTO dto) throws IOException{
         // JSON 파일 준비
-        String filePath = "topic_table.json";
-        File file = new File(filePath);
-        file.createNewFile(); // 파일이 이미 있으면 동작 X(false 반환, 예외 발생 X)
+        File file = new File(topicTablePath);
 
-        // 데이터 준비
-        List<RegisterDTO> registerList = new ArrayList<>();
-        ObjectMapper om = new ObjectMapper();
+        // EventHandler가 topic_table.json을 읽을 동안 대기
+        synchronized (topicTableLock) {
+            file.createNewFile(); // 파일이 이미 있으면 동작 X(false 반환, 예외 발생 X)
 
-        // 데이터 추가
-        try {
-            registerList = om.readValue(file, new TypeReference<List<RegisterDTO>>() {});
-        } catch (MismatchedInputException ignore) {}
-        registerList.add(dto);
+            // 데이터 준비
+            List<RegisterDTO> registerList = new ArrayList<>();
+            ObjectMapper om = new ObjectMapper();
 
-        // 중복 제거
-        List<RegisterDTO> uniqueList = new ArrayList<>(new HashSet<>(registerList));
+            // 데이터 추가
+            try {
+                registerList = om.readValue(file, new TypeReference<List<RegisterDTO>>() {});
+            } catch (MismatchedInputException ignore) {}
+            registerList.add(dto);
 
-        // JSON 파일에 데이터 저장
-        om.writeValue(file, uniqueList);
+            // 중복 제거
+            List<RegisterDTO> uniqueList = new ArrayList<>(new HashSet<>(registerList));
+
+            // JSON 파일에 데이터 저장
+            om.writeValue(file, uniqueList);
+        }
     }
 }
