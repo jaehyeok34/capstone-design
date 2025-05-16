@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List
+from typing import Dict, List, Any
 import requests
 from dataclasses import dataclass
 
@@ -9,7 +9,7 @@ class EventDTO:
     data: Dict[str, List[str]]
 
 
-def request_post(target_url: str, event: str, data: Dict[str, List[str]]) -> bool:
+def request_post(target_url: str, event: str, data: Dict[str, Any]) -> bool:
     dto = EventDTO(event=event, data=data)
     response = requests.post(url=target_url, json=dto.__dict__)
 

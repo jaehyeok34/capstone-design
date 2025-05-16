@@ -44,7 +44,14 @@ def generate_matching_key():
         return hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
 
     df['matching_key'] = df.apply(hash_row, axis=1)
-    print('[debug] df with matching_key:', df)
+
+    request_post(
+        target_url='http://127.0.0.1:1780/event',
+        event='link',
+        data={'piiData': df.to_dict()}
+    )
+
+    print("[debug] matching key generated")
 
     return "", 200
     
