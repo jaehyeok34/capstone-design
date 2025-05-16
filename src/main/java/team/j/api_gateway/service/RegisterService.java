@@ -3,13 +3,14 @@ package team.j.api_gateway.service;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.fasterxml.jackson.core.exc.StreamReadException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 
 import team.j.api_gateway.dto.RegisterDTO;
 
@@ -23,18 +24,19 @@ public class RegisterService {
         file.createNewFile(); // 파일이 이미 있으면 동작 X(false 반환, 예외 발생 X)
 
         // 데이터 준비
-        List<RegisterDTO> registerList;
+        List<RegisterDTO> registerList = new ArrayList<>();
         ObjectMapper om = new ObjectMapper();
-        try {
-            registerList = om.readValue(file, new TypeReference<List<RegisterDTO>>() {});
-        } catch (StreamReadException e) { // JSON 파일이 비어있거나 형식이 잘못된 경우(새롭게 생성된 경우)
-            registerList = new ArrayList<>();
-        }
 
         // 데이터 추가
+        try {
+            registerList = om.readValue(file, new TypeReference<List<RegisterDTO>>() {});
+        } catch (MismatchedInputException ignore) {}
         registerList.add(dto);
 
+        // 중복 제거
+        List<RegisterDTO> uniqueList = new ArrayList<>(new HashSet<>(registerList));
+
         // JSON 파일에 데이터 저장
-        om.writeValue(file, registerList);
+        om.writeValue(file, uniqueList);
     }
 }
