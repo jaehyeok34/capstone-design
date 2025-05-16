@@ -12,11 +12,15 @@ import team.j.api_gateway.service.RegisterService;
 @RestController
 public class RegisterController {
 
+    private final RegisterService service;
+
+    public RegisterController(RegisterService service) {
+        this.service = service;
+    }   
+
     @PostMapping(value = "register", consumes = "application/json")
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterDTO dto) throws IOException {
-        RegisterService service = new RegisterService();
         service.register(dto);
-
         System.err.println("[debug] topic_table.json에 추가 완료");
         
         return ResponseEntity.ok().build();
