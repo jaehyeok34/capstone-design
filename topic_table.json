@@ -1,1 +1,1 @@
-[{"topic":"pii detection success","url":"http://localhost:1783/gen-matching-key"},{"topic":"input","url":"http://127.0.1:1782/detect"},{"topic":"low_match_rate","url":"http://127.0.1:1782/detect"}]
+[{"topic":"pii detection success","url":"http://localhost:1783/gen-matching-key"},{"topic":"input","url":"http://127.0.1:1782/detect"}]

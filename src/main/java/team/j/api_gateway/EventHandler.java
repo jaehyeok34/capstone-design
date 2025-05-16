@@ -6,13 +6,11 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -80,6 +78,6 @@ public class EventHandler {
         }};
         HttpEntity<Map<String, List<String>>> entity = new HttpEntity<>(data, headers);
         
-        restTemplate.postForObject(url, entity, Void.class);
+        restTemplate.postForObject(url, entity, Void.class); // post 요청이 잘 됐는 지, 처리가 잘 됐는지 확인 안함
     }
 }
