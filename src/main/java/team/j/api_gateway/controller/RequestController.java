@@ -21,8 +21,15 @@ public class RequestController {
     }
     
     @PostMapping("/pre-matching-process-request")
-    public ResponseEntity<Void> preMatchingProcess(@Valid @RequestBody RequestDTO requestDTO) throws IOException {
-        service.preMatchingProcess(requestDTO.sourceDataTitleList());
+    public ResponseEntity<Void> preMatchingProcessRequest(@Valid @RequestBody RequestDTO requestDTO) throws IOException {
+        service.request(requestDTO.sourceDataTitleList(), "pii.detection.request");
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/matching-process-request")
+    public ResponseEntity<Void> matchingProcessReqeust(@Valid @RequestBody RequestDTO requestDTO) throws IOException {
+        service.request(requestDTO.sourceDataTitleList(), "matching.request");
+        return ResponseEntity.ok().build();
+    }
+    
 }

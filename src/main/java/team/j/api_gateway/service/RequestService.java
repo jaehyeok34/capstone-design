@@ -21,7 +21,7 @@ import team.j.api_gateway.dto.EventDTO;
 @Service
 public class RequestService {
     
-    public void preMatchingProcess(List<String> sourceDataTitleList) throws IOException {
+    public void request(List<String> sourceDataTitleList, String event) throws IOException {
         ObjectMapper om = new ObjectMapper();
 
         synchronized (ApiGatewayService.dataListLock) {
@@ -40,7 +40,7 @@ public class RequestService {
             }};
 
             HttpEntity<EventDTO> request = new HttpEntity<>(
-                new EventDTO("pii.detection.request", Map.of("data_list", filtered)),
+                new EventDTO(event, Map.of("data_list", filtered)),
                 headers
             );
 
