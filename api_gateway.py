@@ -1,5 +1,6 @@
 import time
 from typing import Dict, List, Any
+import pandas as pd
 import requests
 from dataclasses import dataclass
 
@@ -8,6 +9,8 @@ class EventDTO:
     event: str
     data: Dict[str, List[str]]
 
+
+topic_subscribe_url = 'http://localhost:1780/subscribe-topic'
 
 def request_post(target_url: str, event: str, data: Dict[str, Any]) -> bool:
     dto = EventDTO(event=event, data=data)
@@ -19,7 +22,7 @@ def request_post(target_url: str, event: str, data: Dict[str, Any]) -> bool:
     return response.status_code == 200
 
 
-def subscribe(register_url: str, topic: str, callback_url: str, require_pii_data: bool = False, count: int = 1, interval: int = 0) -> bool:
+def subscribe(topic: str, callback_url: str, end_point_url: str = topic_subscribe_url, count: int = 1, interval: int = 0) -> bool:
     default_interval = 10
     interval = max(0, interval)
 
@@ -33,7 +36,7 @@ def subscribe(register_url: str, topic: str, callback_url: str, require_pii_data
 
     for i in range(count):
         try:
-            response = requests.post(url=register_url, json={'topic': topic, 'url': callback_url, 'requirePiiData': require_pii_data})
+            response = requests.post(url=end_point_url, json={'topic': topic, 'url': callback_url})
             if response.status_code == 200:
                 print(f"[debug]: gateway에 {topic} 등록 성공")
                 return True
@@ -45,3 +48,25 @@ def subscribe(register_url: str, topic: str, callback_url: str, require_pii_data
         time.sleep(interval)
         
     return False
+
+
+def request_get_columns(selectedRegisteredDataTitle: str) -> List[str]:
+    response = requests.post(url='http://127.0.0.1:1780/get-columns', data=selectedRegisteredDataTitle)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"[debug]: get_columns 실패: {response.text}")
+
+
+def request_get_column_data(selectedRegisteredDataTitle: str, columns: List[str]) -> pd.DataFrame:
+    response = requests.post(
+        url='http://127.0.0.1:1780/get-column-data',
+        json={
+            "title": selectedRegisteredDataTitle,
+            "columns": columns
+        }
+    )
+    if response.status_code == 200:
+        return pd.DataFrame(response.json())
+    else:
+        print(f"[debug]: get_column_data 실패: {response.text}")

@@ -1,9 +1,16 @@
+from dataclasses import dataclass
 from flask import Flask
 import pandas as pd
-from flask import request, jsonify
+from flask import request
 import hashlib
-from typing import Dict, Any
-from api_gateway import subscribe, request_post
+from typing import Dict, List
+
+from api_gateway import subscribe, request_post, request_get_column_data
+
+@dataclass
+class MatchingKeyDTO:
+    piiColumns: Dict[str, List[str]] # key: title, value: column
+
 
 app = Flask(__name__)
 
@@ -11,45 +18,39 @@ app = Flask(__name__)
 def home():
     return "matching-key-server"
 
-"""
-input: {
-    "columns": ["v1", "v2", ...],
-    "piiData": {
-        "key1": ["v1", "v2", ...],
-        "key2": ["v1", "v2", ...],
-        ...
-    }
-}
-"""
-@app.route('/gen-matching-key', methods=['POST'])
-def generate_matching_key():
-    data: Dict[str, Any] = request.get_json()
-    if (
-        not data or
-        'columns' not in data or 
-        'piiData' not in data or 
-        not isinstance(data['piiData'], dict)
-    ):
-        return jsonify({'error': '올바르지 않은 요청입니다. columns와 pii-data를 포함해야 합니다.'}), 400
-    
-    # JSON 데이터에서 DataFrame 생성
-    try:
-        df = pd.DataFrame(data['piiData'])
 
-    except ValueError as e:
-        return jsonify({'error': '올바르지 않은 JSON 형식입니다.'}), 400
+@app.route('/generate-matching-key', methods=['POST'])
+def generate_matching_key():
+    try:
+        data = MatchingKeyDTO(**request.get_json())
+    except TypeError as _:
+        return "[debug] selectedRegisteredDataTitle과 piiColumns가 있어야 함", 400
     
+    # TODO: piiColumns에 해당하는 데이터 가져오기
+    df_list = {}
+    for title, columns in data.piiColumns.items():
+        df_list[title] = request_get_column_data(
+            selectedRegisteredDataTitle=title,
+            columns=columns
+        )
+
     def hash_row(row):
         concatenated = "".join(row.astype(str))
         return hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
+    
 
-    df['matching_key'] = df.apply(hash_row, axis=1)
+    for title, df in df_list.items():
+        df['matching_key'] = df.apply(hash_row, axis=1)
+        df['mk_serial_number'] = [f"{title}{i+1}" for i in range(len(df))]
 
-    request_post(
-        target_url='http://127.0.0.1:1780/event',
-        event='link',
-        data={'piiData': df.to_dict()}
-    )
+    for title, df in df_list.items():
+        df.to_csv(f'"{title}".csv', index=False)
+
+    # request_post(
+    #     target_url='http://127.0.0.1:1780/event',
+    #     event='linkage.request',
+    #     data={'piiData': df.to_dict()}
+    # )
 
     print("[debug] matching key generated")
 
@@ -58,14 +59,11 @@ def generate_matching_key():
 
 if __name__ == '__main__':
     port = 1783
-    register_url = 'http://localhost:1780/register'
-    callback_url = f'http://localhost:{port}/gen-matching-key'
+    callback_url = f'http://localhost:{port}/generate-matching-key'
 
     ok = subscribe(
-        register_url=register_url,
-        topic='pii detection success',
+        topic='matching-key.generate.request',
         callback_url=callback_url,
-        require_pii_data=True,
         count=3,
         interval=5
     )
