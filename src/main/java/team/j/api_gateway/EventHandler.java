@@ -47,8 +47,8 @@ public class EventHandler {
         });
     }
 
-    private void handleEvent(EventDTO event) {
-        System.err.println("[debug] " + event.event() + " 이벤트 처리 시작");
+    private void handleEvent(EventDTO ed) {
+        System.err.println("[debug] " + ed.event() + " 이벤트 처리 시작");
         try {
             File file = new File(TopicSubscribeService.topicTablePath);
 
@@ -59,16 +59,16 @@ public class EventHandler {
                 
                 // 토픽 테이블에서 이벤트를 구독한 서비스 찾기
                 for (TopicDTO topic : topicTable) {
-                    if (topic.topic().equals(event.event())) { // 구독한 서비스 찾음
+                    if (topic.topic().equals(ed.event())) { // 구독한 서비스 찾음
                         // event.data를 topic.url에 post 요청하기
-                        request(topic.url(), event.data());
+                        request(topic.url(), ed.data());
                         System.err.println("[debug] " + topic.url() + "에 post 요청 완료");
                         break;
                     }
                 }
             }
         } catch (Exception e) {
-            System.err.println("[debug] " + event.event() + "이벤트 처리 못함 " + e.getMessage());
+            System.err.println("[debug] " + ed.event() + "이벤트 처리 못함 " + e.getMessage());
          }
     }
 

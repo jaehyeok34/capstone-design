@@ -10,8 +10,8 @@ public record RegisteredDataDTO(
     String title,   
 
     // optional
-    String path,        
-    Object information
+    String csvFilePath,         // csv file path
+    Object dbConnectionInfo     // DB connection information
 ) {
     public static final String TYPE_CSV = "csv";
     public static final String TYPE_DB = "DB";

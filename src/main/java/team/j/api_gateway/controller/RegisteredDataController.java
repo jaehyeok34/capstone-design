@@ -2,6 +2,8 @@ package team.j.api_gateway.controller;
 
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
+import team.j.api_gateway.dto.ColumnDataDTO;
 import team.j.api_gateway.service.RegisteredDataService;
 
 import java.io.IOException;
@@ -37,4 +39,10 @@ public class RegisteredDataController {
 
         return ResponseEntity.ok(columns);
     }
+
+    @PostMapping("/get-column-data")
+    public ResponseEntity<Object> getColumnData(@Valid @RequestBody ColumnDataDTO cdd) throws IOException {
+        return ResponseEntity.ok(service.getColumnData(cdd));
+    }
+    
 }

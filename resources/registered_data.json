@@ -2,7 +2,7 @@
     {
         "type": "csv",
         "title": "datas.csv",
-        "path": "/Users/jaehyeok34/Documents/capstone_all/api-gateway/resources/upload/datas.csv",
-        "information": null
+        "csvFilePath": "/Users/jaehyeok34/Documents/capstone_all/api-gateway/resources/upload/datas.csv",
+        "dbConnectionInfo": null
     }
 ]
