@@ -1,1 +1,12 @@
-[{"topic":"input","url":"http://127.0.1:1782/detect","requirePiiData":false},{"topic":"pii detection success","url":"http://localhost:1783/gen-matching-key","requirePiiData":true}]
+[
+    {
+        "topic": "matching-key.request",
+        "url": "http://localhost:1783/gen-matching-key",
+        "requirePiiData": true
+    },
+    {
+        "topic": "pii-detection.request",
+        "url": "http://127.0.1:1782/detect",
+        "requirePiiData": false
+    }
+]

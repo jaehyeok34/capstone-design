@@ -78,7 +78,7 @@ public class EventHandler {
             setContentType(MediaType.APPLICATION_JSON);
         }};
         String dataServerUrl = "http://localhost:1789/get-pii-data";
-        
+
         // 민감정보가 필요한 경우, 데이터 서버에서 데이터를 가져옴
         if (requirePiiData) {
             data.put("piiData", restTemplate.getForObject(dataServerUrl, Map.class));
