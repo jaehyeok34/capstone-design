@@ -1,5 +1,6 @@
 import time
 from typing import Dict, List, Any
+import pandas as pd
 import requests
 from dataclasses import dataclass
 
@@ -55,3 +56,17 @@ def request_get_columns(selectedRegisteredDataTitle: str) -> List[str]:
         return response.json()
     else:
         print(f"[debug]: get_columns 실패: {response.text}")
+
+
+def request_get_column_data(selectedRegisteredDataTitle: str, columns: List[str]) -> pd.DataFrame:
+    response = requests.post(
+        url='http://127.0.0.1:1780/get-column-data',
+        json={
+            "title": selectedRegisteredDataTitle,
+            "columns": columns
+        }
+    )
+    if response.status_code == 200:
+        return pd.DataFrame(response.json())
+    else:
+        print(f"[debug]: get_column_data 실패: {response.text}")

@@ -46,8 +46,8 @@ def detect():
     # API Gateway의 /event로 결과 전송 해야함(post)
     request_post(
         target_url='http://127.0.0.1:1780/event',
-        event='matching-key.request',
-        data={'pii-columns': identifiers}
+        event='matching-key.generate.request',
+        data={'piiColumns': identifiers}
     )
 
     return "", 200
