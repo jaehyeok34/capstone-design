@@ -14,25 +14,5 @@ public record TopicDTO(
     
     @NotBlank(message = "url cannot be blank")
     @URL(message = "url must be a valid URL")
-    String url,
-
-    boolean requirePiiData
+    String url
 ) {}
-
-// public class RegisterDTO {
-    
-//     @NotBlank(message = "Topic cannot be blank")
-//     private String topic;
-
-//     @NotBlank(message = "url cannot be blank")
-//     @URL(message = "url must be a valid URL")
-//     private String url;
-
-//     public String getTopic() {
-//         return topic;
-//     }
-
-//     public String getUrl() {
-//         return url;
-//     }
-// }

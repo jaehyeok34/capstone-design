@@ -7,14 +7,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import team.j.api_gateway.dto.TopicDTO;
-import team.j.api_gateway.service.RegisterService;
+import team.j.api_gateway.service.TopicSubscribeService;
 
 @RestController
 public class TopicSubscribeController {
 
-    private final RegisterService service;
+    private final TopicSubscribeService service;
 
-    public TopicSubscribeController(RegisterService service) {
+    public TopicSubscribeController(TopicSubscribeService service) {
         this.service = service;
     }   
 

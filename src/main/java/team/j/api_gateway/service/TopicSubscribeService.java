@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import team.j.api_gateway.dto.TopicDTO;
 
 @Service
-public class RegisterService {
+public class TopicSubscribeService {
 
     public static final Object topicTableLock = new Object();
     public static final String topicTablePath = "resources/topic_table.json";

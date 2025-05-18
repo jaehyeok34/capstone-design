@@ -25,7 +25,10 @@ public class RequestService {
         ObjectMapper om = new ObjectMapper();
 
         synchronized (ApiGatewayService.registeredDataLock) {
+            // registeredData.json 파일을 읽어서 RegisteredDataDTO 객체 리스트로 변환
             List<RegisteredDataDTO> registeredData = om.readValue(new File(ApiGatewayService.registeredDataPath), new TypeReference<List<RegisteredDataDTO>>() {});
+
+            // selectedRegisteredDataList에 포함된 title을 가진 RegisteredDataDTO 객체를 필터링
             List<String> filtered = selectedRegisteredData.stream()
                 .filter(selected -> registeredData.stream().anyMatch(data -> data.title().equals(selected)))
                 .toList();
@@ -33,14 +36,16 @@ public class RequestService {
             if (filtered.isEmpty()) {
                 throw new IllegalArgumentException("No matching data found");
             }
-
+            
+            // /event로 POST 요청
             RestTemplate restTemplate = new RestTemplate();
             HttpHeaders headers = new HttpHeaders() {{
                 setContentType(MediaType.APPLICATION_JSON);
             }};
 
             HttpEntity<EventDTO> request = new HttpEntity<>(
-                new EventDTO(event, Map.of("data_list", filtered)),
+                // PIIDetectionDTO 혹은 MatchingDTO와 일치해야 함
+                new EventDTO(event, Map.of("selectedRegisteredData", filtered)),
                 headers
             );
 

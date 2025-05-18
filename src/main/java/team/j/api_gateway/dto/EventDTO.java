@@ -9,4 +9,4 @@ public record EventDTO(
     String event,
 
     Map<String, Object> data
-) {}    
+) {}   
