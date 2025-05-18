@@ -7,6 +7,4 @@ import jakarta.validation.constraints.NotEmpty;
 public record RequestDTO(
     @NotEmpty(message = "sourceDataTitleList cannot be empty")
     List<String> sourceDataTitleList
-) {
-    
-}
+) {}

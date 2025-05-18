@@ -50,10 +50,4 @@ public class ApiGatewayController {
     public ResponseEntity<Map<String, List<String>>> getDataList() throws IOException {
         return ResponseEntity.ok(service.getDataList());
     }
-    
-    @PostMapping("/pre-matching-process")
-    public ResponseEntity<Void> preMatchingProcess(@Valid @RequestBody RequestDTO requestDTO) throws IOException {
-        service.preMatchingProcess(requestDTO.sourceDataTitleList());
-        return ResponseEntity.ok().build();
-    }
 }
