@@ -1,6 +1,8 @@
 package team.j.api_gateway.controller;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,6 +45,9 @@ public class ApiGatewayController {
 
         return ResponseEntity.ok().build();
     }
-    
-    
+
+    @GetMapping("/get-data-list")
+    public ResponseEntity<Map<String, List<String>>> getDataList() throws IOException {
+        return ResponseEntity.ok(service.getDataList());
+    }
 }

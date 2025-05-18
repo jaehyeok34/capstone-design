@@ -17,7 +17,7 @@ import team.j.api_gateway.dto.RegisterDTO;
 public class RegisterService {
 
     public static final Object topicTableLock = new Object();
-    public static final String topicTablePath = "topic_table.json";
+    public static final String topicTablePath = "resources/topic_table.json";
     
      public void register(RegisterDTO dto) throws IOException{
         // JSON 파일 준비
