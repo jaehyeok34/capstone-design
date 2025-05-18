@@ -3,11 +3,13 @@ package team.j.api_gateway.controller;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.validation.Valid;
+import team.j.api_gateway.dto.RequestDTO;
 import team.j.api_gateway.service.ApiGatewayService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,7 +34,6 @@ public class ApiGatewayController {
     @PostMapping("/register-database")
     public ResponseEntity<Void> registerDatabase(@RequestBody String entity) {
         // Todo: 나중에 개발할 거임
-
         return ResponseEntity.ok().build();
     }
     
@@ -42,12 +43,17 @@ public class ApiGatewayController {
             return ResponseEntity.badRequest().build();
         }
         service.saveCSV(csv); 
-
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/get-data-list")
     public ResponseEntity<Map<String, List<String>>> getDataList() throws IOException {
         return ResponseEntity.ok(service.getDataList());
+    }
+    
+    @PostMapping("/pre-matching-process")
+    public ResponseEntity<Void> preMatchingProcess(@Valid @RequestBody RequestDTO requestDTO) throws IOException {
+        service.preMatchingProcess(requestDTO.sourceDataTitleList());
+        return ResponseEntity.ok().build();
     }
 }
