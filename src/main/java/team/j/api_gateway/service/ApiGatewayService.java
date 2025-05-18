@@ -12,20 +12,20 @@ import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
-import team.j.api_gateway.dto.DataListDTO;
+import team.j.api_gateway.dto.RegisteredDataDTO;
 
 @Service
 public class ApiGatewayService {
 
-    public static final Object dataListLock = new Object();
-    public static final String dataListPath = "resources/data_list.json";
+    public static final Object registeredDataLock = new Object();
+    public static final String registeredDataPath = "resources/registered_data.json";
 
     public String home() {
         return "API Gateway is running";
     }
 
     public void saveCSV(MultipartFile csv) throws IOException {
-        File dir = new File("resources/") {{
+        File dir = new File("resources/upload/") {{
             if (!exists()) {
                 mkdirs();
             }
@@ -33,39 +33,39 @@ public class ApiGatewayService {
         File file = new File(dir.getAbsolutePath() + File.separator + csv.getOriginalFilename());
         csv.transferTo(file);
 
-        updateDataList(new DataListDTO(DataListDTO.TYPE_CSV, file.getName(), file.getAbsolutePath(), null));
+        updateRegisteredData(new RegisteredDataDTO(RegisteredDataDTO.TYPE_CSV, file.getName(), file.getAbsolutePath(), null));
     }
 
-    public void updateDataList(DataListDTO data) throws IOException {
-        File file = new File(dataListPath);
+    public void updateRegisteredData(RegisteredDataDTO rd) throws IOException {
+        File file = new File(registeredDataPath);
 
-        synchronized (dataListLock) {
+        synchronized (registeredDataLock) {
             file.createNewFile();
 
-            List<DataListDTO> dataList = new ArrayList<>();
+            List<RegisteredDataDTO> dataList = new ArrayList<>();
             ObjectMapper om = new ObjectMapper();
 
             try {
-                dataList = om.readValue(file, new TypeReference<List<DataListDTO>>() {});
+                dataList = om.readValue(file, new TypeReference<List<RegisteredDataDTO>>() {});
             } catch (MismatchedInputException ignore) {}
-            dataList.add(data);
+            dataList.add(rd);
 
             // 중복 제거
-            List<DataListDTO> uniqueList = new ArrayList<>(new HashSet<>(dataList));
+            List<RegisteredDataDTO> uniqueList = new ArrayList<>(new HashSet<>(dataList));
 
             // JSON 파일에 데이터 저장
             om.writeValue(file, uniqueList);
         }   
     }
 
-    public Map<String, List<String>> getDataList() throws IOException {
+    public Map<String, List<String>> getRegisteredData() throws IOException {
         ObjectMapper om = new ObjectMapper();
 
-        synchronized (dataListLock) {
-            List<DataListDTO> dataList = om.readValue(new File(dataListPath), new TypeReference<List<DataListDTO>>() {});
+        synchronized (registeredDataLock) {
+            List<RegisteredDataDTO> dataList = om.readValue(new File(registeredDataPath), new TypeReference<List<RegisteredDataDTO>>() {});
 
             return new HashMap<>() {{
-                put("data_list", dataList.stream().map(DataListDTO::title).toList());
+                put("registered_data", dataList.stream().map(RegisteredDataDTO::title).toList());
             }};
         }
     }

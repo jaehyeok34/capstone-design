@@ -14,20 +14,20 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import team.j.api_gateway.dto.DataListDTO;
+import team.j.api_gateway.dto.RegisteredDataDTO;
 import team.j.api_gateway.dto.EventDTO;
 
 
 @Service
 public class RequestService {
     
-    public void request(List<String> sourceDataTitleList, String event) throws IOException {
+    public void request(List<String> selectedRegisteredData, String event) throws IOException {
         ObjectMapper om = new ObjectMapper();
 
-        synchronized (ApiGatewayService.dataListLock) {
-            List<DataListDTO> dataList = om.readValue(new File(ApiGatewayService.dataListPath), new TypeReference<List<DataListDTO>>() {});
-            List<String> filtered = sourceDataTitleList.stream()
-                .filter(title -> dataList.stream().anyMatch(data -> data.title().equals(title)))
+        synchronized (ApiGatewayService.registeredDataLock) {
+            List<RegisteredDataDTO> registeredData = om.readValue(new File(ApiGatewayService.registeredDataPath), new TypeReference<List<RegisteredDataDTO>>() {});
+            List<String> filtered = selectedRegisteredData.stream()
+                .filter(selected -> registeredData.stream().anyMatch(data -> data.title().equals(selected)))
                 .toList();
 
             if (filtered.isEmpty()) {

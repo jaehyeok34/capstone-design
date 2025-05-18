@@ -8,7 +8,7 @@ import jakarta.validation.constraints.NotBlank;
  * url: 이벤트를 처리하는 서버의 URL
  * requireData: 이벤트 발생 시 민감정보 데이터 전송 여부
  */
-public record RegisterDTO(
+public record TopicDTO(
     @NotBlank(message = "Topic cannot be blank")
     String topic,
     

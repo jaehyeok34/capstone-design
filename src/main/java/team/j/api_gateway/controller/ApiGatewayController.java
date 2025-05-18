@@ -35,16 +35,16 @@ public class ApiGatewayController {
     }
     
     @PostMapping("/upload-csv")
-    public ResponseEntity<Void> uploadCSV(@RequestParam("file") MultipartFile csv) throws IOException {
+    public ResponseEntity<String> uploadCSV(@RequestParam("file") MultipartFile csv) throws IOException {
         if (csv.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
         service.saveCSV(csv); 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok().body("[debug] CSV 파일 업로드 완료");
     }
 
-    @GetMapping("/get-data-list")
+    @GetMapping("/get-registered-data")
     public ResponseEntity<Map<String, List<String>>> getDataList() throws IOException {
-        return ResponseEntity.ok(service.getDataList());
+        return ResponseEntity.ok(service.getRegisteredData());
     }
 }

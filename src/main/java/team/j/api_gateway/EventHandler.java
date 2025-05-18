@@ -15,7 +15,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import team.j.api_gateway.dto.EventDTO;
-import team.j.api_gateway.dto.RegisterDTO;
+import team.j.api_gateway.dto.TopicDTO;
 import team.j.api_gateway.service.RegisterService;
 
 
@@ -55,10 +55,10 @@ public class EventHandler {
             // RegisterService가 topic_table.json 쓰기 동안 대기
             synchronized (RegisterService.topicTableLock) {
                 ObjectMapper om = new ObjectMapper();
-                List<RegisterDTO> topicTable = om.readValue(file, new TypeReference<List<RegisterDTO>>() {});
+                List<TopicDTO> topicTable = om.readValue(file, new TypeReference<List<TopicDTO>>() {});
                 
                 // 토픽 테이블에서 이벤트를 구독한 서비스 찾기
-                for (RegisterDTO topic : topicTable) {
+                for (TopicDTO topic : topicTable) {
                     if (topic.topic().equals(event.event())) { // 구독한 서비스 찾음
                         // event.data를 topic.url에 post 요청하기
                         request(topic.url(), event.data(), topic.requirePiiData());

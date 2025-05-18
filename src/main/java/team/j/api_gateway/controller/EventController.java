@@ -17,11 +17,9 @@ public class EventController {
         this.service = service;
     }
     
-    @PostMapping(value = "event", consumes = "application/json")
-    public ResponseEntity<Void> event(@Valid @RequestBody EventDTO dto) throws InterruptedException {
-        service.publish(dto);
-        System.err.println("[debug] 이벤트 큐에 추가 완료");
-
-        return ResponseEntity.ok().build();
+    @PostMapping(value = "/event", consumes = "application/json")
+    public ResponseEntity<String> event(@Valid @RequestBody EventDTO ed) throws InterruptedException {
+        service.publish(ed);
+        return ResponseEntity.ok().body("[debug] 이벤트 적재 완료");
     }
 }

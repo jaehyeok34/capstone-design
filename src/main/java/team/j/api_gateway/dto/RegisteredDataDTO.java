@@ -2,17 +2,17 @@ package team.j.api_gateway.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record DataListDTO(
+public record RegisteredDataDTO(
     @NotBlank(message = "type cannot be blank")
-    String type,
+    String type,    // csv or DB
 
     @NotBlank(message = "title cannot be blank")
-    String title,
+    String title,   
 
-    String path,
-
+    // optional
+    String path,        
     Object information
 ) {
     public static final String TYPE_CSV = "csv";
-    public static final String TYPE_JSON = "json";
+    public static final String TYPE_DB = "DB";
 }
