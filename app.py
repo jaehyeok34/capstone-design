@@ -1,8 +1,14 @@
+from dataclasses import dataclass
 import random
 from flask import Flask
-from flask import request, jsonify
-from typing import Dict, List
-from api_gateway import subscribe, request_post
+from flask import request
+from typing import List
+from api_gateway import subscribe, request_post, request_get_columns, topic_subscribe_url
+
+@dataclass
+class PIIDetectionDTO:
+    selectedRegisteredData: List[str]
+
 
 app = Flask(__name__)
 
@@ -11,34 +17,37 @@ def home():
     return "PII(Personally Identifiable Information) Detection API", 200
 
 
-"""
-input: {
-    "columns": ["v1", "v2", ...]
-}
-"""
 @app.route('/detect', methods=['POST'])
 def detect():
-    data: Dict[str, List[str]] = request.get_json()
-    if (
-        not data or                             # 데이터가 비어 있거나
-        'columns' not in data or                # 'columns' 필드가 없거나
-        not isinstance(data['columns'], list)   # 'columns' 필드가 리스트 형식이 아닐 경우
-    ):
-        return jsonify(
-            {'error': '올바르지 않은 요청입니다. "columns" 필드가 존재해야 하며, 리스트 형식이어야 합니다.'}
-        ), 400
+    try:
+        data = PIIDetectionDTO(**request.get_json())
+    except TypeError as _:
+        return "[debug] selectRegisteredData가 있어야 함", 400
+    
+    # columns 가져오기
+    columns = {}
+    for selected_title in data.selectedRegisteredData:
+        print(f"[debug] selected_title: {selected_title}")
+        result = request_get_columns(selected_title)
+        if result is None:
+            return "[debug] get_columns 실패", 400
+        
+        columns[selected_title] = result
 
     # TODO: 도메인 사전/임베딩 모델을 통해 식별정보 탐지하는 로직을 구현해서 넣어야함
     # 현재는 테스트로 body로 들어온 컬럼명을 랜덤한 개수의 랜덤한 값을 식별자 판단하고 반환하도록 구현함
-    columns = data['columns']
-    result = random.sample(columns, k=random.randint(1, len(columns)))
-    print(f"[debug] result: {result}")
+    identifiers = {}
+    for title, columns in columns.items():
+        result = random.sample(columns, k=random.randint(1, len(columns)))
+        identifiers[title] = result
+
+    print(f"[debug] identifiers: {identifiers}")
 
     # API Gateway의 /event로 결과 전송 해야함(post)
     request_post(
         target_url='http://127.0.0.1:1780/event',
-        event='pii detection success',
-        data={'columns': result}
+        event='matching-key.request',
+        data={'pii-columns': identifiers}
     )
 
     return "", 200
@@ -46,13 +55,10 @@ def detect():
     
 if __name__ == '__main__':
     port = 1782
-    register_url = 'http://127.0.0.1:1780/register'
-    callback_url = f'http://127.0.1:{port}/detect'
+    callback_url = f'http://127.0.0.1:{port}/detect'
 
-    # for topic in ['input', 'low_match_rate']:
-    for topic in ['input']:
+    for topic in ['pii.detection.request']:
         ok = subscribe(
-            register_url=register_url, 
             topic=topic, 
             callback_url=callback_url, 
             count=3, 
