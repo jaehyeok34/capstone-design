@@ -5,10 +5,10 @@ from flask import request
 import hashlib
 from typing import Dict, List
 
-from api_gateway import subscribe, request_post, request_get_column_data
+from api_gateway import subscribe, request_get_column_data, request_update_csv
 
 @dataclass
-class MatchingKeyDTO:
+class PyMatchingKeyDTO:
     piiColumns: Dict[str, List[str]] # key: title, value: column
 
 
@@ -22,7 +22,7 @@ def home():
 @app.route('/generate-matching-key', methods=['POST'])
 def generate_matching_key():
     try:
-        data = MatchingKeyDTO(**request.get_json())
+        data = PyMatchingKeyDTO(**request.get_json())
     except TypeError as _:
         return "[debug] selectedRegisteredDataTitle과 piiColumns가 있어야 함", 400
     
@@ -45,15 +45,12 @@ def generate_matching_key():
 
     for title, df in df_list.items():
         df.to_csv(f'"{title}".csv', index=False)
-
-    # request_post(
-    #     target_url='http://127.0.0.1:1780/event',
-    #     event='linkage.request',
-    #     data={'piiData': df.to_dict()}
-    # )
+        request_update_csv(
+            selectedRegisteredDataTitle=title,
+            df=df
+        )
 
     print("[debug] matching key generated")
-
     return "", 200
     
 

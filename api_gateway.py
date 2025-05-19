@@ -61,7 +61,7 @@ def request_get_columns(selectedRegisteredDataTitle: str) -> List[str]:
 def request_get_column_data(selectedRegisteredDataTitle: str, columns: List[str]) -> pd.DataFrame:
     response = requests.post(
         url='http://127.0.0.1:1780/get-column-data',
-        json={
+        json={ # ColumnDataDTO에 맞춰야 함
             "title": selectedRegisteredDataTitle,
             "columns": columns
         }
@@ -70,3 +70,20 @@ def request_get_column_data(selectedRegisteredDataTitle: str, columns: List[str]
         return pd.DataFrame(response.json())
     else:
         print(f"[debug]: get_column_data 실패: {response.text}")
+
+
+def request_update_csv(selectedRegisteredDataTitle: str, df: pd.DataFrame):
+    if df.empty:
+        return
+    
+    response = requests.post(
+        url='http://127.0.0.1:1780/update-csv',
+        json={ # MatchingKeyDTO에 맞춰야 함
+            "selectedRegisteredDataTitle": selectedRegisteredDataTitle,
+            "matchingKeyData": df.to_dict()
+        }
+    )
+    if response.status_code == 200:
+        print(f"[debug]: {selectedRegisteredDataTitle} csv 업데이트 성공")
+    else:
+        print(f"[debug]: {selectedRegisteredDataTitle} csv 업데이트 실패: {response.text}")
