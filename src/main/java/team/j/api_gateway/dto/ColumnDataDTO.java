@@ -12,5 +12,6 @@ public record ColumnDataDTO(
 
     @NotNull(message = "columns는 필수입니다.")
     @NotEmpty(message = "columns의 요소는 필수입니다.")
-    List<String> columns
+    List<String> columns // ["email", "name", ...]
 ) {}
+

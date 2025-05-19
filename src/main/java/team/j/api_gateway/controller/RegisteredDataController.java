@@ -4,6 +4,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import team.j.api_gateway.dto.ColumnDataDTO;
+import team.j.api_gateway.dto.MatchingKeyDTO;
 import team.j.api_gateway.service.RegisteredDataService;
 
 import java.io.IOException;
@@ -43,6 +44,12 @@ public class RegisteredDataController {
     @PostMapping("/get-column-data")
     public ResponseEntity<Object> getColumnData(@Valid @RequestBody ColumnDataDTO cdd) throws IOException {
         return ResponseEntity.ok(service.getColumnData(cdd));
+    }
+    
+    @PostMapping("/update-csv")
+    public ResponseEntity<Void> updateCSV(@Valid @RequestBody MatchingKeyDTO mkd) throws IOException {
+        service.updateCSV(mkd);
+        return ResponseEntity.ok().build();
     }
     
 }

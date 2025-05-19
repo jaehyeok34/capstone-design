@@ -1,1 +1,10 @@
-[{"topic":"pii.detection.request","url":"http://127.0.0.1:1782/detect"}]
+[
+    {
+        "topic": "matching-key.generate.request",
+        "url": "http://localhost:1783/generate-matching-key"
+    },
+    {
+        "topic": "pii.detection.request",
+        "url": "http://127.0.0.1:1782/detect"
+    }
+]

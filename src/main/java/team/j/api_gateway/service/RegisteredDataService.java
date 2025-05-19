@@ -18,6 +18,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import team.j.api_gateway.dto.ColumnDataDTO;
+import team.j.api_gateway.dto.MatchingKeyDTO;
 import team.j.api_gateway.dto.RegisteredDataDTO;
 
 
@@ -69,6 +70,38 @@ public class RegisteredDataService {
 
             return null;
         }
+    }
+
+    public void updateCSV(MatchingKeyDTO mkd) throws IOException {
+        ObjectMapper om = new ObjectMapper();
+        
+        synchronized (ApiGatewayService.registeredDataLock) {
+            RegisteredDataDTO finded = find(
+                om.readValue(
+                    new File(ApiGatewayService.registeredDataPath),
+                    new TypeReference<List<RegisteredDataDTO>>() {}
+                ), 
+                mkd.selectedRegisteredDataTitle()
+            );
+
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders() {{
+                setContentType(MediaType.APPLICATION_JSON);
+            }};
+            String url = "http://localhost:1789/update-csv";
+
+            // PyUpdateCSVDTO에 맞춰서 작성
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(
+                new HashMap<>() {{
+                    put("csvFilePath", finded.csvFilePath());
+                    put("matchingKeyData", mkd.matchingKeyData());
+                }}, 
+                headers
+            );
+            
+            restTemplate.postForObject(url, entity, String.class);
+        }
+
     }
 
     private RegisteredDataDTO find(List<RegisteredDataDTO> list, String selected) throws IOException {
