@@ -1,0 +1,1001 @@
+﻿col1,col2,label
+contact,contact info,1
+고객명,고객명,1
+resident number,id number,1
+contact,contact number,1
+sex,성별,1
+전화번호,전화기모델,0
+성별,gender,1
+주소지,주소지,1
+주민등록번호,id number,1
+birthdate,BIRTHDATE,1
+sex,성별,1
+phonenumber,phonenumber,1
+phone,휴대폰번호,1
+주민등록번호,주민등록번호,1
+address,address,1
+id number,주민등록번호,1
+mail address,mail address,1
+ssn,시리얼번호,0
+생일,이벤트일,0
+contact,CONTACT,1
+주소,트랜잭션번호,0
+생년월일,수강번호,0
+거주지,거소지,1
+연락처,연락처메모,0
+이름,제품명,0
+주민번호,주문번호,0
+휴대전화번호,학번,0
+mail address,mail address정보,1
+gender,sex,1
+출생일,생년월일,1
+회원명,회원명,1
+이메일,이메일,1
+거주지,거주지,1
+phone,phone정보,1
+이름,유저번호,0
+resident number,DB명,0
+mail address,email,1
+e-mail,e-mail정보,1
+출생일,dob,1
+성함,이용자명,1
+성별,성별코드,0
+전자우편,전자우편정보,1
+주소지,건물명,0
+주소지,오류번호,0
+거소지,지점명,0
+주민번호,주문번호,0
+휴대전화번호,휴대전화번호,1
+회원명,회원명,1
+연락처번호,사업명,0
+주소,주소지,1
+e-mail,e-mail,1
+phone,휴대폰번호,1
+mail address,모델명,0
+생일,게시글번호,0
+ssn,DB명,0
+거소지,거소지,1
+성별,성별코드,0
+name,상품번호,0
+address,주소,1
+contact number,계정번호,0
+location,row번호,0
+주소,캠퍼스명,0
+gender,순번,0
+phone,오류번호,0
+gender,수강번호,0
+e-mail,e-mail,1
+phone,phonenumber,1
+gender,성별,1
+생년월일,유저번호,0
+성별,성별코드,0
+birthday,프로그램명,0
+fullname,기관명,0
+전자우편,전자우편,1
+e-mail,필드번호,0
+birthday,일정명,0
+email,e-mail,1
+resident number,계정번호,0
+email,이메일,1
+mobile,송장번호,0
+contact info,연락처번호,1
+핸드폰번호,핸드폰번호,1
+location,location,1
+연락처정보,contact info,1
+email,mail address,1
+이름,순번,0
+email,id번호,0
+전자우편,e-mail,1
+이름,제품명,0
+전화번호,전화기모델,0
+연락처,연락처메모,0
+phonenumber,테이블번호,0
+contact info,연락처번호,1
+주민번호,주문번호,0
+거소지,거소지_1,1
+거주지,파일명,0
+전화번호,phonenumber,1
+생년월일,건물번호,0
+phonenumber,phonenumber_1,1
+거소지,주소,1
+전화번호,건물번호,0
+이메일,e-mail,1
+phonenumber,id번호,0
+location,location_1,1
+이름,항목명,0
+생일,이벤트일,0
+생일,생일_1,1
+성별,성별코드,0
+주민번호,주민번호,1
+gender,성별,1
+이용자명,name,1
+이름,제품명,0
+e-mail,함수명,0
+mail address,일정명,0
+주민번호,주문번호,0
+전화번호,휴대전화번호,1
+성별,성별코드,0
+주민번호,문서번호,0
+주소,residence,1
+연락처정보,역할명,0
+email,email_1,1
+주소,주소코드,0
+birthday,생년월일,1
+핸드폰번호,전화번호,1
+이메일,메일템플릿,0
+주민번호,주문번호,0
+주민번호,주문번호,0
+성별,sex,1
+mail address,mail_address,1
+전자우편,사번,0
+주소지,residence,1
+연락처번호,연락처번호,1
+전화번호,전화기모델,0
+email,email,1
+gender,성별,1
+email,e-mail,1
+휴대폰번호,휴대폰번호,1
+생일,이벤트일,0
+이메일,모델명,0
+mail address,좌석번호,0
+e-mail,품목명,0
+주민등록번호,resident number,1
+mobile,MOBILE,1
+성별,채널번호,0
+이름,제품명,0
+id number,사업명,0
+회원명,회원명정보,1
+거소지,residence,1
+전화번호,전화기모델,0
+주민번호,주문번호,0
+이메일,email,1
+e-mail,파일명,0
+성별,성별코드,0
+성함,시리얼번호,0
+birthday,birthday,1
+e-mail,이메일,1
+전자우편,전자우편정보,1
+주소,주소코드,0
+address,residence,1
+ssn,ssn_1,1
+연락처정보,연락처정보,1
+birthdate,함수명,0
+이름,이름,1
+이름,제품명,0
+전화번호,전화기모델,0
+고객명,매장명,0
+전자우편,email,1
+연락처,연락처메모,0
+이용자명,지사명,0
+회원명,차량명,0
+mobile,MOBILE,1
+생일,이벤트일,0
+주민번호,주민번호,1
+email,email,1
+성함,수강번호,0
+출생일,birthday,1
+이름,테이블명,0
+주소지,location,1
+핸드폰번호,phone,1
+전화번호,전화기모델,0
+성별,성별,1
+address,address정보,1
+주민등록번호,주민등록번호,1
+생일,이벤트일,0
+성명,성명,1
+이름,제품명,0
+gender,성별,1
+birthdate,생년월일,1
+주소,주소코드,0
+생년월일,date of birth,1
+이름,제품명,0
+이메일,메일템플릿,0
+location,location,1
+resident number,규격명,0
+성별,교실명,0
+date of birth,출생일,1
+id number,계정명,0
+성별,성별코드,0
+fullname,성명,1
+mobile,기관명,0
+resident number,지사명,0
+성명,회원명,1
+gender,sex,1
+성별,성별코드,0
+전화번호,전화기모델,0
+주민번호,주문번호,0
+phone,학번,0
+birthdate,출생일,1
+ssn,resident number,1
+생년월일,birthday,1
+주민번호,resident number,1
+성함,고객명,1
+residence,학과명,0
+출생일,date of birth,1
+gender,sex,1
+이메일,메일템플릿,0
+이메일,메일템플릿,0
+출생일,출생일,1
+sex,gender,1
+email,테이블명,0
+birthdate,birthdate,1
+주민번호,주문번호,0
+email,전자우편,1
+resident number,주민등록번호,1
+mail address,전자우편,1
+주민등록 식별번호,주민등록 식별번호,1
+birthdate,출생일,1
+id number,줄번호,0
+휴대폰번호,휴대폰번호,1
+resident number,주민번호,1
+mail address,e-mail,1
+주민번호,주문번호,0
+생일,바코드번호,0
+연락처,연락처번호,1
+휴대폰번호,휴대폰번호,1
+주소,옵션명,0
+address,색상명,0
+fullname,fullname,1
+sex,sex_1,1
+생일,이벤트일,0
+gender,sex,1
+거소지,과목명,0
+phone,휴대전화번호,1
+생일,birthday,1
+ssn,주민등록 식별번호,1
+전자우편,전자우편,1
+연락처번호,연락처번호,1
+성함,유저번호,0
+email,EMAIL,1
+주민등록 식별번호,주민등록 식별번호,1
+연락처,연락처메모,0
+거주지,거주지,1
+mobile,항목명,0
+mobile,MOBILE,1
+주소지,지사명,0
+address,시리얼번호,0
+전화번호,전화기모델,0
+전화번호,계정명,0
+id number,과목번호,0
+주민번호,주문번호,0
+고객명,고객명,1
+dob,birthdate,1
+e-mail,이메일,1
+주소,거소지,1
+휴대폰번호,휴대폰번호,1
+고객명,고객명정보,1
+연락처번호,contact number,1
+주민번호,주민등록 식별번호,1
+생년월일,birthdate,1
+주민번호,resident number,1
+회원명,회원명정보,1
+주소,주소코드,0
+birthdate,줄번호,0
+휴대전화번호,교실명,0
+이메일,e-mail,1
+연락처,연락처메모,0
+sex,gender,1
+성별,프로그램명,0
+이메일,mail address,1
+id number,바코드번호,0
+회원명,규격명,0
+거소지,location,1
+거주지,변수명,0
+address,오류번호,0
+id number,주민등록 식별번호,1
+birthdate,출생일,1
+mail address,이메일,1
+생년월일,id번호,0
+contact number,contactnumber,1
+전화번호,사업명,0
+contact number,연락처번호,1
+주민등록번호,지사명,0
+이용자명,지사명,0
+연락처,연락처메모,0
+생년월일,dob,1
+contact info,기기명,0
+연락처정보,옵션명,0
+ssn,ssn,1
+연락처정보,연락처정보,1
+주소지,주소,1
+contact,contact,1
+location,location,1
+주민등록 식별번호,주민등록 식별번호,1
+주소,주소코드,0
+출생일,유저번호,0
+id number,ssn,1
+생년월일,오류번호,0
+전자우편,전자우편,1
+전화번호,핸드폰번호,1
+이메일,메일템플릿,0
+전화번호,전화기모델,0
+mail address,과목번호,0
+연락처정보,row번호,0
+mail address,e-mail,1
+연락처번호,옵션명,0
+ssn,ssn,1
+mobile,mobile,1
+전화번호,전화번호,1
+이메일,메일템플릿,0
+거주지,residence,1
+location,address,1
+phone,프로그램명,0
+고객명,프로그램명,0
+phone,핸드폰번호,1
+성명,건물번호,0
+연락처,연락처메모,0
+date of birth,dob,1
+이메일,전자우편,1
+contact,상품번호,0
+연락처번호,연락처,1
+성별,성별코드,0
+contact,파일명,0
+sex,gender,1
+ssn,id number,1
+sex,성별,1
+contact info,지사명,0
+연락처,연락처메모,0
+주민번호,주문번호,0
+핸드폰번호,phonenumber,1
+sex,성별,1
+address,address,1
+이메일,email,1
+연락처,유저번호,0
+birthdate,카테고리명,0
+mail address,전자우편,1
+거소지,id번호,0
+주민번호,주민번호,1
+이메일,전자우편,1
+residence,유저번호,0
+주소,주소코드,0
+ssn,SSN,1
+이메일,지사명,0
+e-mail,email,1
+생일,부서명,0
+생일,출생일,1
+휴대전화번호,건물명,0
+성별,성별코드,0
+ssn,ssn,1
+이메일,메일템플릿,0
+휴대전화번호,테이블번호,0
+연락처번호,연락처번호정보,1
+e-mail,채널번호,0
+성별,gender,1
+성별,카테고리명,0
+location,row번호,0
+주민등록 식별번호,resident number,1
+전자우편,email,1
+이메일,전자우편,1
+date of birth,date of birth정보,1
+연락처,연락처,1
+회원명,name,1
+dob,고객번호,0
+연락처번호,row번호,0
+성별,sex,1
+성별,성별코드,0
+이메일,파일명,0
+전자우편,mail address,1
+주민번호,주민번호정보,1
+거소지,건물명,0
+출생일,캠퍼스명,0
+birthday,문서번호,0
+전자우편,e-mail,1
+성별,성별,1
+email,email_1,1
+location,상품번호,0
+핸드폰번호,핸드폰번호,1
+회원명,fullname,1
+gender,교실명,0
+이메일,메일템플릿,0
+e-mail,함수명,0
+성명,필드번호,0
+dob,학과명,0
+주민번호,주문번호,0
+fullname,성함,1
+성명,고객명,1
+연락처,연락처_1,1
+address,계정명,0
+contact,contact info,1
+date of birth,dob,1
+핸드폰번호,프로그램명,0
+생일,이벤트일,0
+주민번호,주문번호,0
+주소,주소코드,0
+이메일,메일템플릿,0
+이메일,메일템플릿,0
+주민번호,resident number,1
+name,기계명,0
+전자우편,mail address,1
+연락처,연락처,1
+출생일,바코드번호,0
+sex,성별,1
+dob,출생일,1
+연락처번호,연락처번호,1
+주소,메시지번호,0
+성함,fullname,1
+address,건물명,0
+휴대전화번호,전화번호,1
+email,email,1
+birthdate,출생일,1
+gender,gender,1
+주민번호,주문번호,0
+전자우편,email,1
+email,옵션명,0
+회원명,학과명,0
+contact info,과목번호,0
+성별,성별,1
+phonenumber,phonenumber정보,1
+e-mail,E-MAIL,1
+contact number,학번,0
+이름,제품명,0
+gender,우편번호,0
+핸드폰번호,핸드폰번호정보,1
+gender,sex,1
+전화번호,테이블명,0
+거소지,거주지,1
+성별,성별코드,0
+gender,메시지번호,0
+연락처,연락처메모,0
+이름,제품명,0
+연락처,연락처메모,0
+휴대전화번호,휴대전화번호,1
+id number,ssn,1
+이메일,메일템플릿,0
+ssn,주민등록번호,1
+주민등록 식별번호,층명,0
+전자우편,옵션명,0
+생년월일,생년월일,1
+성별,성별,1
+연락처,연락처메모,0
+연락처번호,연락처,1
+gender,sex,1
+gender,성별,1
+이름,제품명,0
+연락처번호,연락처번호,1
+phone,phone,1
+생년월일,고객번호,0
+성별,성별코드,0
+주민번호,주문번호,0
+date of birth,계정번호,0
+생일,이벤트일,0
+성함,사업명,0
+연락처,연락처메모,0
+fullname,name,1
+주민번호,주문번호,0
+address,address,1
+전화번호,전화번호_1,1
+이름,제품명,0
+fullname,문서번호,0
+contact info,송장번호,0
+생일,생일,1
+회원명,제품명,0
+mail address,MAIL ADDRESS,1
+resident number,ssn,1
+residence,과목명,0
+이름,성함,1
+e-mail,e-mail,1
+생년월일,생년월일,1
+phone,휴대폰번호,1
+회원명,fullname,1
+이름,상품번호,0
+거소지,모델명,0
+연락처,연락처메모,0
+주소,address,1
+주소,주소,1
+phone,카테고리명,0
+gender,gender,1
+phone,품명,0
+contact number,contact info,1
+주소,주소코드,0
+resident number,id number,1
+mail address,층명,0
+성별,gender,1
+연락처번호,연락처번호,1
+주민등록 식별번호,resident number,1
+phone,phone,1
+fullname,상품번호,0
+이용자명,순번,0
+주소,주소코드,0
+휴대전화번호,mobile,1
+mobile,수강번호,0
+전화번호,전화번호,1
+전화번호,전화기모델,0
+전화번호,전화기모델,0
+이용자명,사업명,0
+생일,이벤트일,0
+이름,제품명,0
+핸드폰번호,상품번호,0
+gender,성별,1
+contact,CONTACT,1
+연락처,연락처번호,1
+mobile,mobile정보,1
+fullname,고객명,1
+mail address,e-mail,1
+전자우편,전자우편,1
+contact info,테이블번호,0
+주소지,주소지,1
+성별,성별코드,0
+전자우편,전자우편_1,1
+연락처,연락처_1,1
+전화번호,층명,0
+주민번호,주민번호_1,1
+고객명,고객명,1
+sex,sex_1,1
+휴대전화번호,테이블명,0
+email,mail address,1
+이메일,전자우편,1
+연락처,회사명,0
+성별,성별코드,0
+전화번호,휴대폰번호,1
+gender,성별,1
+이름,제품명,0
+name,학번,0
+성별,sex,1
+성별,gender,1
+생일,이벤트일,0
+sex,성별,1
+residence,기기명,0
+phonenumber,우편번호,0
+mail address,mailaddress,1
+연락처,연락처메모,0
+연락처,연락처메모,0
+e-mail,mail address,1
+sex,건물명,0
+전자우편,전자우편정보,1
+전화번호,전화기모델,0
+residence,제품명,0
+고객명,이용자명,1
+sex,gender,1
+fullname,index번호,0
+phone,phone정보,1
+location,거주지,1
+residence,거주지,1
+date of birth,DATE OF BIRTH,1
+e-mail,email,1
+이름,제품명,0
+주민등록 식별번호,주민번호,1
+성별,sex,1
+birthdate,birthday,1
+sex,gender,1
+생일,출생일,1
+연락처,건물명,0
+생년월일,생년월일,1
+생년월일,생년월일,1
+phone,PHONE,1
+주민번호,주민번호,1
+휴대전화번호,파일명,0
+연락처번호,품목명,0
+이름,필드번호,0
+성별,성별코드,0
+주민번호,row번호,0
+휴대전화번호,phone,1
+출생일,출생일_1,1
+생년월일,색상명,0
+name,이름,1
+성별,사업명,0
+주민등록 식별번호,과목번호,0
+주민번호,주문번호,0
+residence,residence,1
+fullname,fullname_1,1
+주민등록 식별번호,주민등록번호,1
+e-mail,전자우편,1
+phone,phone정보,1
+생년월일,생년월일,1
+name,이벤트번호,0
+생일,이벤트일,0
+birthday,모델명,0
+생일,dob,1
+name,변수명,0
+dob,문서번호,0
+이메일,메일템플릿,0
+전화번호,전화기모델,0
+name,상품번호,0
+생일,이벤트일,0
+phone,mobile,1
+전화번호,전화기모델,0
+고객명,모델명,0
+mail address,mailaddress,1
+contact,연락처번호,1
+id number,캠퍼스명,0
+성함,index번호,0
+출생일,기기명,0
+생일,생일정보,1
+gender,sex,1
+전화번호,전화기모델,0
+주민등록 식별번호,주민등록 식별번호정보,1
+contact number,연락처,1
+성별,sex,1
+이메일,이메일정보,1
+birthdate,계정번호,0
+연락처,연락처메모,0
+성명,함수명,0
+성명,성명,1
+sex,gender,1
+주민번호,주문번호,0
+birthday,birthday,1
+휴대폰번호,index번호,0
+연락처,연락처메모,0
+성별,성별코드,0
+주소,주소코드,0
+이름,이름정보,1
+sex,gender,1
+성별,sex,1
+dob,테이블명,0
+전화번호,전화기모델,0
+연락처,연락처메모,0
+address,과목명,0
+phonenumber,mobile,1
+전화번호,사업명,0
+location,address,1
+주민등록 식별번호,색상명,0
+mail address,index번호,0
+생년월일,생일,1
+ssn,ssn_1,1
+주민번호,기관명,0
+sex,프로그램명,0
+거소지,거소지,1
+dob,출생일,1
+contact,연락처정보,1
+성별,성별코드,0
+회원명,성명,1
+이메일,메일템플릿,0
+contact info,contact,1
+성명,이용자명,1
+성별,성별코드,0
+성별,성별코드,0
+phonenumber,phonenumber,1
+성별,sex,1
+이메일,메일템플릿,0
+주민등록번호,계정번호,0
+전화번호,전화번호,1
+contact number,기기명,0
+sex,gender,1
+sex,sex,1
+sex,성별,1
+출생일,메시지번호,0
+이름,제품명,0
+거소지,캠퍼스명,0
+dob,row번호,0
+연락처,연락처메모,0
+성별,성별코드,0
+거소지,카테고리명,0
+거소지,옵션명,0
+이메일,메일템플릿,0
+연락처,contact info,1
+date of birth,birthday,1
+고객명,고객명,1
+phonenumber,phonenumber_1,1
+전화번호,전화기모델,0
+주소,품명,0
+연락처,연락처메모,0
+이메일,메일템플릿,0
+전화번호,전화기모델,0
+전화번호,휴대전화번호,1
+핸드폰번호,오류번호,0
+date of birth,dateofbirth,1
+생년월일,생년월일_1,1
+contact number,이벤트번호,0
+성별,성별_1,1
+gender,gender,1
+ssn,id번호,0
+gender,성별,1
+이메일,메일템플릿,0
+주소지,채널번호,0
+성명,수강번호,0
+date of birth,생년월일,1
+id number,옵션명,0
+birthday,생년월일,1
+주소,주소코드,0
+이름,회원명,1
+birthdate,건물명,0
+id number,주민번호,1
+전화번호,전화기모델,0
+성별,층명,0
+주소,주소코드,0
+연락처,연락처메모,0
+residence,주소지,1
+이메일,메일템플릿,0
+생년월일,생년월일,1
+sex,gender,1
+핸드폰번호,phonenumber,1
+location,옵션명,0
+date of birth,출생일,1
+고객명,고객명,1
+resident number,주민등록번호,1
+contact info,연락처정보,1
+연락처정보,이벤트번호,0
+contact,연락처정보,1
+핸드폰번호,이벤트명,0
+연락처,연락처메모,0
+주민번호,주문번호,0
+연락처번호,연락처번호,1
+휴대폰번호,순번,0
+이용자명,index번호,0
+생일,필드번호,0
+이름,제품명,0
+이용자명,fullname,1
+회원명,매장명,0
+name,순번,0
+sex,학과명,0
+핸드폰번호,핸드폰번호,1
+이메일,계정번호,0
+location,주문번호,0
+dob,DOB,1
+이름,제품명,0
+휴대폰번호,학번,0
+birthdate,birthday,1
+주소,주소코드,0
+resident number,캠퍼스명,0
+거주지,거주지,1
+출생일,date of birth,1
+birthdate,birthdate,1
+phonenumber,옵션명,0
+gender,gender,1
+contact,contact,1
+sex,sex,1
+생일,이벤트일,0
+연락처정보,캠퍼스명,0
+성함,이름,1
+핸드폰번호,핸드폰번호_1,1
+생일,생일_1,1
+이름,제품명,0
+이용자명,name,1
+이름,제품명,0
+전화번호,전화기모델,0
+contact info,id번호,0
+fullname,fullname_1,1
+휴대전화번호,phonenumber,1
+주민번호,주문번호,0
+fullname,테이블번호,0
+contact,contact number,1
+휴대전화번호,휴대전화번호정보,1
+연락처번호,contact,1
+dob,dob,1
+출생일,송장번호,0
+mail address,MAIL ADDRESS,1
+phone,시리얼번호,0
+location,address,1
+주소지,거소지,1
+이름,name,1
+address,ADDRESS,1
+email,email정보,1
+location,거주지,1
+핸드폰번호,문서번호,0
+연락처정보,연락처정보,1
+contact number,역할명,0
+성별,성별코드,0
+address,기관명,0
+address,카테고리명,0
+mail address,게시글번호,0
+gender,성별,1
+gender,sex,1
+주소,주소코드,0
+date of birth,생년월일,1
+e-mail,email,1
+location,주소,1
+이메일,메일템플릿,0
+이름,제품명,0
+contact number,contact info,1
+성별,성별코드,0
+거소지,과목번호,0
+전화번호,전화번호,1
+contact number,연락처정보,1
+주소,주소코드,0
+e-mail,e-mail,1
+성함,문서번호,0
+sex,줄번호,0
+address,address,1
+dob,기기명,0
+주민번호,주문번호,0
+location,학과명,0
+dob,제품명,0
+contact info,row번호,0
+birthday,이벤트명,0
+성별,성별코드,0
+주소,주소코드,0
+전화번호,전화기모델,0
+sex,sex,1
+gender,성별,1
+이름,교실명,0
+주민등록 식별번호,바코드번호,0
+생년월일,상품명,0
+contact,contact정보,1
+id number,resident number,1
+거주지,id번호,0
+birthdate,생일,1
+sex,sex_1,1
+주소지,상품명,0
+생년월일,출생일,1
+address,residence,1
+email,이메일,1
+성함,계정명,0
+주민번호,ssn,1
+이메일,메일템플릿,0
+gender,성별,1
+고객명,회원명,1
+mail address,mailaddress,1
+주민등록번호,resident number,1
+mail address,규격명,0
+date of birth,date_of_birth,1
+주소,사업명,0
+연락처정보,연락처정보정보,1
+gender,성별,1
+휴대전화번호,계정명,0
+contact,일정명,0
+거소지,거소지,1
+연락처,연락처메모,0
+주민번호,주문번호,0
+contact number,CONTACT NUMBER,1
+birthdate,생일,1
+성별,gender,1
+전화번호,좌석번호,0
+전화번호,전화기모델,0
+이름,제품명,0
+성별,index번호,0
+id number,모델명,0
+mobile,이벤트명,0
+거주지,주소지,1
+성별,성별코드,0
+e-mail,학번,0
+gender,성별,1
+고객명,이름,1
+휴대전화번호,테이블번호,0
+이름,제품명,0
+연락처,연락처메모,0
+핸드폰번호,핸드폰번호정보,1
+연락처,연락처메모,0
+주소지,address,1
+email,mail address,1
+contact number,연락처정보,1
+이름,학번,0
+email,e-mail,1
+주민등록번호,resident number,1
+gender,카테고리명,0
+birthday,메시지번호,0
+연락처,연락처메모,0
+거주지,거소지,1
+email,이메일,1
+거소지,거주지,1
+contact info,contact,1
+회원명,id번호,0
+contact info,연락처,1
+residence,거주지,1
+연락처정보,지사명,0
+mail address,MAIL ADDRESS,1
+fullname,이름,1
+이메일,메일템플릿,0
+gender,sex,1
+residence,RESIDENCE,1
+주소,주소코드,0
+생일,dob,1
+성함,회원명,1
+거주지,location,1
+birthday,생일,1
+fullname,FULLNAME,1
+mail address,이메일,1
+연락처,연락처메모,0
+생일,이벤트일,0
+이메일,메일템플릿,0
+성별,성별코드,0
+email,채널번호,0
+주소,주소지,1
+주민번호,주문번호,0
+dob,지사명,0
+전화번호,전화기모델,0
+dob,매장명,0
+주소,주소코드,0
+성별,gender,1
+성함,우편번호,0
+성명,성함,1
+생년월일,생년월일,1
+id number,ssn,1
+sex,gender,1
+거소지,거주지,1
+이름,제품명,0
+주민번호,주문번호,0
+연락처,연락처메모,0
+생년월일,row번호,0
+주소지,기계명,0
+e-mail,mail address,1
+location,주문번호,0
+이메일,이메일,1
+생일,이벤트일,0
+연락처번호,이벤트명,0
+연락처정보,연락처정보,1
+생일,이벤트일,0
+전화번호,전화기모델,0
+e-mail,전자우편,1
+contact,contact info,1
+주소,주소코드,0
+성별,성별,1
+전화번호,전화기모델,0
+email,순번,0
+주민번호,주문번호,0
+gender,지사명,0
+contact info,contact info_1,1
+성함,이름,1
+출생일,생일,1
+전화번호,전화기모델,0
+birthday,수강번호,0
+phonenumber,테이블명,0
+전화번호,전화기모델,0
+전자우편,파일명,0
+성별,sex,1
+주소지,수강번호,0
+연락처,연락처,1
+phonenumber,PHONENUMBER,1
+전화번호,전화기모델,0
+연락처,연락처메모,0
+contact info,학과명,0
+거주지,거주지정보,1
+id number,함수명,0
+email,EMAIL,1
+gender,성별,1
+e-mail,email,1
+전화번호,전화기모델,0
+연락처정보,연락처정보,1
+거주지,id번호,0
+전자우편,mail address,1
+이름,좌석번호,0
+연락처번호,연락처,1
+sex,gender,1
+e-mail,카테고리명,0
+phone,수강번호,0
+이름,계정명,0
+gender,성별,1
+회원명,이용자명,1
+생일,바코드번호,0
+주민등록번호,오류번호,0
+sex,함수명,0
+resident number,유저번호,0
+주소,거소지,1
+contact number,contact info,1
+dob,date of birth,1
+mobile,전화번호,1
+연락처,contact number,1
+회원명,회원명_1,1
+주민등록 식별번호,품명,0
+고객명,회원명,1
+성함,건물번호,0
+주민번호,주문번호,0
+birthday,출생일,1
+고객명,fullname,1
+성별,역할명,0
+gender,성별,1
+핸드폰번호,핸드폰번호_1,1
+주소,주소코드,0
+이메일,메일템플릿,0
+ssn,주민번호,1
+e-mail,mail address,1
+연락처번호,매장명,0
+mail address,계정명,0
+dob,모델명,0
+address,주소,1
+거소지,파일명,0
+이름,제품명,0
+주소지,품명,0
+생일,이벤트일,0
+resident number,resident number,1
+contact,이벤트번호,0
+이메일,함수명,0
+birthdate,매장명,0
+gender,gender_1,1
+date of birth,주문번호,0
+생일,이벤트일,0
+거주지,거주지_1,1
+mail address,품명,0
+주소,주소코드,0
+이름,제품명,0
+휴대폰번호,유저번호,0
+전화번호,변수명,0
+생일,이벤트일,0
+birthdate,주문번호,0
+phone,mobile,1
+gender,성별,1
+address,거소지,1
+연락처,기계명,0
+이메일,메일템플릿,0
+성별,sex,1
+주민번호,ssn,1
+id number,시리얼번호,0
+성별,성별코드,0

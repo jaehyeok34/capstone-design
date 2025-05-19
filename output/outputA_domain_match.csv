@@ -1,0 +1,10 @@
+filename,original_column,cleaned_column,standard_term,category,is_sensitive,language
+datas.csv,name,name,이름,식별정보,1,ko
+datas.csv,ssn,ssn,주민번호,식별정보,1,ko
+datas.csv,phone_number,phonenumber,전화번호,식별정보,1,en
+datas.csv,address,address,주소,식별정보,1,ko
+input_A.csv,이름,이름,이름,식별정보,1,ko
+input_A.csv,주민번호,주민번호,주민번호,식별정보,1,ko
+input_A.csv,폰번호,폰번호,전화번호,식별정보,1,en
+input_A.csv,성별,성별,성별,식별정보,1,en
+input_A.csv,주거중인곳,주거중인곳,주소,식별정보,1,ko
