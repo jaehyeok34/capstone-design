@@ -1,12 +1,11 @@
 package team.j.api_gateway.dto;
 
-import java.util.Map;
-
 import jakarta.validation.constraints.NotBlank;
 
 public record EventDTO(
-    @NotBlank(message = "event cannot be blank")
-    String event,
-    
-    Map<String, ?> data
+    @NotBlank(message = "event는 필수 항목 입니다.")
+    String name,
+
+    String pathVariable,
+    String jsonData
 ) {}   

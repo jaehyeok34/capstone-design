@@ -3,7 +3,6 @@ package team.j.api_gateway;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -15,9 +14,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import team.j.api_gateway.dto.EventDTO;
+import team.j.api_gateway.dto.TopicInfo;
 
 
 @Component
@@ -25,6 +27,8 @@ public class EventHandler {
     
     private final String topicTablePath;
     private final Object lock;
+    private final ObjectMapper om;
+    private final RestTemplate restTemplate;
     private final BlockingQueue<EventDTO> eventQueue;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -32,10 +36,14 @@ public class EventHandler {
     public EventHandler(
         @Value("${topic.table.path}") String topicTablePath,
         @Qualifier("topicTableLock") Object lock,
+        ObjectMapper om,
+        RestTemplate restTemplate,
         BlockingQueue<EventDTO> eventQueue
     ) {
         this.topicTablePath = topicTablePath;
         this.lock = lock;
+        this.om = om;
+        this.restTemplate = restTemplate;
         this.eventQueue = eventQueue;
     }
 
@@ -48,7 +56,6 @@ public class EventHandler {
                     EventDTO event = eventQueue.take();
                     handleEvent(event);
                 } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
                     System.out.println("[debug] 이벤트 큐 모니터링 중단");
                     break;
                 }
@@ -56,30 +63,51 @@ public class EventHandler {
         });
     }
 
-    private void handleEvent(EventDTO ed) {
-        System.err.println("[debug] " + ed.event() + " 이벤트 처리 시작");
+    private void handleEvent(EventDTO event) {
+        System.out.println("[debug] " + event.name() + " 이벤트 처리 시작");
         try {
             File file = new File(topicTablePath);
 
             synchronized (lock) {
-                ObjectMapper om = new ObjectMapper();
-                Map<String, List<String>> topicTable = om.readValue(file, Map.class);
-                
-                Optional.ofNullable(topicTable.get(ed.event()))
-                    .ifPresent(urls -> routing(urls.getFirst(), ed.data()));
+                Map<String, List<TopicInfo>> topicTable = om.readValue(file, new TypeReference<>() {});
+                List<TopicInfo> topicInfoList = topicTable.get(event.name());
+                if (topicInfoList == null) {
+                    throw new Exception(event.name() + "을 구독하는 서비스가 없습니다.");
+                }
+
+                String response = routing(topicInfoList, event);
+                System.out.println("[debug] " + event.name() + " 이벤트 처리 결과: " + response);
             }
         } catch (Exception e) {
-            System.err.println("[debug] " + ed.event() + "이벤트 처리 못함 " + e.getMessage());
+            System.out.println("[debug] " + event.name() + " 이벤트 처리 못함 " + e.getMessage());
          }
     }
 
-    private void routing(String url, Map<String, ?> data) {
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders() {{
-            setContentType(MediaType.APPLICATION_JSON);
-        }};
+    private String routing(List<TopicInfo> topicInfoList, EventDTO event) throws Exception {
+        try {
+            if ( 
+                topicInfoList.getFirst().usePathVariable() &&
+                (event.pathVariable() == null || event.pathVariable().isBlank())
+            ) {
+                throw new Exception("path variable이 필요합니다.");
+            }
 
-        HttpEntity<Map<String, ?>> entity = new HttpEntity<>(data, headers);
-        restTemplate.postForObject(url, entity, Void.class); // post 요청이 잘 됐는 지, 처리가 잘 됐는지 확인 안함
+            String url = topicInfoList.getFirst().url() + (topicInfoList.getFirst().usePathVariable() ? ("/" + event.pathVariable()) : "");
+            HttpHeaders headers = new HttpHeaders() {{
+                setContentType(MediaType.APPLICATION_JSON);
+            }};
+
+            if (topicInfoList.getFirst().method().equals("GET")) {
+                String response = restTemplate.getForObject(url, String.class);
+                return response;
+            }
+
+            HttpEntity<String> entity = new HttpEntity<>(event.jsonData(), headers);
+            String response = restTemplate.postForObject(url, entity, String.class);
+
+            return response;
+        } catch (Exception e) {
+            throw new Exception("이벤트 처리 중 오류 발생: " + e.getMessage());
+        }
     }
 }

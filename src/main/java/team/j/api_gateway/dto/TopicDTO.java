@@ -1,18 +1,23 @@
 package team.j.api_gateway.dto;
 
 import org.hibernate.validator.constraints.URL;
-import jakarta.validation.constraints.NotBlank;
 
-/**
- * topic: 이벤트명
- * url: 이벤트를 처리하는 서버의 URL
- * requireData: 이벤트 발생 시 민감정보 데이터 전송 여부
- */
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+
 public record TopicDTO(
-    @NotBlank(message = "Topic cannot be blank")
-    String topic,
+    @NotBlank(message = "name은 필수 항목 입니다.")
+    String name,
     
-    @NotBlank(message = "url cannot be blank")
-    @URL(message = "url must be a valid URL")
-    String url
+    @NotBlank(message = "url은 필수 항목 입니다.")
+    @URL(message = "url은 반드시 유효한 URL 형식이어야 합니다.")
+    String url,
+
+    @NotBlank(message = "method는 필수 항목 입니다.")
+    @Pattern(regexp = "GET|POST", message = "GET 또는 POST 메소드만 허용됩니다.")
+    String method,
+
+    @NotNull(message = "usePathVariable은 필수 항목 입니다.")
+    boolean usePathVariable
 ) {}

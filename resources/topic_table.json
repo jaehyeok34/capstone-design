@@ -1,1 +1,1 @@
-{"test_topic":["http://example.ex","http://example.exs"],"test_topics":["http://example.exs","http://example.exas"]}
+{"pii.detection.requests":[{"url":"http://localhost:1782/pii-detection","method":"GET","usePathVariable":true},{"url":"http://localhost:1782/pii-detectin","method":"GET","usePathVariable":true}],"pii.detection.request":[{"url":"http://localhost:1782/pii-detection","method":"GET","usePathVariable":true}]}

@@ -22,9 +22,9 @@ public class EventController {
     }
     
     @PostMapping("/publish")
-    public ResponseEntity<?> publish(@Valid @RequestBody EventDTO ed, HttpServletRequest request) {
+    public ResponseEntity<?> publish(@Valid @RequestBody EventDTO event, HttpServletRequest request) {
         try {
-            service.publish(ed);
+            service.publish(event);
             
             return ResponseEntity.ok().build();
         } catch (Exception e) {

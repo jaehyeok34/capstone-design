@@ -84,37 +84,4 @@ public class DataService {
     private List<String> getColumnsFromDB(RegisteredDataDTO rdd) throws Exception {
         throw new Exception("getColumnsFromDB() 메서드는 아직 구현되지 않았습니다.");
     }
-
-
-    // // public void updateCSV(MatchingKeyDTO mkd) throws IOException {
-    // //     ObjectMapper om = new ObjectMapper();
-        
-    // //     synchronized (ApiGatewayService.registeredDataLock) {
-    // //         RegisteredDataDTO finded = find(
-    // //             om.readValue(
-    // //                 new File(ApiGatewayService.registeredDataPath),
-    // //                 new TypeReference<List<RegisteredDataDTO>>() {}
-    // //             ), 
-    // //             mkd.selectedRegisteredDataTitle()
-    // //         );
-
-    // //         RestTemplate restTemplate = new RestTemplate();
-    // //         HttpHeaders headers = new HttpHeaders() {{
-    // //             setContentType(MediaType.APPLICATION_JSON);
-    // //         }};
-    // //         String url = "http://localhost:1789/update-csv";
-
-    // //         // PyUpdateCSVDTO에 맞춰서 작성
-    // //         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(
-    // //             new HashMap<>() {{
-    // //                 put("csvFilePath", finded.csvFilePath());
-    // //                 put("matchingKeyData", mkd.matchingKeyData());
-    // //             }}, 
-    // //             headers
-    // //         );
-            
-    // //         restTemplate.postForObject(url, entity, String.class);
-    // //     }
-
-    // // }
 }
