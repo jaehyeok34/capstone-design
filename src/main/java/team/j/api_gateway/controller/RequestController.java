@@ -6,11 +6,13 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import team.j.api_gateway.service.RequestService;
 
 @RestController
+@RequestMapping("/request")
 public class RequestController {
 
     public final RequestService service;
@@ -19,8 +21,8 @@ public class RequestController {
         this.service = service;
     }
     
-    @PostMapping("/matching-key-routine-request")
-    public ResponseEntity<String> matchingKeyRoutineRequest(@RequestBody List<String> selectedRegisteredData) throws IOException {
+    @PostMapping("/matching-key-routine")
+    public ResponseEntity<String> requestMatchingKeyRoutine(@RequestBody List<String> selectedRegisteredData) throws IOException {
         if (selectedRegisteredData.isEmpty()) {
             return ResponseEntity.badRequest().body("[debug] 데이터가 없음");
         }
@@ -29,7 +31,7 @@ public class RequestController {
         return ResponseEntity.ok().body("[debug] 결합키 생성 과정 요청 완료");
     }
 
-    @PostMapping("/matching-routine-request")
+    @PostMapping("/matching-routine")
     public ResponseEntity<String> matchingRoutineRequest(@RequestBody List<String> selectedRegisteredData) throws IOException {
         if (selectedRegisteredData.isEmpty()) {
             return ResponseEntity.badRequest().body("[debug] 데이터가 없음");

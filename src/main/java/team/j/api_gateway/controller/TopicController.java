@@ -8,24 +8,25 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import team.j.api_gateway.dto.EventDTO;
-import team.j.api_gateway.service.EventService;
+import team.j.api_gateway.dto.TopicDTO;
+import team.j.api_gateway.service.TopicService;
 
 @RestController
-@RequestMapping("/event")
-public class EventController {
+@RequestMapping("/topic")
+public class TopicController {
 
-    private final EventService service;
+    private final TopicService service;
 
-    public EventController(EventService service) {
+    public TopicController(TopicService service) {
         this.service = service;
-    }
-    
-    @PostMapping("/publish")
-    public ResponseEntity<?> publish(@Valid @RequestBody EventDTO ed, HttpServletRequest request) {
+    }   
+
+    @PostMapping("/subscribe")
+    public ResponseEntity<?> sbuscribeTopic(@Valid @RequestBody TopicDTO td, HttpServletRequest request) {
         try {
-            service.publish(ed);
-            
+            service.subscribeTopic(td);
+            System.out.println("[debug] topic_table.json에 추가 완료: " + td.topic());
+
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity

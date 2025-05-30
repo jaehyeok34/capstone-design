@@ -7,6 +7,6 @@ import jakarta.validation.constraints.NotBlank;
 public record EventDTO(
     @NotBlank(message = "event cannot be blank")
     String event,
-
-    Map<String, Object> data
+    
+    Map<String, ?> data
 ) {}   

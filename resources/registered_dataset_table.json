@@ -1,0 +1,22 @@
+[
+    {
+        "type": "csv",
+        "datasetInfo": "data1_20250529213414351424.csv",
+        "dbConnectionInfo": null
+    },
+    {
+        "type": "csv",
+        "datasetInfo": "data1_20250529213309454778.csv",
+        "dbConnectionInfo": null
+    },
+    {
+        "type": "csv",
+        "datasetInfo": "data1_20250529214939569951.csv",
+        "dbConnectionInfo": null
+    },
+    {
+        "type": "csv",
+        "datasetInfo": "data1_20250529213437538264.csv",
+        "dbConnectionInfo": null
+    }
+]

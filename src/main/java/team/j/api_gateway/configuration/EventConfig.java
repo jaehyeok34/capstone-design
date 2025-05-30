@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import team.j.api_gateway.dto.EventDTO;
 
 @Configuration
-public class EventQueueConfig {
+public class EventConfig {
 
     @Bean
     BlockingQueue<EventDTO> eventQueue() {

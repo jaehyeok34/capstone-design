@@ -1,18 +1,19 @@
 package team.j.api_gateway.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 public record RegisteredDataDTO(
     @NotBlank(message = "type cannot be blank")
-    String type,    // csv or DB
+    @Pattern(regexp = "csv|db", message = "type must be either 'csv' or 'db'")
+    String type,    // csv or db
 
-    @NotBlank(message = "title cannot be blank")
-    String title,   
+    @NotBlank(message = "datasetInfo cannot be blank")
+    String datasetInfo,   
 
     // optional
-    String csvFilePath,         // csv file path
     Object dbConnectionInfo     // DB connection information
 ) {
     public static final String TYPE_CSV = "csv";
-    public static final String TYPE_DB = "DB";
+    public static final String TYPE_DB = "db";
 }
