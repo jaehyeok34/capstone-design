@@ -1,13 +1,6 @@
-import requests
+import json
+from api_gateway_utils import publish_event
 
-event = {
-    "event": "test_topics",
-    "data": None
-}
+publish_event('test_event', 'data1_20250529213437538264.csv', json.dumps("helo"))
 
-res = requests.post('http://localhost:1780/event/publish', json=event)
-if res.status_code != 200:
-    print(res.text)
-    exit(1)
-
-print(res.status_code, res.text)
+print('event published')

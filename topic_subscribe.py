@@ -1,13 +1,11 @@
-import requests
+from api_gateway_utils import subscribe_topic
 
-topic = {
-    'topic': 'test_topics',
-    'url': 'http://example.exas'
-}
+subscribe_topic(
+    topic_name='test_event',
+    callback_url='http://localhost:2121/test',
+    method='POST',
+    use_path_variable=True,
 
-res = requests.post('http://localhost:1780/topic/subscribe', json=topic)
-if res.status_code != 200:
-    print(res.text)
-    exit(1)
-
-print(res.status_code, res.text)
+    count=3,
+    interval=10
+)
