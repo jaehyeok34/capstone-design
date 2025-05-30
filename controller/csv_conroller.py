@@ -1,5 +1,4 @@
-import os
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, jsonify, request
 import pandas as pd
 from service.csv_service import get_column_values, get_columns, save_file
 
