@@ -13,8 +13,16 @@ def home():
 if __name__ == '__main__':
     port = 1782
     callback_url = f'http://localhost:{port}/pii-detection'
-    
-    subscribe(topic='pii.detection.request', callback_url=callback_url, count=3, interval=5)
+
+    subscribe(
+        topic_name='pii.detection.request', 
+        callback_url=callback_url, 
+        method='GET',
+        use_path_variable=True,
+
+        count=3, 
+        interval=5
+    )
     
     # app.run(port=port, debug=True)
     app.run(port=port)

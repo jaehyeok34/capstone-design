@@ -1,54 +1,80 @@
 import time
-from typing import Dict, List
+from typing import Dict, List, Literal
 import pandas as pd
 import requests
 from dataclasses import dataclass
+from dataclasses_json import dataclass_json, LetterCase
 
-
+@dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
 class EventDTO:
-    event: str
-    data: Dict
+    name: str
+    path_variable: str
+    data: str
 
 
+@dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
 class TopicDTO:
-    topic: str
+    name: str
     url: str
+    method: Literal['GET', 'POST']
+    use_path_variable: bool
 
 
 publish_event_url = "http://localhost:1780/event/publish"
 subscribe_topic_url = 'http://localhost:1780/topic/subscribe'
 
 
-def publish(event: str, data: Dict) -> bool:
-    dto = EventDTO(event=event, data=data)
-    res = requests.post(url=publish_event_url, json=dto.__dict__)
+def publish(name: str, path_variable: str, jsonData: str) -> bool:
+    event = EventDTO(name=name, path_variable=path_variable, data=jsonData)
+    res = requests.post(url=publish_event_url, json=event.to_dict())
 
     # TODO: API Gateway가 잘 받았는지 확인해야 하고, 그렇지 않을 경우 재요청 구현 예정
-    
-    return res.status_code == 200
+    return res.status_code == 200, res.text
 
 
-def subscribe(topic: str, callback_url: str, count: int = 1, interval: int = 1):
+def subscribe(
+        topic_name: str, 
+        callback_url: str, 
+        method: Literal['GET', 'POST'],
+        use_path_variable: bool = False,
+
+        count: int = 1, 
+        interval: int = 1
+):
     try:
-        if not topic or topic.isspace() or not callback_url or callback_url.isspace():
-            raise Exception('topic과 callback_url은 필수입니다.')
+        # 매개변수 검증
+        if (
+            (not topic_name or topic_name.isspace()) or 
+            (not callback_url or callback_url.isspace()) or
+            (not method or method.upper() not in ['GET', 'POST'])
+        ):
+            raise Exception('topic, callback_url, method는 필수입니다.(method는 GET 또는 POST)')
             
         # n번의 재시도 과정에서 interval이 0 이하인 경우 default 10초로 설정
         if (count > 1) and (interval <= 0):
             interval = 10
 
-        topic = TopicDTO(topic=topic, url=callback_url)
+        # topic 생성
+        topic = TopicDTO(
+            name=topic_name, 
+            url=callback_url, 
+            method=method.upper(), 
+            use_path_variable=use_path_variable
+        )
+
+        # n번 재시도
         for i in range(count):
-            res = requests.post(url=subscribe_topic_url, json=topic.__dict__)
+            # to_json()은 dataclass_json 라이브러리에서 제공하는 메서드(자동으로 camel case로 변환)
+            res = requests.post(url=subscribe_topic_url, json=topic.to_dict())
             if res.status_code == 200:
                 return
         
-            print(f"[debug]: {topic} {i + 1}번 째 등록 실패")
+            print(f"[debug]: {topic_name} {i + 1}번 째 등록 실패: {res.text}")
             time.sleep(interval)
 
-        raise Exception(f'{topic} 구독 실패: {res.text}')
+        raise Exception(f'{topic_name} 구독 실패: {res.text}')
         
     except Exception as e:
         raise Exception(f'subscribe() 실패 {e}') from e

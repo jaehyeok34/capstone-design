@@ -13,6 +13,7 @@ def detect(dataset_info: str) -> List[str]:
         # 임시 구현: 랜덤하게 컬럼명 중 일부를 식별정보로 간주
         detected = random.sample(columns, k=random.randint(1, len(columns)))
 
+        # api gateway에 event 전송 코드 구현해야 됨
         return detected
 
     except Exception as e:
@@ -25,4 +26,4 @@ def __get_columns(dataset_info: str) -> List[str]:
         return columns
 
     except Exception as e:
-        raise Exception('__get_columns() 실패:', e)
+        raise Exception('__get_columns() 실패:', str(e))
