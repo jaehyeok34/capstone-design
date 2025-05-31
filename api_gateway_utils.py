@@ -1,5 +1,7 @@
+# latest: 05.30
+
 import time
-from typing import Dict, List, Literal
+from typing import List, Literal
 import pandas as pd
 import requests
 from dataclasses import dataclass
@@ -26,7 +28,7 @@ publish_event_url = "http://localhost:1780/event/publish"
 subscribe_topic_url = 'http://localhost:1780/topic/subscribe'
 
 
-def publish(name: str, path_variable: str, jsonData: str) -> bool:
+def publish_event(name: str, path_variable: str, jsonData: str) -> bool:
     event = EventDTO(name=name, path_variable=path_variable, data=jsonData)
     res = requests.post(url=publish_event_url, json=event.to_dict())
 
@@ -34,7 +36,7 @@ def publish(name: str, path_variable: str, jsonData: str) -> bool:
     return res.status_code == 200, res.text
 
 
-def subscribe(
+def subscribe_topic(
         topic_name: str, 
         callback_url: str, 
         method: Literal['GET', 'POST'],

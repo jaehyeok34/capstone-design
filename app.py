@@ -1,5 +1,5 @@
 from flask import Flask
-from api_gateway_utils import subscribe
+from api_gateway_utils import subscribe_topic
 from controller.detection_controller import detection_bp
 
 app = Flask(__name__)
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     port = 1782
     callback_url = f'http://localhost:{port}/pii-detection'
 
-    subscribe(
+    subscribe_topic(
         topic_name='pii.detection.request', 
         callback_url=callback_url, 
         method='GET',
