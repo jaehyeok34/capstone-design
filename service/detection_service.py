@@ -1,7 +1,7 @@
 import random
 from typing import List
-
-from api_gateway_utils import request_get_columns
+from flask import json
+from api_gateway_utils import get_columns, publish_event
 
 
 def detect(dataset_info: str) -> List[str]:
@@ -14,6 +14,12 @@ def detect(dataset_info: str) -> List[str]:
         detected = random.sample(columns, k=random.randint(1, len(columns)))
 
         # api gateway에 event 전송 코드 구현해야 됨
+        publish_event(
+            name='pii.detection.success',
+            path_variable=dataset_info,
+            jsonData=json.dumps(detected),
+        )
+        
         return detected
 
     except Exception as e:
@@ -22,7 +28,7 @@ def detect(dataset_info: str) -> List[str]:
 
 def __get_columns(dataset_info: str) -> List[str]:
     try:
-        columns:List[str] = request_get_columns(dataset_info)
+        columns:List[str] = get_columns(dataset_info)
         return columns
 
     except Exception as e:

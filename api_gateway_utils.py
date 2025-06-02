@@ -1,4 +1,4 @@
-# latest: 05.30
+# latest: 06.02
 
 import time
 from typing import List, Literal
@@ -6,13 +6,14 @@ import pandas as pd
 import requests
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json, LetterCase
+import os
 
 @dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
 class EventDTO:
     name: str
     path_variable: str
-    data: str
+    json_data: str
 
 
 @dataclass_json(letter_case=LetterCase.CAMEL)
@@ -29,7 +30,7 @@ subscribe_topic_url = 'http://localhost:1780/topic/subscribe'
 
 
 def publish_event(name: str, path_variable: str, jsonData: str) -> bool:
-    event = EventDTO(name=name, path_variable=path_variable, data=jsonData)
+    event = EventDTO(name=name, path_variable=path_variable, json_data=jsonData)
     res = requests.post(url=publish_event_url, json=event.to_dict())
 
     # TODO: API Gateway가 잘 받았는지 확인해야 하고, 그렇지 않을 경우 재요청 구현 예정
@@ -82,7 +83,7 @@ def subscribe_topic(
         raise Exception(f'subscribe() 실패 {e}') from e
 
 
-def request_get_columns(dataset_info: str) -> List[str] | None:
+def get_columns(dataset_info: str) -> List[str] | None:
     """ 
     API Gateway에 데이터셋의 컬럼 정보를 요청하는 함수.
         - dataset_info: 데이터셋의 정보(파일명 등)를 포함하는 문자열
@@ -95,15 +96,27 @@ def request_get_columns(dataset_info: str) -> List[str] | None:
     return response.json()
 
 
-def request_get_column_data(dataset_info: str, columns: List[str]) -> pd.DataFrame:
+def get_column_values(dataset_info: str, columns: List[str]) -> pd.DataFrame:
     response = requests.post(
-        url='http://127.0.0.1:1780/get-column-data',
-        json={
-            "title": dataset_info,
-            "columns": columns
-        }
+        url='http://localhost:1780/csv/column-values/' + dataset_info,
+        json=columns
     )
     if response.status_code == 200:
         return pd.DataFrame(response.json())
     else:
         print(f"[debug]: get_column_data 실패: {response.text}")
+
+
+def get_all_values(dataset_info: str) -> pd.DataFrame | None:
+    response = requests.get('http://localhost:1780/csv/all-values/' + dataset_info)
+    if response.status_code != 200:
+        return None
+    
+    return pd.DataFrame(response.json())
+
+
+def register_csv(file: str):
+    if not os.path.isfile(file):
+        raise FileNotFoundError(f"File not found: {file}")
+    
+    requests.post('http://localhost:1780/csv/register', files=[('file', open(file, 'rb'))])

@@ -9,7 +9,7 @@ detection_bp = Blueprint('detection', __name__)
 def pii_detection(dataset_info: str):
     try:
         detected: List[str] = detect(dataset_info)
-        return jsonify(detected), 200
+        return "", 200
 
     except Exception as e:
         return f'{request.path}: {e}', 500
