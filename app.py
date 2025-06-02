@@ -3,9 +3,9 @@ import os
 from controller.csv_conroller import csv_controller
 
 
-
 app = Flask(__name__)
 app.config['DATA_DIR'] = os.path.join(os.path.dirname(__file__), 'data')
+os.makedirs(app.config['DATA_DIR'], exist_ok=True)
 app.register_blueprint(csv_controller)
 
 
