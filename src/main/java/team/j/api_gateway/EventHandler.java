@@ -27,7 +27,6 @@ public class EventHandler {
     private final String topicTablePath;
     private final Object lock;
     private final ObjectMapper om;
-    // private final RestTemplate restTemplate;
     private final HttpService httpService;
     private final BlockingQueue<EventDTO> eventQueue;
 
@@ -37,14 +36,12 @@ public class EventHandler {
         @Value("${topic.table.path}") String topicTablePath,
         @Qualifier("topicTableLock") Object lock,
         ObjectMapper om,
-        // RestTemplate restTemplate,
         HttpService httpService,
         BlockingQueue<EventDTO> eventQueue
     ) {
         this.topicTablePath = topicTablePath;
         this.lock = lock;
         this.om = om;
-        // this.restTemplate = restTemplate;
         this.httpService = httpService;
         this.eventQueue = eventQueue;
     }

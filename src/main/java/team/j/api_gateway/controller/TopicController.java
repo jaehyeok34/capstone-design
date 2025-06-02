@@ -22,10 +22,10 @@ public class TopicController {
     }   
 
     @PostMapping("/subscribe")
-    public ResponseEntity<?> sbuscribeTopic(@Valid @RequestBody TopicDTO td, HttpServletRequest request) {
+    public ResponseEntity<?> sbuscribeTopic(@Valid @RequestBody TopicDTO topic, HttpServletRequest request) {
         try {
-            service.subscribeTopic(td);
-            System.out.println("[debug] topic_table.json에 추가 완료: " + td.name());
+            service.subscribeTopic(topic);
+            System.out.println("[debug] topic_table.json에 추가 완료: " + topic.name());
 
             return ResponseEntity.ok().build();
         } catch (Exception e) {
