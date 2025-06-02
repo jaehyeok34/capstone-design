@@ -1,7 +1,9 @@
 import hashlib
+import os
 from typing import List
+from flask import current_app
 import pandas as pd
-from api_gateway_utils import get_all_values
+from api_gateway_utils import get_all_values, register_csv
 
 
 def generate_matching_key(dataset_info: str, columns: List[str]) -> pd.DataFrame:
@@ -21,9 +23,12 @@ def generate_matching_key(dataset_info: str, columns: List[str]) -> pd.DataFrame
         all_values['mk_serial_number'] = [f"{dataset_info}{i+1}" for i in range(len(all_values))]
         all_values['matching_key'] = pii.apply(hash_row, axis=1)
 
-        all_values.to_csv(f'mk_{dataset_info}.csv', index=False)
+        file_name = f"{dataset_info}_mk.csv"
+        save_path = os.path.join(current_app.config['DATA_DIR'], file_name)
+        all_values.to_csv(save_path, index=False)
+        register_csv(save_path)
 
-        return all_values
+        # TODO: matching_key.generate.success 발생시키기
 
     except Exception as e:
-        raise Exception(f'generate() 실패 {e}')
+        raise Exception(f'generate_matching_key() 실패: {e}')

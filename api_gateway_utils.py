@@ -6,13 +6,14 @@ import pandas as pd
 import requests
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json, LetterCase
+import os
 
 @dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
 class EventDTO:
     name: str
     path_variable: str
-    data: str
+    json_data: str
 
 
 @dataclass_json(letter_case=LetterCase.CAMEL)
@@ -29,7 +30,7 @@ subscribe_topic_url = 'http://localhost:1780/topic/subscribe'
 
 
 def publish_event(name: str, path_variable: str, jsonData: str) -> bool:
-    event = EventDTO(name=name, path_variable=path_variable, data=jsonData)
+    event = EventDTO(name=name, path_variable=path_variable, json_data=jsonData)
     res = requests.post(url=publish_event_url, json=event.to_dict())
 
     # TODO: API Gateway가 잘 받았는지 확인해야 하고, 그렇지 않을 경우 재요청 구현 예정
@@ -112,3 +113,10 @@ def get_all_values(dataset_info: str) -> pd.DataFrame | None:
         return None
     
     return pd.DataFrame(response.json())
+
+
+def register_csv(file: str):
+    if not os.path.isfile(file):
+        raise FileNotFoundError(f"File not found: {file}")
+    
+    requests.post('http://localhost:1780/csv/register', files=[('file', open(file, 'rb'))])
