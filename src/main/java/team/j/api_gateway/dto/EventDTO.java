@@ -7,5 +7,5 @@ public record EventDTO(
     String name,
 
     String pathVariable,
-    String jsonData
+    String jsonData // JSON을 문자열로 직렬화하여 전달(python ex: 'jsonData': json.dumps(data))
 ) {}   

@@ -13,13 +13,12 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import team.j.api_gateway.dto.EventDTO;
 import team.j.api_gateway.dto.TopicInfo;
+import team.j.api_gateway.service.HttpService;
 
 
 @Component
@@ -28,7 +27,8 @@ public class EventHandler {
     private final String topicTablePath;
     private final Object lock;
     private final ObjectMapper om;
-    private final RestTemplate restTemplate;
+    // private final RestTemplate restTemplate;
+    private final HttpService httpService;
     private final BlockingQueue<EventDTO> eventQueue;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -37,13 +37,15 @@ public class EventHandler {
         @Value("${topic.table.path}") String topicTablePath,
         @Qualifier("topicTableLock") Object lock,
         ObjectMapper om,
-        RestTemplate restTemplate,
+        // RestTemplate restTemplate,
+        HttpService httpService,
         BlockingQueue<EventDTO> eventQueue
     ) {
         this.topicTablePath = topicTablePath;
         this.lock = lock;
         this.om = om;
-        this.restTemplate = restTemplate;
+        // this.restTemplate = restTemplate;
+        this.httpService = httpService;
         this.eventQueue = eventQueue;
     }
 
@@ -79,7 +81,7 @@ public class EventHandler {
                 System.out.println("[debug] " + event.name() + " 이벤트 처리 결과: " + response);
             }
         } catch (Exception e) {
-            System.out.println("[debug] " + event.name() + " 이벤트 처리 못함 " + e.getMessage());
+            System.out.println("[debug] " + event.name() + " 이벤트 처리 못함: " + e.getMessage());
          }
     }
 
@@ -96,18 +98,18 @@ public class EventHandler {
             HttpHeaders headers = new HttpHeaders() {{
                 setContentType(MediaType.APPLICATION_JSON);
             }};
-
+            
             if (topicInfoList.getFirst().method().equals("GET")) {
-                String response = restTemplate.getForObject(url, String.class);
+                String response = httpService.get(url);
                 return response;
             }
-
+            
             HttpEntity<String> entity = new HttpEntity<>(event.jsonData(), headers);
-            String response = restTemplate.postForObject(url, entity, String.class);
+            String response = httpService.post(url, entity);
 
             return response;
         } catch (Exception e) {
-            throw new Exception("이벤트 처리 중 오류 발생: " + e.getMessage());
+            throw new Exception("routing() 이벤트 처리 중 오류 발생: " + e.getMessage());
         }
     }
 }

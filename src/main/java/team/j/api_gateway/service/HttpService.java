@@ -30,6 +30,7 @@ public class HttpService {
     
     public String post(String url, HttpEntity<?> entity) throws Exception {
         try {
+            System.out.println("[debug] post() 요청 URL: " + url);
             return request(url, entity, "POST");
         } catch (Exception e) {
             throw new Exception("post() 실패: " + e.getMessage());

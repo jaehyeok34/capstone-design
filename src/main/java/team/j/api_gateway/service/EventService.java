@@ -14,12 +14,12 @@ public class EventService {
         this.eventQueue = eventQueue;
     }
 
-    public void publish(EventDTO ed) throws Exception {
+    public void publish(EventDTO event) throws Exception {
         try {
-            eventQueue.put(ed);
-            System.out.println("[debug] publish() 이벤트 적재 성공(" + ed.name() + ")");
+            eventQueue.put(event);
+            System.out.println("[debug] publish() 이벤트 적재 성공(" + event.name() + ")");
         } catch (InterruptedException e) {
-            throw new Exception("publish() 이벤트 적재 실패(" + ed.name() + ")");
+            throw new Exception("publish() 이벤트 적재 실패(" + event.name() + ")");
         }
     }
 }

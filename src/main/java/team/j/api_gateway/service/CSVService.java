@@ -20,7 +20,8 @@ import team.j.api_gateway.dto.RegisteredDataDTO;
 public class CSVService {
 
     private final String uploadUrl;
-    private final String columnDataUrl;
+    private final String columnValuesUrl;
+    private final String allValuesUrl;
     private final String tablePath;
 
     private final HttpService httpService;
@@ -30,6 +31,7 @@ public class CSVService {
     public CSVService(
         @Value("${data.server.csv.upload.url}") String uploadUrl,
         @Value("${data.server.csv.column-values.url}") String columnValuesUrl,
+        @Value("${data.server.csv.all-values.url}") String allValuesUrl,
         @Value("${registered.data.table.path}") String tablePath,
 
         HttpService httpService,
@@ -37,7 +39,8 @@ public class CSVService {
         @Qualifier("registeredDataTableLock") Object lock
     ) {
         this.uploadUrl = uploadUrl;
-        this.columnDataUrl = columnValuesUrl;
+        this.columnValuesUrl = columnValuesUrl;
+        this.allValuesUrl = allValuesUrl;
         this.tablePath = tablePath;
 
         this.httpService = httpService;
@@ -56,19 +59,34 @@ public class CSVService {
         }
     }
 
-    public Map<String, Object> getCSVColumnData(String datasetInfo, List<String> columns) throws Exception {
+    public Map<String, Object> getColumnValues(String datasetInfo, List<String> columns) throws Exception {
         try {
             RegisteredDataDTO finded = tableService.find(lock, tablePath, datasetInfo, RegisteredDataDTO.class);
             if (finded == null) {
                 throw new Exception(datasetInfo + "에 해당하는 데이터셋이 없습니다.");
             }
 
-            String response = requestColumnData(datasetInfo, columns);
+            String response = requestColumnValues(datasetInfo, columns);
             Map<String, Object> columnData = httpService.parse(response, new TypeReference<>() {});
 
             return columnData;
         } catch (Exception e) {
             throw new Exception("getCSVColumnData(): CSV 컬럼 데이터 조회 실패: " + e.getMessage());
+        }
+    }
+
+    public String getAllvalues(String datasetInfo) {
+        try {
+            RegisteredDataDTO finded = tableService.find(lock, tablePath, datasetInfo, RegisteredDataDTO.class);
+            if (finded == null) {
+                throw new Exception(datasetInfo + "에 해당하는 데이터셋이 없습니다.");
+            }
+
+            String response = requestAllValues(datasetInfo);
+
+            return response;
+        } catch (Exception e) {
+            throw new RuntimeException("getAllvalues(): CSV 전체 데이터 조회 실패: " + e.getMessage());
         }
     }
 
@@ -88,11 +106,8 @@ public class CSVService {
         }
     }
 
-    private String requestColumnData(String datasetInfo, List<String> columns) throws Exception {
-        // TODO: registered_data_table.json에 datasetInfo가 존재하는지 확인하는 로직 추가 필요
-        // 있다면, 아래 로직 그대로 없다면, 바로 예외 발생
-
-        String url = columnDataUrl + "/" + datasetInfo;
+    private String requestColumnValues(String datasetInfo, List<String> columns) throws Exception {
+        String url = columnValuesUrl + "/" + datasetInfo;
         HttpHeaders headers = new HttpHeaders() {{
             setContentType(MediaType.APPLICATION_JSON);
         }};
@@ -101,7 +116,19 @@ public class CSVService {
         try {
             return httpService.post(url, entity);
         } catch (Exception e) {
-            throw new Exception("requestColumnData() CSV 컬럼 데이터 요청 실패: " + e.getMessage());
+            throw new Exception("requestColumnValuse() CSV 컬럼 데이터 요청 실패: " + e.getMessage());
+        }
+    }
+
+    
+    private String requestAllValues(String datasetInfo) throws Exception {
+        String url = allValuesUrl + "/" + datasetInfo;
+
+        try {
+            String response = httpService.get(url);
+            return response;
+        } catch (Exception e) {
+            throw new Exception("requestAllValues() CSV 전체 데이터 요청 실패: " + e.getMessage());
         }
     }
 }

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
 import team.j.api_gateway.service.CSVService;
+
 
 @RestController
 @RequestMapping("/csv")
@@ -48,7 +50,7 @@ public class CSVController {
     }
 
     @PostMapping("/column-values/{datasetInfo}")
-    public ResponseEntity<?> getCSVColumnData(
+    public ResponseEntity<?> getColumnValues(
         HttpServletRequest request,
         @PathVariable String datasetInfo,
         @RequestBody List<String> columns
@@ -63,7 +65,7 @@ public class CSVController {
                 throw new Exception("columns가 비어있거나 공백임");
             }
 
-            Map<String, Object> columnData = service.getCSVColumnData(datasetInfo, columns);
+            Map<String, Object> columnData = service.getColumnValues(datasetInfo, columns);
             System.out.println("[debug] " + datasetInfo + "의 컬럼 데이터 요청 완료");
             
             return ResponseEntity.ok().body(columnData);
@@ -72,6 +74,20 @@ public class CSVController {
                 .badRequest()
                 .body(uri + ": " + e.getMessage());
         }
+    }
 
+
+    @GetMapping("/all-values/{datasetInfo}")
+    public ResponseEntity<String> getAllValues(@PathVariable String datasetInfo, HttpServletRequest request) {
+        try {
+            String all_values = service.getAllvalues(datasetInfo);
+            System.out.println("[debug] " + datasetInfo + "의 전체 데이터 요청 완료");
+
+            return ResponseEntity.ok().body(all_values);
+        } catch (Exception e) {
+            return ResponseEntity
+                .badRequest()
+                .body(request.getRequestURI() + ": " + e.getMessage());
+        }
     }
 }
