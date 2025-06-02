@@ -20,7 +20,7 @@ def generate_matching_key(dataset_info: str, columns: List[str]) -> pd.DataFrame
             concatenated = "".join(row.astype(str))
             return hashlib.sha256(concatenated.encode('utf-8')).hexdigest()
         
-        all_values['mk_serial_number'] = [f"{dataset_info}{i+1}" for i in range(len(all_values))]
+        all_values['mk_serial_number'] = [f"{dataset_info}_{i+1}" for i in range(len(all_values))]
         all_values['matching_key'] = pii.apply(hash_row, axis=1)
 
         file_name = f"{dataset_info}_mk.csv"
