@@ -1,17 +1,14 @@
-
-import pandas as pd
+from flask import json
 import requests
 
-df = pd.read_csv('"datas.csv".csv')
-print(df)
+data = ['name', 'ssn']
 
 res = requests.post(
-    url="http://127.0.0.1:1780/update-csv", 
-    json={
-        "selectedRegisteredDataTitle": "datas.csv",
-        "matchingKeyData": df.to_dict()
-    }
+    'http://localhost:1783/matching-key/generate/data1_20250529213309454778.csv',
+    json=data
 )
 
-print(res.status_code)
+if res.status_code != 200:
+    print(res.text)
+
 print(res.text)
