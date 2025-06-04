@@ -15,7 +15,7 @@ if __name__ == '__main__':
     callback_url = f'http://localhost:{port}/pii-detection'
 
     subscribe_topic(
-        topic_name='pii.detection.request', 
+        name='pii.detection.request', 
         callback_url=callback_url, 
         method='GET',
         use_path_variable=True,

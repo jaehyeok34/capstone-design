@@ -1,4 +1,4 @@
-# latest: 06.02
+# latest: 06.02.2
 
 import time
 from typing import List, Literal
@@ -29,8 +29,8 @@ publish_event_url = "http://localhost:1780/event/publish"
 subscribe_topic_url = 'http://localhost:1780/topic/subscribe'
 
 
-def publish_event(name: str, path_variable: str, jsonData: str) -> bool:
-    event = EventDTO(name=name, path_variable=path_variable, json_data=jsonData)
+def publish_event(name: str, path_variable: str, json_data: str = None) -> bool:
+    event = EventDTO(name=name, path_variable=path_variable, json_data=json_data)
     res = requests.post(url=publish_event_url, json=event.to_dict())
 
     # TODO: API Gateway가 잘 받았는지 확인해야 하고, 그렇지 않을 경우 재요청 구현 예정
@@ -38,18 +38,18 @@ def publish_event(name: str, path_variable: str, jsonData: str) -> bool:
 
 
 def subscribe_topic(
-        topic_name: str, 
-        callback_url: str, 
-        method: Literal['GET', 'POST'],
-        use_path_variable: bool = False,
+    name: str, 
+    callback_url: str, 
+    method: Literal['GET', 'POST'],
+    use_path_variable: bool = False,
 
-        count: int = 1, 
-        interval: int = 1
+    count: int = 1, 
+    interval: int = 1
 ):
     try:
         # 매개변수 검증
         if (
-            (not topic_name or topic_name.isspace()) or 
+            (not name or name.isspace()) or 
             (not callback_url or callback_url.isspace()) or
             (not method or method.upper() not in ['GET', 'POST'])
         ):
@@ -61,7 +61,7 @@ def subscribe_topic(
 
         # topic 생성
         topic = TopicDTO(
-            name=topic_name, 
+            name=name, 
             url=callback_url, 
             method=method.upper(), 
             use_path_variable=use_path_variable
@@ -74,10 +74,10 @@ def subscribe_topic(
             if res.status_code == 200:
                 return
         
-            print(f"[debug]: {topic_name} {i + 1}번 째 등록 실패: {res.text}")
+            print(f"[debug]: {name} {i + 1}번 째 등록 실패: {res.text}")
             time.sleep(interval)
 
-        raise Exception(f'{topic_name} 구독 실패: {res.text}')
+        raise Exception(f'{name} 구독 실패: {res.text}')
         
     except Exception as e:
         raise Exception(f'subscribe() 실패 {e}') from e
