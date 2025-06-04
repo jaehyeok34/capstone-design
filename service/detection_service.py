@@ -24,6 +24,7 @@ def detect(dataset_info: str) -> List[str]:
         return detected
 
     except Exception as e:
+        # 실패 시, 실패 event 발행 해야됨
         raise Exception('detect() 실패:', e)
 
 
