@@ -37,15 +37,8 @@ public class DataController {
     }
 
     @GetMapping("/columns/{datasetInfo}")
-    public ResponseEntity<?> getColumns(
-        HttpServletRequest request,
-        @PathVariable String datasetInfo
-    ) {
+    public ResponseEntity<?> getColumns(@PathVariable String datasetInfo, HttpServletRequest request) {
         try {
-            if (datasetInfo == null || datasetInfo.isEmpty() || datasetInfo.isBlank()) {
-                throw new Exception("datasetInfo가 비어있거나 공백임");
-            }
-
             List<String> columns = service.getColumns(datasetInfo);
             if (columns == null || columns.isEmpty()) {
                 throw new Exception("해당 데이터셋의 컬럼 정보가 없습니다.");

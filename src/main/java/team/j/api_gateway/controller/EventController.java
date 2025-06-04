@@ -22,11 +22,10 @@ public class EventController {
     }
     
     @PostMapping("/publish")
-    public ResponseEntity<?> publish(@Valid @RequestBody EventDTO event, HttpServletRequest request) {
+    public ResponseEntity<String> publish(@Valid @RequestBody EventDTO event, HttpServletRequest request) {
         try {
             service.publish(event);
-            
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok("\"" + event.name() + "\"" + " 적재 완료");
         } catch (Exception e) {
             return ResponseEntity
                 .badRequest()

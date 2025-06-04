@@ -28,10 +28,7 @@ public class CSVController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> registerCSV(
-        HttpServletRequest request,
-        @RequestParam("file") MultipartFile csv
-    ) {
+    public ResponseEntity<String> registerCSV(@RequestParam("file") MultipartFile csv, HttpServletRequest request) {
         String uri = request.getRequestURI();
         try {
             if (csv == null || csv.isEmpty()) {
@@ -51,16 +48,12 @@ public class CSVController {
 
     @PostMapping("/column-values/{datasetInfo}")
     public ResponseEntity<?> getColumnValues(
-        HttpServletRequest request,
         @PathVariable String datasetInfo,
-        @RequestBody List<String> columns
+        @RequestBody List<String> columns,
+        HttpServletRequest request
     ) {
         String uri = request.getRequestURI();
         try {
-            if (datasetInfo == null || datasetInfo.isEmpty() || datasetInfo.isBlank()) {
-                throw new Exception("datasetInfo가 비어있거나 공백임");
-            }
-
             if (columns == null || columns.isEmpty()) {
                 throw new Exception("columns가 비어있거나 공백임");
             }
