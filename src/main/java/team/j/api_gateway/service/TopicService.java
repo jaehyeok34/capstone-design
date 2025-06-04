@@ -45,6 +45,7 @@ public class TopicService {
     private void updateTopicTable(TopicDTO newTopic) throws Exception {
         synchronized (lock) {
             try {
+                System.out.println("이것은 테스트: " + topicTablePath);
                 File file = new File(topicTablePath) {{
                     createNewFile();
                 }};
