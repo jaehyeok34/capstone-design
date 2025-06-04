@@ -1,2 +1,0 @@
-# capstone-design
-## api-gateway
