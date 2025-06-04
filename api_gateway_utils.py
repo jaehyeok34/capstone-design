@@ -1,4 +1,4 @@
-# latest: 06.04.1
+# latest: 06.04.2
 
 import time
 from typing import List, Literal
@@ -71,11 +71,12 @@ def subscribe_topic(
         # to_json()은 dataclass_json 라이브러리에서 제공하는 메서드(자동으로 camel case로 변환)
         try:
             res = requests.post(url=subscribe_topic_url, json=topic.to_dict())
-            if res.status_code == 200:
-                return
-            
-        except Exception as _:
-            print(f"[debug]: {name} {i + 1}번 째 등록 실패")
+            if res.status_code != 200:
+                raise Exception(f'subscribe_topic() {name} {i + 1}번 째 등록 실패: {res.text}')
+
+            return
+        except Exception as e:
+            print(f"[debug] {e}")
             time.sleep(interval)
     
     # n번의 재시도에도 실패한 경우 예외 발생
