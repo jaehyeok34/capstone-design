@@ -13,6 +13,13 @@
             "usePathVariable": true
         }
     ],
+    "matching.match.request": [
+        {
+            "url": "http://localhost:1785/matching/match",
+            "method": "POST",
+            "usePathVariable": true
+        }
+    ],
     "pii.detection.success": [
         {
             "url": "http://localhost:1783/matching-key/generate",
