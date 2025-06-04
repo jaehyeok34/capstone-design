@@ -2,7 +2,7 @@ import requests
 
 url = "http://localhost:1780/csv/register"
 files = [
-    ('file', open('data.csv', 'rb')),
+    ('file', open('data2.csv', 'rb')),
 ]
 res = requests.post(url, files=files)
 
