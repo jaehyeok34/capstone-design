@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     for topic_name in ['matching-key.generate.request', 'pii.detection.success']:
         subscribe_topic(
-            topic_name=topic_name,
+            name=topic_name,
             callback_url=callback_url,
             method='POST',
             use_path_variable=True,
