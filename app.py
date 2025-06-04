@@ -17,4 +17,5 @@ if __name__ == '__main__':
     port = 1789
 
     # app.run(port=port, debug=True)
-    app.run(port=port)
+    # app.run(port=port)
+    app.run(host='0.0.0.0', port=port)
