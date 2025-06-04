@@ -11,8 +11,6 @@ DB_CONFIG = {
     "cursorclass": pymysql.cursors.DictCursor
 }
 
-def connect_db():
-    return pymysql.connect(**DB_CONFIG)
 
 def insert_standard_term(standard_term: str, synonym_group_id: int, category: str, is_sensitive: int):
     """standard_term_info 테이블에 삽입 (기존 존재하면 무시)"""
@@ -40,6 +38,28 @@ def insert_term(term: str, standard_term: str):
         conn.commit()
     finally:
         conn.close()
+
+def insert_new_term_if_high_similarity(new_term: str, matched_entry: dict):
+    """
+    high similarity 기준으로 term과 standard_term 삽입
+    matched_entry = {
+        'standard_term': '이름',
+        'synonym_group_id': 2,
+        'category': '식별정보',
+        'is_sensitive': 1
+    }
+    """
+    insert_standard_term(
+        matched_entry['standard_term'],
+        matched_entry['synonym_group_id'],
+        matched_entry['category'],
+        matched_entry['is_sensitive']
+    )
+    insert_term(new_term, matched_entry['standard_term'])
+
+def connect_db():
+    return pymysql.connect(**DB_CONFIG)
+
 
 def get_standard_term(term: str) -> Optional[str]:
     """term으로 standard_term 반환"""
@@ -102,23 +122,7 @@ def get_all_terms_and_stds() -> List[dict]:
     finally:
         conn.close()
 
-def insert_new_term_if_high_similarity(new_term: str, matched_entry: dict):
-    """
-    high similarity 기준으로 term과 standard_term 삽입
-    matched_entry = {
-        'standard_term': '이름',
-        'synonym_group_id': 2,
-        'category': '식별정보',
-        'is_sensitive': 1
-    }
-    """
-    insert_standard_term(
-        matched_entry['standard_term'],
-        matched_entry['synonym_group_id'],
-        matched_entry['category'],
-        matched_entry['is_sensitive']
-    )
-    insert_term(new_term, matched_entry['standard_term'])
+
 
 def insert_if_high_similarity_sbert(term: str, standard_term: str):
     """SBERT 기반 유사도가 기준치 이상이면 term을 term_mapping에 삽입"""

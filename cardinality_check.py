@@ -40,7 +40,7 @@ def analyze_dataframe(df, min_ratio=0.95, join_rate=None):
     :return: 식별정보로 판단된 컬럼 목록
     """
     identifier_columns = []
-    print(f"min_ratio: {min_ratio}")
+    # print(f"min_ratio: {min_ratio}")
 
     # 결합률 기반으로 min_ratio 조정
     if join_rate is not None:

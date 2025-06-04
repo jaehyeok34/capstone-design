@@ -57,7 +57,6 @@ def find_similar_terms(
                 }
                 outputC.append(result)
 
-                # DB에 자동 삽입 (중복 무시)
                 insert_new_term_if_high_similarity(input_term, matched_entry)
         else:
             outputD.append(input_term)
