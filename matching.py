@@ -1,5 +1,4 @@
 import json
-import requests
 from api_gateway_utils import publish_event
 
 publish_event(
