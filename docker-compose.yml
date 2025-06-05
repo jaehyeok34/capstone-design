@@ -1,0 +1,39 @@
+services:
+  api-gateway:
+    container_name: api-gateway
+    build:
+      context: ./api-gateway
+    ports:
+      - "1780:1780"
+    environment:
+      - DATA_SERVER_HOST=data-server
+      - DATA_SERVER_PORT=1789
+    networks:
+      - backend
+
+  matching-key-server:
+    depends_on:
+      - api-gateway
+    container_name: matching-key-server
+    build:
+      context: ./matching-key-server
+    ports:
+      - "1783:1783"
+    environment:
+      - API_GATEWAY_HOST=api-gateway
+      - DATA_SERVER_PORT=1780
+    networks:
+      - backend
+
+  data-server:
+    container_name: data-server
+    build:
+      context: ./data-server
+    ports:
+      - "1789:1789"
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
