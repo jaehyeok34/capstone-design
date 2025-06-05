@@ -1,0 +1,9 @@
+{
+    "test": [
+        {
+            "url": "http://localhost:1785/matching/match",
+            "method": "POST",
+            "usePathVariable": false
+        }
+    ]
+}

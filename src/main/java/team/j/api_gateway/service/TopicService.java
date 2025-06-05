@@ -25,7 +25,7 @@ public class TopicService {
     private final ObjectMapper om;
 
     public TopicService(
-        @Value("${topic.table.path}") String topicTablePath,
+        @Value("${table.path.topic}") String topicTablePath,
         @Qualifier("topicTableLock") Object lock,
         ObjectMapper om
     ) {
@@ -45,11 +45,9 @@ public class TopicService {
     private void updateTopicTable(TopicDTO newTopic) throws Exception {
         synchronized (lock) {
             try {
-                System.out.println("이것은 테스트: " + topicTablePath);
                 File file = new File(topicTablePath) {{
                     createNewFile();
                 }};
-                
                 // 토픽 테이블의 내용 읽기
                 Map<String, List<TopicInfo>> topicTable = new HashMap<>() {{
                     try {

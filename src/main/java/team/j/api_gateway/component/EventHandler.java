@@ -1,4 +1,4 @@
-package team.j.api_gateway;
+package team.j.api_gateway.component;
 
 import java.io.File;
 import java.util.List;
@@ -33,7 +33,7 @@ public class EventHandler {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     
     public EventHandler(
-        @Value("${topic.table.path}") String topicTablePath,
+        @Value("${table.path.topic}") String topicTablePath,
         @Qualifier("topicTableLock") Object lock,
         ObjectMapper om,
         HttpService httpService,

@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: api-gateway
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+#----------------------------------------------------------------------
+server:
+  address: ${HOST:0.0.0.0}
+  port: ${PORT:1780}
+#----------------------------------------------------------------------
+table:
+  path:
+    dataset: resources/registered_dataset_table.json
+    topic: resources/topic_table.json
+#----------------------------------------------------------------------
+api:
+  data:
+    host: ${DATA_HOST:localhost}
+    port: ${DATA_PORT:1789}
+    csv:
+      upload: http://${api.data.host}:${api.data.port}/csv/upload
+      columns: http://${api.data.host}:${api.data.port}/csv/columns
+      column-values: http://${api.data.host}:${api.data.port}/csv/column-values
+      all-values: http://${api.data.host}:${api.data.port}/csv/all-values

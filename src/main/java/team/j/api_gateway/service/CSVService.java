@@ -22,17 +22,17 @@ public class CSVService {
     private final String uploadUrl;
     private final String columnValuesUrl;
     private final String allValuesUrl;
-    private final String tablePath;
+    private final String datasetPath;
 
     private final HttpService httpService;
     private final TableService tableService;
     private final Object lock;
 
     public CSVService(
-        @Value("${data.server.csv.upload.url}") String uploadUrl,
-        @Value("${data.server.csv.column-values.url}") String columnValuesUrl,
-        @Value("${data.server.csv.all-values.url}") String allValuesUrl,
-        @Value("${registered.data.table.path}") String tablePath,
+        @Value("${api.data.csv.upload}") String uploadUrl,
+        @Value("${api.data.csv.column-values}") String columnValuesUrl,
+        @Value("${api.data.csv.all-values}") String allValuesUrl,
+        @Value("${table.path.dataset}") String datasetPath,
 
         HttpService httpService,
         TableService tableService,
@@ -41,7 +41,7 @@ public class CSVService {
         this.uploadUrl = uploadUrl;
         this.columnValuesUrl = columnValuesUrl;
         this.allValuesUrl = allValuesUrl;
-        this.tablePath = tablePath;
+        this.datasetPath = datasetPath;
 
         this.httpService = httpService;
         this.tableService = tableService;
@@ -51,7 +51,7 @@ public class CSVService {
     public String registerCSV(MultipartFile csv) throws Exception {
         try {
             String datasetInfo = requestUpload(csv);
-            tableService.append(lock, tablePath, new RegisteredDataDTO(RegisteredDataDTO.TYPE_CSV, datasetInfo, null));
+            tableService.append(lock, datasetPath, new RegisteredDataDTO(RegisteredDataDTO.TYPE_CSV, datasetInfo, null));
 
             return datasetInfo;
         } catch (Exception e) {
@@ -61,7 +61,7 @@ public class CSVService {
 
     public Map<String, Object> getColumnValues(String datasetInfo, List<String> columns) throws Exception {
         try {
-            RegisteredDataDTO finded = tableService.find(lock, tablePath, datasetInfo, RegisteredDataDTO.class);
+            RegisteredDataDTO finded = tableService.find(lock, datasetPath, datasetInfo, RegisteredDataDTO.class);
             if (finded == null) {
                 throw new Exception(datasetInfo + "에 해당하는 데이터셋이 없습니다.");
             }
@@ -77,7 +77,7 @@ public class CSVService {
 
     public String getAllvalues(String datasetInfo) {
         try {
-            RegisteredDataDTO finded = tableService.find(lock, tablePath, datasetInfo, RegisteredDataDTO.class);
+            RegisteredDataDTO finded = tableService.find(lock, datasetPath, datasetInfo, RegisteredDataDTO.class);
             if (finded == null) {
                 throw new Exception(datasetInfo + "에 해당하는 데이터셋이 없습니다.");
             }

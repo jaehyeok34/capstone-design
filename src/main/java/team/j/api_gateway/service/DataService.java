@@ -14,7 +14,7 @@ import team.j.api_gateway.dto.RegisteredDataDTO;
 @Service
 public class DataService {
 
-    private final String registeredDataTablePath;
+    private final String datasetPath;
     private final String columnsUrl;
 
     private final ObjectMapper om;
@@ -23,15 +23,15 @@ public class DataService {
     private final Object lock;
 
     public DataService(
-        @Value("${registered.data.table.path}") String registeredDataTablePath,
-        @Value("${data.server.csv.columns.url}") String columnsUrl,
+        @Value("${table.path.dataset}") String datasetPath,
+        @Value("${api.data.csv.columns}") String columnsUrl,
 
         ObjectMapper om, 
         HttpService httpService, 
         TableService tableService,
         @Qualifier("registeredDataTableLock") Object lock
     ) {
-        this.registeredDataTablePath = registeredDataTablePath;
+        this.datasetPath = datasetPath;
         this.columnsUrl = columnsUrl;
 
         this.om = om;
@@ -41,9 +41,9 @@ public class DataService {
     }
 
     public List<RegisteredDataDTO> getRegisteredDatasets() throws Exception {
-        synchronized (registeredDataTablePath) {
+        synchronized (datasetPath) {
             try {
-                List<RegisteredDataDTO> registeredDataList = om.readValue(new File(registeredDataTablePath), new TypeReference<>() {});
+                List<RegisteredDataDTO> registeredDataList = om.readValue(new File(datasetPath), new TypeReference<>() {});
                 return registeredDataList;
             } catch (Exception ignore) {
                 throw new Exception("getRegisteredData() 파일을 읽는 데 실패했습니다.");
@@ -53,7 +53,7 @@ public class DataService {
 
     public List<String> getColumns(String datasetInfo) throws Exception {
         try {
-            RegisteredDataDTO finded = tableService.find(lock, registeredDataTablePath, datasetInfo, RegisteredDataDTO.class);
+            RegisteredDataDTO finded = tableService.find(lock, datasetPath, datasetInfo, RegisteredDataDTO.class);
             if (finded == null) {
                 throw new Exception("getColumns() " + datasetInfo + "에 해당하는 데이터가 없습니다.");
             }
