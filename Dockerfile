@@ -7,6 +7,4 @@ COPY . .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-EXPOSE 1789
-
 CMD [ "python", "app.py" ]
