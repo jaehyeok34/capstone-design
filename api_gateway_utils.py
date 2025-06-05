@@ -1,4 +1,4 @@
-# latest: 06.05.1
+# latest: 06.05.2
 
 import time
 from typing import List, Literal
@@ -30,6 +30,7 @@ port = os.getenv('API_GATEWAY_PORT', '1780')
 event_uri = os.getenv('API_GATEWAY_EVENT_URI', '/event/publish')
 topic_uri = os.getenv('API_GATEWAY_TOPIC_URI', '/topic/subscribe')
 
+api_gateway_url = f'http://{host}:{port}'
 publish_event_url = f'http://{host}:{port}{event_uri}'
 subscribe_topic_url = f'http://{host}:{port}{topic_uri}'
 
@@ -95,7 +96,7 @@ def get_columns(dataset_info: str) -> List[str] | None:
         - dataset_info: 데이터셋의 정보(파일명 등)를 포함하는 문자열
         - return: 데이터셋의 컬럼 정보가 포함된 리스트 혹은 None
     """
-    response = requests.get(url='http://localhost:1780/data/columns/' + dataset_info)
+    response = requests.get(url=api_gateway_url+'/data/columns/'+dataset_info)
     if response.status_code != 200:
         return None
     
@@ -104,7 +105,7 @@ def get_columns(dataset_info: str) -> List[str] | None:
 
 def get_column_values(dataset_info: str, columns: List[str]) -> pd.DataFrame:
     response = requests.post(
-        url='http://localhost:1780/csv/column-values/' + dataset_info,
+        url=api_gateway_url+'/csv/column-values/'+dataset_info,
         json=columns
     )
     if response.status_code == 200:
@@ -114,7 +115,7 @@ def get_column_values(dataset_info: str, columns: List[str]) -> pd.DataFrame:
 
 
 def get_all_values(dataset_info: str) -> pd.DataFrame | None:
-    response = requests.get('http://localhost:1780/csv/all-values/' + dataset_info)
+    response = requests.get(api_gateway_url+'/csv/all-values/'+dataset_info)
     if response.status_code != 200:
         return None
     
@@ -125,4 +126,4 @@ def register_csv(file: str):
     if not os.path.isfile(file):
         raise FileNotFoundError(f"File not found: {file}")
     
-    requests.post('http://localhost:1780/csv/register', files=[('file', open(file, 'rb'))])
+    requests.post(api_gateway_url+'/csv/register', files=[('file', open(file, 'rb'))])
