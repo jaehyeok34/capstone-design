@@ -1,4 +1,4 @@
-# latest: 06.04.3
+# latest: 06.05.1
 
 import time
 from typing import List, Literal
@@ -25,13 +25,13 @@ class TopicDTO:
     use_path_variable: bool
 
 
-HOST = os.getenv('API_GATEWAY_HOST', 'localhost')
-PORT = os.getenv('API_GATEWAY_PORT', '1780')
-EVENT_URI = os.getenv('API_GATEWAY_EVENT_URI', '/event/publish')
-TOPIC_URI = os.getenv('API_GATEWAY_TOPIC_URI', '/topic/subscribe')
+host = os.getenv('API_GATEWAY_HOST', 'localhost')
+port = os.getenv('API_GATEWAY_PORT', '1780')
+event_uri = os.getenv('API_GATEWAY_EVENT_URI', '/event/publish')
+topic_uri = os.getenv('API_GATEWAY_TOPIC_URI', '/topic/subscribe')
 
-publish_event_url = f'http://{HOST}:{PORT}{EVENT_URI}'
-subscribe_topic_url = f'http://{HOST}:{PORT}{TOPIC_URI}'
+publish_event_url = f'http://{host}:{port}{event_uri}'
+subscribe_topic_url = f'http://{host}:{port}{topic_uri}'
 
 
 def publish_event(name: str, path_variable: str, json_data: str = None) -> bool:
@@ -77,9 +77,10 @@ def subscribe_topic(
         try:
             res = requests.post(url=subscribe_topic_url, json=topic.to_dict())
             if res.status_code != 200:
-                raise Exception(f'subscribe_topic() {name} {i + 1}번 째 등록 실패: {res.text}')
-
-            return
+                # message = json.loads(res.text)
+                raise Exception(f"[debug] {i + 1}번 째 구독 실패: {res.text}")
+            
+            return 
         except Exception as e:
             print(f"[debug] {e}")
             time.sleep(interval)

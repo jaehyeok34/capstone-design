@@ -15,8 +15,10 @@ def home():
     
 
 if __name__ == '__main__':
-    port = 1783
-    callback_url = f'http://localhost:{port}/matching-key/generate'
+    host = os.getenv('HOST', '0.0.0.0')
+    port = os.getenv('PORT', 1783)
+    container_name = os.getenv('CONT_NAME', 'matching-key-server')
+    callback_url = f'http://{container_name if host == '0.0.0.0' else host}:{port}/matching-key/generate'
 
     for topic_name in ['matching-key.generate.request', 'pii.detection.success']:
         subscribe_topic(
@@ -29,5 +31,4 @@ if __name__ == '__main__':
             interval=5
         )
 
-    # app.run(port=port, debug=True)
-    app.run(port=port, host='0.0.0.0')
+    app.run(host=host, port=port)
