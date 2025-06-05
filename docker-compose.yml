@@ -1,39 +1,107 @@
 services:
   api-gateway:
-    container_name: api-gateway
+    container_name: ${API_GATEWAY_CONT}
     build:
-      context: ./api-gateway
+      context: ./api-gateway${W}
     ports:
-      - "1780:1780"
+      - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
     environment:
-      - DATA_SERVER_HOST=data-server
-      - DATA_SERVER_PORT=1789
+      - HOST=${HOST}
+      - PORT=${API_GATEWAY_PORT}
+      - DATA_SERVER_HOST=${DATA_SERVER_CONT}
+      - DATA_SERVER_PORT=${DATA_SERVER_PORT}
     networks:
       - backend
-
+#------------------------------------------------------------------
   data-server:
-    container_name: data-server
+    container_name: ${DATA_SERVER_CONT}
     build:
-      context: ./data-server
+      context: ./data-server${W}
     ports:
-      - "1789:1789"
+      - "${DATA_SERVER_PORT}:${DATA_SERVER_PORT}"
+    environment:
+      - HOST=${HOST}
+      - PORT=${DATA_SERVER_PORT}
     networks:
       - backend
-
+#------------------------------------------------------------------
   matching-key-server:
     depends_on:
       - api-gateway
-    container_name: matching-key-server
+    container_name: ${MATCHING_KEY_SERVER_CONT}
     build:
-      context: ./matching-key-server
+      context: ./matching-key-server${W}
     ports:
-      - "1783:1783"
+      - "${MATCHING_KEY_SERVER_PORT}:${MATCHING_KEY_SERVER_PORT}"
     environment:
-      - API_GATEWAY_HOST=api-gateway
-      - API_GATEWAY_PORT=1780
+      - HOST=${HOST}
+      - PORT=${MATCHING_KEY_SERVER_PORT}
+      - CONT_NAME=${MATCHING_KEY_SERVER_CONT}
+      - API_GATEWAY_HOST=${API_GATEWAY_CONT}
+      - API_GATEWAY_PORT=${API_GATEWAY_PORT}
+      - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
+      - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
+    networks:
+      - backend
+#------------------------------------------------------------------
+  matching-server:
+    depends_on:
+      - api-gateway
+    container_name: ${MATCHING_SERVER_CONT}
+    build:
+      context: ./matching-server${W}
+    ports:
+      - "${MATCHING_SERVER_PORT}:${MATCHING_SERVER_PORT}"
+    environment:
+      - HOST=${HOST}
+      - PORT=${MATCHING_SERVER_PORT}
+      - CONT_NAME=${MATCHING_SERVER_CONT}
+      - API_GATEWAY_HOST=${API_GATEWAY_CONT}
+      - API_GATEWAY_PORT=${API_GATEWAY_PORT}
+      - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
+      - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
+    networks:
+      - backend
+#------------------------------------------------------------------
+  pii-detection-server:
+    depends_on:
+      - api-gateway
+    container_name: ${PII_DETECTION_SERVER_CONT}
+    build:
+      context: ./pii-detection-server${W}
+    ports:
+      - "${PII_DETECTION_SERVER_PORT}:${PII_DETECTION_SERVER_PORT}"
+    environment:
+      - HOST=${HOST}
+      - PORT=${PII_DETECTION_SERVER_PORT}
+      - CONT_NAME=${PII_DETECTION_SERVER_CONT}
+      - API_GATEWAY_HOST=${API_GATEWAY_CONT}
+      - API_GATEWAY_PORT=${API_GATEWAY_PORT}
+      - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
+      - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
+    networks:
+      - backend
+#------------------------------------------------------------------
+  pseudonymization-server:
+    depends_on:
+      - api-gateway
+    container_name: ${PSEUDONYMIZATION_SERVER_CONT}
+    build:
+      context: ./pseudonymization-server${W}
+    ports:
+      - "${PSEUDONYMIZATION_SERVER_PORT}:${PSEUDONYMIZATION_SERVER_PORT}"
+    environment:
+      - HOST=${HOST}
+      - PORT=${PSEUDONYMIZATION_SERVER_PORT}
+      - CONT_NAME=${PSEUDONYMIZATION_SERVER_CONT}
+      - API_GATEWAY_HOST=${API_GATEWAY_CONT}
+      - API_GATEWAY_PORT=${API_GATEWAY_PORT}
+      - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
+      - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
     networks:
       - backend
 
+      
 networks:
   backend:
     driver: bridge
