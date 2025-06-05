@@ -14,11 +14,13 @@ def home():
 
 
 if __name__ == '__main__':
-    port = 1785
+    host = os.getenv('HOST', 'localhost')
+    port = os.getenv('PORT', 1785)
     
+    callback_url = f'http://{host}:{port}/matching/match'
     subscribe_topic(
         name='matching.match.request',
-        callback_url=f'http://localhost:{port}/matching/match',
+        callback_url=callback_url,
         method='POST',
         use_path_variable=True,
 
@@ -26,4 +28,4 @@ if __name__ == '__main__':
         interval=5
     )
     
-    app.run(port=port)
+    app.run(host=host, port=port)

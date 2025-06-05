@@ -1,4 +1,4 @@
-# latest: 06.02.2
+# latest: 06.05.1
 
 import time
 from typing import List, Literal
@@ -25,8 +25,13 @@ class TopicDTO:
     use_path_variable: bool
 
 
-publish_event_url = "http://localhost:1780/event/publish"
-subscribe_topic_url = 'http://localhost:1780/topic/subscribe'
+host = os.getenv('API_GATEWAY_HOST', 'localhost')
+port = os.getenv('API_GATEWAY_PORT', '1780')
+event_uri = os.getenv('API_GATEWAY_EVENT_URI', '/event/publish')
+topic_uri = os.getenv('API_GATEWAY_TOPIC_URI', '/topic/subscribe')
+
+publish_event_url = f'http://{host}:{port}{event_uri}'
+subscribe_topic_url = f'http://{host}:{port}{topic_uri}'
 
 
 def publish_event(name: str, path_variable: str, json_data: str = None) -> bool:
@@ -46,42 +51,43 @@ def subscribe_topic(
     count: int = 1, 
     interval: int = 1
 ):
-    try:
-        # 매개변수 검증
-        if (
-            (not name or name.isspace()) or 
-            (not callback_url or callback_url.isspace()) or
-            (not method or method.upper() not in ['GET', 'POST'])
-        ):
-            raise Exception('topic, callback_url, method는 필수입니다.(method는 GET 또는 POST)')
-            
-        # n번의 재시도 과정에서 interval이 0 이하인 경우 default 10초로 설정
-        if (count > 1) and (interval <= 0):
-            interval = 10
+    # 매개변수 검증
+    if (
+        (not name or name.isspace()) or 
+        (not callback_url or callback_url.isspace()) or
+        (not method or method.upper() not in ['GET', 'POST'])
+    ):
+        raise Exception('subscribe_topic() topic, callback_url, method는 필수입니다.(method는 GET 또는 POST)')
+        
+    # n번의 재시도 과정에서 interval이 0 이하인 경우 default 10초로 설정
+    if (count > 1) and (interval <= 0):
+        interval = 10
 
-        # topic 생성
-        topic = TopicDTO(
-            name=name, 
-            url=callback_url, 
-            method=method.upper(), 
-            use_path_variable=use_path_variable
-        )
+    # topic 생성
+    topic = TopicDTO(
+        name=name, 
+        url=callback_url, 
+        method=method.upper(), 
+        use_path_variable=use_path_variable
+    )
 
-        # n번 재시도
-        for i in range(count):
-            # to_json()은 dataclass_json 라이브러리에서 제공하는 메서드(자동으로 camel case로 변환)
+    # n번 재시도
+    for i in range(count):
+        # to_json()은 dataclass_json 라이브러리에서 제공하는 메서드(자동으로 camel case로 변환)
+        try:
             res = requests.post(url=subscribe_topic_url, json=topic.to_dict())
-            if res.status_code == 200:
-                return
-        
-            print(f"[debug]: {name} {i + 1}번 째 등록 실패: {res.text}")
+            if res.status_code != 200:
+                # message = json.loads(res.text)
+                raise Exception(f"[debug] {i + 1}번 째 구독 실패: {res.text}")
+            
+            return 
+        except Exception as e:
+            print(f"[debug] {e}")
             time.sleep(interval)
-
-        raise Exception(f'{name} 구독 실패: {res.text}')
-        
-    except Exception as e:
-        raise Exception(f'subscribe() 실패 {e}') from e
-
+    
+    # n번의 재시도에도 실패한 경우 예외 발생
+    raise Exception(f'subscbie_topic() {name} 구독 실패')
+    
 
 def get_columns(dataset_info: str) -> List[str] | None:
     """ 
