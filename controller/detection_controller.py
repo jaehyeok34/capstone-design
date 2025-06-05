@@ -3,9 +3,9 @@ from typing import List
 from service.detection_service import detect
 
 
-detection_bp = Blueprint('detection', __name__)
+detection_bp = Blueprint('detection', __name__, url_prefix='/pii-detection')
 
-@detection_bp.route('/pii-detection/<string:dataset_info>', methods=['GET'])
+@detection_bp.route('/detect/<string:dataset_info>', methods=['GET'])
 def pii_detection(dataset_info: str):
     try:
         detected: List[str] = detect(dataset_info)
