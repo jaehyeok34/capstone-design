@@ -1,3 +1,8 @@
+.venv/
+.vscode/
+
 api-gateway/
 matching-key-server/
 data-server/
+matching-server/
+pseudonymization-server/

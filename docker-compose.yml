@@ -11,6 +11,15 @@ services:
     networks:
       - backend
 
+  data-server:
+    container_name: data-server
+    build:
+      context: ./data-server
+    ports:
+      - "1789:1789"
+    networks:
+      - backend
+
   matching-key-server:
     depends_on:
       - api-gateway
@@ -21,16 +30,7 @@ services:
       - "1783:1783"
     environment:
       - API_GATEWAY_HOST=api-gateway
-      - DATA_SERVER_PORT=1780
-    networks:
-      - backend
-
-  data-server:
-    container_name: data-server
-    build:
-      context: ./data-server
-    ports:
-      - "1789:1789"
+      - API_GATEWAY_PORT=1780
     networks:
       - backend
 
