@@ -13,11 +13,15 @@ def home():
     return 'Pseudonymization Service', 200
 
 if __name__ == '__main__':
-    port = 1784
+    # port = 1784
+    host = os.getenv('HOST', '0.0.0.0')
+    port = os.getenv('PORT', 1784)
+    container_name = os.getenv('CONT_NAME', 'pseudonymization-server')
+    callback_url = f'http://{container_name if host == "0.0.0.0" else host}:{port}/pseudonymization/pseudonymize'
 
     subscribe_topic(
         name='pseudonymization.pseudonymize.request',
-        callback_url=f'http://localhost:{port}/pseudonymization/pseudonymize',
+        callback_url=callback_url,
         method='GET',
         use_path_variable=True,
 
@@ -25,4 +29,4 @@ if __name__ == '__main__':
         interval=5
     )
     
-    app.run(port=port)
+    app.run(host=host, port=port)
