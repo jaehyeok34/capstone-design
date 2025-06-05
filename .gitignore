@@ -2,3 +2,5 @@
 .vscod/
 
 *-worktree/
+
+.env/
