@@ -16,3 +16,9 @@ rf:
 		git worktree remove --force $$branch-worktree; \
 		git branch -d $$branch; \
 	done
+
+u:
+	docker-compose up -d --build
+
+d:
+	docker-compose down
