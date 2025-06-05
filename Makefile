@@ -4,6 +4,7 @@ add:
 	git worktree add -f data-server/ origin/data-server
 	git worktree add -f matching-server/ origin/matching-server  
 	git worktree add -f pseudonymization-server/ origin/pseudonymization-server
+	git worktree add -f pii-detection-server/ origin/pii-detection-server 
 
 rm:
 	git worktree remove $(CURDIR)/api-gateway
@@ -11,6 +12,7 @@ rm:
 	git worktree remove $(CURDIR)/data-server
 	git worktree remove $(CURDIR)/matching-server
 	git worktree remove $(CURDIR)/pseudonymization-server
+	git worktree remove $(CURDIR)/pii-detection-server
 	
 rf:
 	git worktree remove --force $(CURDIR)/api-gateway
@@ -18,3 +20,4 @@ rf:
 	git worktree remove --force $(CURDIR)/data-server
 	git worktree remove --force $(CURDIR)/matching-server
 	git worktree remove --force $(CURDIR)/pseudonymization-server
+	git worktree remove --force $(CURDIR)/pii-detection-server
