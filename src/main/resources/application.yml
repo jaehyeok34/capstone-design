@@ -17,8 +17,8 @@ table:
 #----------------------------------------------------------------------
 api:
   data:
-    host: ${DATA_HOST:localhost}
-    port: ${DATA_PORT:1789}
+    host: ${DATA_SERVER_HOST:localhost}
+    port: ${DATA_SERVER_PORT:1789}
     csv:
       upload: http://${api.data.host}:${api.data.port}/csv/upload
       columns: http://${api.data.host}:${api.data.port}/csv/columns
