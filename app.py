@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from api_gateway_utils import subscribe_topic
 from controller.detection_controller import detection_bp
@@ -11,8 +12,10 @@ def home():
 
     
 if __name__ == '__main__':
-    port = 1782
-    callback_url = f'http://localhost:{port}/pii-detection'
+    host = os.getenv('HOST', '0.0.0.0')
+    port = os.getenv('PORT', 1782)
+    container_name = os.getenv('CONT_NAME', 'pii-detection-server')
+    callback_url = f'http://{container_name if host == '0.0.0.0' else host}:{port}/pii-detection/detect'
 
     subscribe_topic(
         name='pii.detection.request', 
@@ -24,5 +27,4 @@ if __name__ == '__main__':
         interval=5
     )
     
-    # app.run(port=port, debug=True)
-    app.run(port=port, host='0.0.0.0')
+    app.run(host=host, port=port)
