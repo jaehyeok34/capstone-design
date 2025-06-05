@@ -14,10 +14,11 @@ def home():
 
 
 if __name__ == '__main__':
-    host = os.getenv('HOST', 'localhost')
+    host = os.getenv('HOST', '0.0.0.0')
     port = os.getenv('PORT', 1785)
+    container_name = os.getenv('CONT_NAME', 'matching-server')
     
-    callback_url = f'http://{host}:{port}/matching/match'
+    callback_url = f'http://{container_name if host == '0.0.0.0' else host}:{port}/matching/match'
     subscribe_topic(
         name='matching.match.request',
         callback_url=callback_url,
