@@ -1,6 +1,6 @@
 FROM python:3.13.3
 
-WORKDIR /server/data
+WORKDIR /data_server
 
 COPY . .
 

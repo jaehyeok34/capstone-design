@@ -14,8 +14,7 @@ def home():
     return "data-server"
 
 if __name__ == '__main__':
-    port = 1789
+    host = os.getenv('HOST', '0.0.0.0')
+    port = os.getenv('PORT', 1789)
 
-    # app.run(port=port, debug=True)
-    # app.run(port=port)
-    app.run(host='0.0.0.0', port=port)
+    app.run(host=host, port=port)
