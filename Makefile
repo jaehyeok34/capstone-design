@@ -1,10 +1,10 @@
 add:
-	git worktree add -f api-gateway/ origin/api-gateway
-	git worktree add -f matching-key-server/ origin/matching-key-server
-	git worktree add -f data-server/ origin/data-server
-	git worktree add -f matching-server/ origin/matching-server  
-	git worktree add -f pseudonymization-server/ origin/pseudonymization-server
-	git worktree add -f pii-detection-server/ origin/pii-detection-server 
+	git worktree add -b api-f api-gateway/ origin/api-gateway
+	git worktree add -b -f matching-key-server/ origin/matching-key-server
+	git worktree add -b -f data-server/ origin/data-server
+	git worktree add -b -f matching-server/ origin/matching-server  
+	git worktree add -b -f pseudonymization-server/ origin/pseudonymization-server
+	git worktree add -b -f pii-detection-server/ origin/pii-detection-server 
 
 rm:
 	git worktree remove $(CURDIR)/api-gateway
