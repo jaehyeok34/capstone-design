@@ -40,15 +40,7 @@ def insert_term(term: str, standard_term: str):
         conn.close()
 
 def insert_new_term_if_high_similarity(new_term: str, matched_entry: dict):
-    """
-    high similarity 기준으로 term과 standard_term 삽입
-    matched_entry = {
-        'standard_term': '이름',
-        'synonym_group_id': 2,
-        'category': '식별정보',
-        'is_sensitive': 1
-    }
-    """
+
     insert_standard_term(
         matched_entry['standard_term'],
         matched_entry['synonym_group_id'],

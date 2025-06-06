@@ -64,6 +64,8 @@ def main(input_folder):
     for item in outputD:
         print(item)
 
+    
+
     # [3] 카디널리티 기반 판단
     print("\n카디널리티 기반 식별정보 판단")
 
@@ -105,6 +107,8 @@ def main(input_folder):
     print("\n=== 최종 식별정보 컬럼 결과 ===")
     for file, cols in identified_columns.items():
         print(f"[{file}] → 식별정보 컬럼: {cols}")
+
+    
 
 if __name__ == "__main__":
     main(INPUT_FOLDER)
