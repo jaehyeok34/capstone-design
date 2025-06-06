@@ -28,7 +28,7 @@ def detect(dataset_info: str) -> List[str]:
         publish_event(
             name='pii.detection.success',
             path_variable=dataset_info,
-            json_data=json.dumps(result)
+            json_data=json.dumps([x[0] for x in result])
         )
 
         return result
