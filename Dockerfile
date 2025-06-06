@@ -1,6 +1,6 @@
 FROM python:3.13.3
 
-WORKDIR /pii_detection
+WORKDIR /pii_detection_server
 
 COPY . .
 

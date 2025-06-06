@@ -134,6 +134,5 @@ def get_cardinality_ratio(dataset_info: str, column: str) -> float:
     if response.status_code != 200:
         return None
     
-    print("테스트임돠", response.text)
     
     return float(response.json())

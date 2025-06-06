@@ -29,7 +29,6 @@ def embedding_model(columns: List[Tuple[str, str]]):
 
         matched_domain = next((x for x in domain if x['standard_term'] == best_std_term))
         new_term = normalized[i]
-        print('새롭게 추가하는 용어:', new_term)
         
         pii.append(columns[i])  
         insert_new_term(new_term, matched_domain)

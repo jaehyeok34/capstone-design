@@ -15,17 +15,14 @@ def detect(dataset_info: str) -> List[str]:
         # 도메인 사전
         pii, non_pii = domain_dict(columns)
         result.extend(pii)
-        # print('도메인 사전 분류 결과:', pii, non_pii)
 
         # 임베딩 모델
         pii, non_pii = embedding_model(non_pii)
         result.extend(pii)
-        # print('임베딩 모델 분류 결과:', pii, non_pii)
 
         # 카디널리티 비율
         pii, non_pii = cardinality_ratio(dataset_info, non_pii)
         result.extend(pii)
-        print('카디널리티 비율 분류 결과:', pii, non_pii)
 
         return result
 
