@@ -115,6 +115,9 @@ services:
       - API_GATEWAY_PORT=${API_GATEWAY_PORT}
       - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
       - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
+      - SBERT_MODEL_PATH=/model
+    volumes:
+      - ./model:/model
     networks:
       - backend
 
