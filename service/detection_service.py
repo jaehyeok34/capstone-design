@@ -1,7 +1,7 @@
-import random
 from typing import List
-from flask import json
-from api_gateway_utils import get_columns, publish_event
+from api_gateway_utils import get_columns
+from service.domain_dict import domain_dict
+from service.embedding_model import embedding_model
 
 
 def detect(dataset_info: str) -> List[str]:
@@ -10,18 +10,13 @@ def detect(dataset_info: str) -> List[str]:
         if not columns:
             raise Exception('컬럼명이 비어있습니다. 데이터셋 정보를 확인해주세요.')
         
-        # 임시 구현: 랜덤하게 컬럼명 중 일부를 식별정보로 간주
-        # detected = random.sample(columns, k=random.randint(1, len(columns)))
-        detected = ['name', 'ssn', 'phone_number']
+        # 도메인 사전
+        pii, non_pii = domain_dict(columns)
 
-        # api gateway에 event 전송 코드 구현해야 됨
-        publish_event(
-            name='pii.detection.success',
-            path_variable=dataset_info,
-            json_data=json.dumps(detected),
-        )
-        
-        return detected
+        # 임베딩 모델
+        # pii, non_pii = embedding_model(non_pii)
+
+        return pii, non_pii
 
     except Exception as e:
         # 실패 시, 실패 event 발행 해야됨

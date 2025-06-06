@@ -1,0 +1,37 @@
+# import random
+# from typing import List
+# from flask import json
+# from api_gateway_utils import get_columns, publish_event
+
+
+# def detect(dataset_info: str) -> List[str]:
+#     try:
+#         columns = __get_columns(dataset_info)
+#         if not columns:
+#             raise Exception('컬럼명이 비어있습니다. 데이터셋 정보를 확인해주세요.')
+        
+#         # 임시 구현: 랜덤하게 컬럼명 중 일부를 식별정보로 간주
+#         # detected = random.sample(columns, k=random.randint(1, len(columns)))
+#         detected = ['name', 'ssn', 'phone_number']
+
+#         # api gateway에 event 전송 코드 구현해야 됨
+#         publish_event(
+#             name='pii.detection.success',
+#             path_variable=dataset_info,
+#             json_data=json.dumps(detected),
+#         )
+        
+#         return detected
+
+#     except Exception as e:
+#         # 실패 시, 실패 event 발행 해야됨
+#         raise Exception('detect() 실패:', e)
+
+
+# def __get_columns(dataset_info: str) -> List[str]:
+#     try:
+#         columns:List[str] = get_columns(dataset_info)
+#         return columns
+
+#     except Exception as e:
+#         raise Exception('__get_columns() 실패:', str(e))
