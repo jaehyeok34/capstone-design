@@ -35,19 +35,18 @@ def close_db(exception):
     
 if __name__ == '__main__':
     host = os.getenv('HOST', '0.0.0.0')
-    # port = os.getenv('PORT', 1782)
-    port = os.getenv('PORT', 1234)
+    port = os.getenv('PORT', 1782)
     container_name = os.getenv('CONT_NAME', 'pii-detection-server')
     callback_url = f'http://{container_name if host == '0.0.0.0' else host}:{port}/pii-detection/detect'
 
-    # subscribe_topic(
-    #     name='pii.detection.request', 
-    #     callback_url=callback_url, 
-    #     method='GET',
-    #     use_path_variable=True,
+    subscribe_topic(
+        name='pii.detection.request', 
+        callback_url=callback_url, 
+        method='GET',
+        use_path_variable=True,
 
-    #     count=3, 
-    #     interval=5
-    # )
+        count=3, 
+        interval=5
+    )
     
     app.run(host=host, port=port)
