@@ -1,5 +1,6 @@
+import json
 from typing import List
-from api_gateway_utils import get_columns
+from api_gateway_utils import get_columns, publish_event
 from service.cardinality_ratio import cardinality_ratio
 from service.domain_dict import domain_dict
 from service.embedding_model import embedding_model
@@ -23,6 +24,12 @@ def detect(dataset_info: str) -> List[str]:
         # 카디널리티 비율
         pii, non_pii = cardinality_ratio(dataset_info, non_pii)
         result.extend(pii)
+
+        publish_event(
+            name='pii.detection.success',
+            path_variable=dataset_info,
+            json_data=json.dumps(result)
+        )
 
         return result
 
