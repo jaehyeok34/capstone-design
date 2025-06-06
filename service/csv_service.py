@@ -55,7 +55,7 @@ def get_all_values(dataset_info: str) -> Dict:
         raise Exception(f'get_all_values() 실패: {e}')
     
 
-def get_cardinality(dataset_info: str, column: str) -> Dict:
+def get_cardinality_ratio(dataset_info: str, column: str) -> float:
     try:
         file_path = __get_file(dataset_info)
         df = pd.read_csv(file_path)
@@ -66,7 +66,7 @@ def get_cardinality(dataset_info: str, column: str) -> Dict:
         cardinality = int(df[column].nunique())
         record = int(df[column].count())
 
-        return {'cardinality': cardinality, 'record': record}
+        return cardinality / record if cardinality > 0 else 0.0
     except Exception as e:
         raise Exception(f'get_cardinality() 실패: {e}')
 

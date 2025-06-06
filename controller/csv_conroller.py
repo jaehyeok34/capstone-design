@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from service.csv_service import get_all_values, get_cardinality, get_column_values, get_columns, save_file
+from service.csv_service import get_all_values, get_cardinality_ratio, get_column_values, get_columns, save_file
 
 csv_bp = Blueprint('csv', __name__, url_prefix='/csv')
 
@@ -51,11 +51,11 @@ def all_values(dataset_info: str):
         return f'{request.path}: {e}', 400
 
 
-@csv_bp.route('/cardinality/<string:dataset_info>/<string:column>', methods=['GET'])
-def cardinality(dataset_info: str, column: str):
+@csv_bp.route('/cardinality-ratio/<string:dataset_info>/<string:column>', methods=['GET'])
+def cardinality_ratio(dataset_info: str, column: str):
     try:
-        cardinality_data = get_cardinality(dataset_info, column)
-        return jsonify(cardinality_data), 200
+        cardinality_ratio = get_cardinality_ratio(dataset_info, column)
+        return jsonify(cardinality_ratio), 200
 
     except Exception as e:
         print(e)
