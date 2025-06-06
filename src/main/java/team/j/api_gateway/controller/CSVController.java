@@ -85,15 +85,15 @@ public class CSVController {
     }
 
     
-    @GetMapping("/cardinality/{datasetInfo}/{column}")
+    @GetMapping("/cardinality-ratio/{datasetInfo}/{column}")
     public ResponseEntity<String> getMethodName(
         @PathVariable String datasetInfo,
         @PathVariable String column,
         HttpServletRequest request
     ) {
         try {
-            String cardinality = service.getCardinality(datasetInfo, column);
-            return ResponseEntity.ok(cardinality);
+            String cardinalityRatio = service.getCardinalityRatio(datasetInfo, column);
+            return ResponseEntity.ok(cardinalityRatio);
         } catch (Exception e) {
             return ResponseEntity
                 .badRequest()

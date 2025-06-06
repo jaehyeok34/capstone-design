@@ -136,7 +136,7 @@ public class CSVService {
         }
     }
 
-    public String getCardinality(String datasetInfo, String column) {
+    public String getCardinalityRatio(String datasetInfo, String column) {
         String url = cardinalityUrl + "/" + datasetInfo + "/" + column;
         try{
             String response = httpService.get(url);
