@@ -37,7 +37,8 @@ if __name__ == '__main__':
     host = os.getenv('HOST', '0.0.0.0')
     port = os.getenv('PORT', 1782)
     container_name = os.getenv('CONT_NAME', 'pii-detection-server')
-    callback_url = f'http://{container_name if host == '0.0.0.0' else host}:{port}/pii-detection/detect'
+    callback_url = f'http://{container_name}:{port}/pii-detection/detect'
+    # callback_url = f'http://localhost:{port}/pii-detection/detect'
 
     subscribe_topic(
         name='pii.detection.request', 
