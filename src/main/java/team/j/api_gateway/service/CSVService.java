@@ -52,7 +52,6 @@ public class CSVService {
     }
 
     public String registerCSV(MultipartFile csv) throws Exception {
-        System.out.println("테스트입니다." + uploadUrl);
         try {
             String datasetInfo = requestUpload(csv);
             tableService.append(lock, datasetPath, new RegisteredDataDTO(RegisteredDataDTO.TYPE_CSV, datasetInfo, null));

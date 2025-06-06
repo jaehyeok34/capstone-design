@@ -93,7 +93,6 @@ public class CSVController {
     ) {
         try {
             String cardinalityRatio = service.getCardinalityRatio(datasetInfo, column);
-            System.out.println("테스트: " + cardinalityRatio);
             return ResponseEntity.ok(cardinalityRatio);
         } catch (Exception e) {
             return ResponseEntity
