@@ -25,10 +25,12 @@ def detect(dataset_info: str) -> List[str]:
         pii, non_pii = cardinality_ratio(dataset_info, non_pii)
         result.extend(pii)
 
+        data = sorted([x[0] for x in result])
+        print('detect() 결과:', data)
         publish_event(
             name='pii.detection.success',
             path_variable=dataset_info,
-            json_data=json.dumps([x[0] for x in result])
+            json_data=json.dumps(data)
         )
 
         return result
