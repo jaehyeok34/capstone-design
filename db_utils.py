@@ -1,11 +1,12 @@
 import pymysql
-from typing import List, Tuple, Optional
+from typing import List, Optional
 
 # MySQL 접속 설정
 DB_CONFIG = {
     "host": "localhost",
     "user": "root",
-    "password": "IUlove!3545!",
+    # "password": "IUlove!3545!",
+    "password": "0000",
     "database": "term_db",
     "charset": "utf8mb4",
     "cursorclass": pymysql.cursors.DictCursor
