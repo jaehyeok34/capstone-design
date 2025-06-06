@@ -1,7 +1,7 @@
-# latest: 06.05.2
+# latest: 06.06.1
 
 import time
-from typing import List, Literal
+from typing import Dict, List, Literal
 import pandas as pd
 import requests
 from dataclasses import dataclass
@@ -127,3 +127,12 @@ def register_csv(file: str):
         raise FileNotFoundError(f"File not found: {file}")
     
     requests.post(api_gateway_url+'/csv/register', files=[('file', open(file, 'rb'))])
+
+
+def get_cardinality_ratio(dataset_info: str, column: str) -> float:
+    response = requests.get(api_gateway_url+'/csv/cardinality-ratio/'+dataset_info+'/'+column)
+    if response.status_code != 200:
+        print("?")
+        return None
+    
+    return float(response.json())

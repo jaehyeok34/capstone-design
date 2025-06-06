@@ -1,62 +1,42 @@
 from typing import List, Tuple
 from flask import current_app
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, util
+from service.db_utils import get_domain, insert_new_term
+
+
+def embedding_model(columns: List[Tuple[str, str]]):
+    pii, non_pii = [], []
+    model = __load_sbert_model(current_app.config['SBERT_MODEL_PATH'])
+
+    domain = get_domain()
+    
+    normalized = [normalized for _, normalized in columns]
+    standard_terms = list({x['standard_term'] for x in domain})
+
+    input_embeddings = model.encode(normalized, convert_to_tensor=True)
+    std_embeddings = model.encode(standard_terms, convert_to_tensor=True)
+
+    for i, input in enumerate(input_embeddings):
+        similarities = util.cos_sim(input, std_embeddings)[0] # cos_sim이 이중 배열로 반환함 [[결과]]
+        best_idx = int(similarities.argmax())
+        best_socre = float(similarities[best_idx])
+        best_std_term = standard_terms[best_idx]
+
+        threshold = float(current_app.config['THRESHOLD'])
+        if best_socre < threshold:
+            non_pii.append(columns[i])
+            continue
+
+        matched_domain = next((x for x in domain if x['standard_term'] == best_std_term))
+        new_term = normalized[i]
+        print('새롭게 추가하는 용어:', new_term)
+        
+        pii.append(columns[i])  
+        insert_new_term(new_term, matched_domain)
+
+    return pii, non_pii
 
 
 def __load_sbert_model(model_path: str) -> SentenceTransformer:
     """SBERT 모델 로드"""
     return SentenceTransformer(model_path)
-
-
-def embedding_model(columns: List[Tuple[str, str]]):
-    model = __load_sbert_model(current_app.config['SBERT_MODEL_PATH'])
-
-    pass
-
-# def find_similar_terms(
-#     input_terms: List[str],
-#     domain_entries: List[Dict],
-#     model: SentenceTransformer,
-#     threshold: float = THRESHOLD
-# ) -> Tuple[List[Dict], List[str]]:
-#     """
-#     입력된 term에 대해 도메인 사전과의 유사도를 측정하여
-#     기준치 이상인 경우 outputC, 미달인 경우 outputD에 분류
-#     """
-
-#     outputC = []  # 유사도 통과 항목
-#     outputD = []  # 미통과 항목
-
-#     # 입력 및 표준 용어 임베딩
-#     input_embeddings = model.encode(input_terms, convert_to_tensor=True)
-#     std_terms = list({entry["standard_term"] for entry in domain_entries})
-#     std_embeddings = model.encode(std_terms, convert_to_tensor=True)
-
-#     for i, input_term in enumerate(input_terms):
-#         similarities = util.cos_sim(input_embeddings[i], std_embeddings)[0]
-#         best_idx = int(similarities.argmax())
-#         best_score = float(similarities[best_idx])
-#         best_std_term = std_terms[best_idx]
-
-#         if best_score >= threshold:
-#             # 유사한 standard_term에 대응되는 메타데이터 검색
-#             matched_entry = next(
-#                 (entry for entry in domain_entries if entry["standard_term"] == best_std_term),
-#                 None
-#             )
-#             if matched_entry:
-#                 result = {
-#                     "term": input_term,
-#                     "standard_term": best_std_term,
-#                     "similarity": round(best_score, 4),
-#                     "category": matched_entry.get("category", "N/A"),
-#                     "is_sensitive": matched_entry.get("is_sensitive", 0),
-#                     "synonym_group_id": matched_entry.get("synonym_group_id", -1)
-#                 }
-#                 outputC.append(result)
-
-#                 insert_new_term_if_high_similarity(input_term, matched_entry)
-#         else:
-#             outputD.append(input_term)
-
-#     return outputC, outputD

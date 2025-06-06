@@ -17,6 +17,7 @@ app.config['DB_CONFIG'] = {
     "cursorclass": pymysql.cursors.DictCursor
 }
 app.config['SBERT_MODEL_PATH'] = os.getenv('SBERT_MODEL_PATH', 'model/sbert_domain_model/')
+app.config['THRESHOLD'] = os.getenv('THRESHOLD', 0.84)
 app.register_blueprint(detection_bp)
 
 @app.route('/')
@@ -28,7 +29,6 @@ def home():
 def close_db(exception):
     db = g.pop('db', None)
     if db is not None:
-        print("디비 종료할게") 
         db.close()
 
     
@@ -39,14 +39,14 @@ if __name__ == '__main__':
     container_name = os.getenv('CONT_NAME', 'pii-detection-server')
     callback_url = f'http://{container_name if host == '0.0.0.0' else host}:{port}/pii-detection/detect'
 
-    subscribe_topic(
-        name='pii.detection.request', 
-        callback_url=callback_url, 
-        method='GET',
-        use_path_variable=True,
+    # subscribe_topic(
+    #     name='pii.detection.request', 
+    #     callback_url=callback_url, 
+    #     method='GET',
+    #     use_path_variable=True,
 
-        count=3, 
-        interval=5
-    )
+    #     count=3, 
+    #     interval=5
+    # )
     
     app.run(host=host, port=port)

@@ -5,10 +5,9 @@ from service.db_utils import get_metadata, get_standard_term
 
 def domain_dict(columns: List[str]) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
     # [(원본, 표준화), (원본, 표준화), ...]
-    pii: List[Tuple] = []
-    non_pii: List[Tuple] = []
-    
+    pii, non_pii  = [], []
     normalized = __normalization(columns)
+    
     for i, col in enumerate(normalized):
         std_term = get_standard_term(col) # ex: 주거지 -> 주소
         if not std_term:
