@@ -1,13 +1,16 @@
 services:
   mysql:
     image: mysql:8.4
+    container_name: mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
     volumes:
       - ./term_db.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "${DB_PORT}:${DB_PORT}"
+      - "${DB_PORT}:3306"
+    networks:
+      - backend
 #------------------------------------------------------------------
   api-gateway:
     container_name: ${API_GATEWAY_CONT}
@@ -75,7 +78,7 @@ services:
 #------------------------------------------------------------------
   pii-detection-server:
     depends_on:
-      - ${API_GATEWAY_CONT}
+      - api-gateway
       - mysql
     container_name: ${PII_DETECTION_SERVER_CONT}
     build:
@@ -90,12 +93,15 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
-      - THRESHOLD=
+      - THRESHOLD=${THRESHOLD}
       - CONT_NAME=${PII_DETECTION_SERVER_CONT}
       - API_GATEWAY_HOST=${API_GATEWAY_CONT}
       - API_GATEWAY_PORT=${API_GATEWAY_PORT}
       - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
       - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
+      - SBERT_MODEL_PATH=/model/sbert_domain_model
+    volumes:
+      - ./model:/model
     networks:
       - backend
 #------------------------------------------------------------------
@@ -115,9 +121,6 @@ services:
       - API_GATEWAY_PORT=${API_GATEWAY_PORT}
       - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
       - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
-      - SBERT_MODEL_PATH=/model
-    volumes:
-      - ./model:/model
     networks:
       - backend
 
