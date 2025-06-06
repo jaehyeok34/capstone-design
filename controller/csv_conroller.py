@@ -58,5 +58,4 @@ def cardinality_ratio(dataset_info: str, column: str):
         return jsonify(cardinality_ratio), 200
 
     except Exception as e:
-        print(e)
         return f'{request.path}: {e}', 400
