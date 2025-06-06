@@ -51,7 +51,7 @@ def all_values(dataset_info: str):
         return f'{request.path}: {e}', 400
 
 
-@csv_bp.route('/<string:dataset_info>/<string:column>/cardinality', methods=['GET'])
+@csv_bp.route('/cardinality/<string:dataset_info>/<string:column>', methods=['GET'])
 def cardinality(dataset_info: str, column: str):
     try:
         cardinality_data = get_cardinality(dataset_info, column)

@@ -15,6 +15,6 @@ def home():
 
 if __name__ == '__main__':
     host = os.getenv('HOST', '0.0.0.0')
-    port = os.getenv('PORT', 1789)
+    port = os.getenv('PORT', 1781)
 
     app.run(host=host, port=port)
