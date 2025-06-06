@@ -1,4 +1,14 @@
 services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+    volumes:
+      - ./term_db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "${DB_PORT}:${DB_PORT}"
+#------------------------------------------------------------------
   api-gateway:
     container_name: ${API_GATEWAY_CONT}
     build:
@@ -65,7 +75,8 @@ services:
 #------------------------------------------------------------------
   pii-detection-server:
     depends_on:
-      - api-gateway
+      - ${API_GATEWAY_CONT}
+      - mysql
     container_name: ${PII_DETECTION_SERVER_CONT}
     build:
       context: ./pii-detection-server${W}
@@ -74,6 +85,12 @@ services:
     environment:
       - HOST=${HOST}
       - PORT=${PII_DETECTION_SERVER_PORT}
+      - DB_HOST=mysql
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - THRESHOLD=
       - CONT_NAME=${PII_DETECTION_SERVER_CONT}
       - API_GATEWAY_HOST=${API_GATEWAY_CONT}
       - API_GATEWAY_PORT=${API_GATEWAY_PORT}
