@@ -60,12 +60,11 @@ def process_columns(columns_info: List[Dict[str, str]]) -> Tuple[List[Dict], Lis
             if metadata:
                 outputA.append({
                     "filename": filename,
-                    "original_column": original_col,
-                    "cleaned_column": cleaned_col,
-                    "standard_term": std_term,
+                    "original_column": original_col, # 주_거지
+                    "cleaned_column": cleaned_col, # 주거지
+                    "standard_term": std_term, # 주소
                     "category": metadata.get("category"),
                     "is_sensitive": metadata.get("is_sensitive"),
-                    "language": metadata.get("language")
                 })
             else:
                 outputB.append({"filename": filename, "column": original_col, "cleaned_column": cleaned_col})

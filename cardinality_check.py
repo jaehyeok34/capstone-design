@@ -48,7 +48,11 @@ def analyze_dataframe(df, min_ratio=0.95, join_rate=None):
 
     for column in df.columns:
         series = df[column]
-        if is_potential_identifier(series, min_ratio=min_ratio):
+        print(df.columns)
+        print(f"#########{column}############") 
+        print(series)
+        result = is_potential_identifier(series, min_ratio=min_ratio)
+        if result:
             identifier_columns.append(column)
 
     return identifier_columns

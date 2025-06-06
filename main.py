@@ -13,6 +13,7 @@ THRESHOLD = 0.84
 def main(input_folder):
     print(" 표준화 및 도메인 사전 검색 ")
     columns_info = extract_columns_from_folder(input_folder)
+    print(columns_info)
     outputA, outputB = process_columns(columns_info)
 
     print(f"추출된 컬럼명: {len(columns_info)}개")
