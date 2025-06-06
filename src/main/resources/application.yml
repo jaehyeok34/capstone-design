@@ -24,3 +24,4 @@ api:
       columns: http://${api.data.host}:${api.data.port}/csv/columns
       column-values: http://${api.data.host}:${api.data.port}/csv/column-values
       all-values: http://${api.data.host}:${api.data.port}/csv/all-values
+      cardinality: http://${api.data.host}:${api.data.port}/csv/cardinality

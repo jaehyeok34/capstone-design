@@ -22,6 +22,7 @@ public class CSVService {
     private final String uploadUrl;
     private final String columnValuesUrl;
     private final String allValuesUrl;
+    private final String cardinalityUrl;
     private final String datasetPath;
 
     private final HttpService httpService;
@@ -32,6 +33,7 @@ public class CSVService {
         @Value("${api.data.csv.upload}") String uploadUrl,
         @Value("${api.data.csv.column-values}") String columnValuesUrl,
         @Value("${api.data.csv.all-values}") String allValuesUrl,
+        @Value("${api.data.csv.cardinality}") String cardinalityUrl,
         @Value("${table.path.dataset}") String datasetPath,
 
         HttpService httpService,
@@ -41,6 +43,7 @@ public class CSVService {
         this.uploadUrl = uploadUrl;
         this.columnValuesUrl = columnValuesUrl;
         this.allValuesUrl = allValuesUrl;
+        this.cardinalityUrl = cardinalityUrl;
         this.datasetPath = datasetPath;
 
         this.httpService = httpService;
@@ -130,6 +133,16 @@ public class CSVService {
             return response;
         } catch (Exception e) {
             throw new Exception("requestAllValues() CSV 전체 데이터 요청 실패: " + e.getMessage());
+        }
+    }
+
+    public String getCardinality(String datasetInfo, String column) {
+        String url = cardinalityUrl + "/" + datasetInfo + "/" + column;
+        try{
+            String response = httpService.get(url);
+            return response;
+        } catch (Exception e) {
+            throw new RuntimeException("getCardinality(): CSV 컬럼의 카디널리티 조회 실패: " + e.getMessage());
         }
     }
 }

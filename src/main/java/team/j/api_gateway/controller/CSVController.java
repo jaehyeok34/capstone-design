@@ -83,4 +83,22 @@ public class CSVController {
                 .body(request.getRequestURI() + ": " + e.getMessage());
         }
     }
+
+    
+    @GetMapping("/cardinality/{datasetInfo}/{column}")
+    public ResponseEntity<String> getMethodName(
+        @PathVariable String datasetInfo,
+        @PathVariable String column,
+        HttpServletRequest request
+    ) {
+        try {
+            String cardinality = service.getCardinality(datasetInfo, column);
+            return ResponseEntity.ok(cardinality);
+        } catch (Exception e) {
+            return ResponseEntity
+                .badRequest()
+                .body(request.getRequestURI() + ": " + e.getMessage());
+        }
+    }
+    
 }
