@@ -132,7 +132,8 @@ def register_csv(file: str):
 def get_cardinality_ratio(dataset_info: str, column: str) -> float:
     response = requests.get(api_gateway_url+'/csv/cardinality-ratio/'+dataset_info+'/'+column)
     if response.status_code != 200:
-        print("?")
         return None
+    
+    print("테스트임돠", response.text)
     
     return float(response.json())
