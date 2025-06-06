@@ -1,9 +1,9 @@
 from flask import Blueprint, jsonify, request
-from service.csv_service import get_all_values, get_column_values, get_columns, save_file
+from service.csv_service import get_all_values, get_cardinality, get_column_values, get_columns, save_file
 
-csv_controller = Blueprint('csv_controller', __name__, url_prefix='/csv')
+csv_bp = Blueprint('csv', __name__, url_prefix='/csv')
 
-@csv_controller.route('/upload', methods=['POST'])
+@csv_bp.route('/upload', methods=['POST'])
 def upload():
     try:
         if 'file' not in request.files:
@@ -19,7 +19,7 @@ def upload():
         return f'{request.path}: {e}', 400
     
 
-@csv_controller.route('/columns/<string:dataset_info>', methods=['GET'])
+@csv_bp.route('/columns/<string:dataset_info>', methods=['GET'])
 def columns(dataset_info: str):
     try:
         columns = get_columns(dataset_info)
@@ -29,7 +29,7 @@ def columns(dataset_info: str):
         return f'{request.path}: {e}', 400
     
 
-@csv_controller.route('/column-values/<string:dataset_info>', methods=['POST'])
+@csv_bp.route('/column-values/<string:dataset_info>', methods=['POST'])
 def column_values(dataset_info: str):
     try:
         data = request.get_json()
@@ -42,10 +42,21 @@ def column_values(dataset_info: str):
         return f'{request.path}: {e}', 400
     
 
-@csv_controller.route('/all-values/<string:dataset_info>', methods=['GET'])
+@csv_bp.route('/all-values/<string:dataset_info>', methods=['GET'])
 def all_values(dataset_info: str):
     try:
         all_data = get_all_values(dataset_info)
         return jsonify(all_data), 200        
     except Exception as e:
+        return f'{request.path}: {e}', 400
+
+
+@csv_bp.route('/<string:dataset_info>/<string:column>/cardinality', methods=['GET'])
+def cardinality(dataset_info: str, column: str):
+    try:
+        cardinality_data = get_cardinality(dataset_info, column)
+        return jsonify(cardinality_data), 200
+
+    except Exception as e:
+        print(e)
         return f'{request.path}: {e}', 400

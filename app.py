@@ -1,12 +1,12 @@
 from flask import Flask
 import os
-from controller.csv_conroller import csv_controller
+from controller.csv_conroller import csv_bp
 
 
 app = Flask(__name__)
 app.config['DATA_DIR'] = os.path.join(os.path.dirname(__file__), 'data')
 os.makedirs(app.config['DATA_DIR'], exist_ok=True)
-app.register_blueprint(csv_controller)
+app.register_blueprint(csv_bp)
 
 
 @app.route('/')

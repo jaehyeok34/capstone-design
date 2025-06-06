@@ -53,6 +53,22 @@ def get_all_values(dataset_info: str) -> Dict:
         return df.to_dict()
     except Exception as e:
         raise Exception(f'get_all_values() 실패: {e}')
+    
+
+def get_cardinality(dataset_info: str, column: str) -> Dict:
+    try:
+        file_path = __get_file(dataset_info)
+        df = pd.read_csv(file_path)
+        
+        if column not in df.columns:
+            raise Exception(f'해당하는 컬럼이 없음({column})')
+        
+        cardinality = int(df[column].nunique())
+        record = int(df[column].count())
+
+        return {'cardinality': cardinality, 'record': record}
+    except Exception as e:
+        raise Exception(f'get_cardinality() 실패: {e}')
 
 
 def __get_file(dataset_info: str) -> str:
