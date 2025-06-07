@@ -1,3 +1,6 @@
 .venv/
 data/
 *.csv
+.env.[dp]*
+*-worktree/
+model/
