@@ -1,50 +1,35 @@
 import json
-from typing import List
+from typing import Dict, List
 from api_gateway_utils import get_columns, publish_event
+from dto.pii_detection_response import PiiDetectionResponse
 from service.cardinality_ratio import cardinality_ratio
 from service.domain_dict import domain_dict
 from service.embedding_model import embedding_model
 
 
-def detect(dataset_info: str) -> List[str]:
-    try:
-        columns = __get_columns(dataset_info)
+def detect(dataset_info_list: List[str]):
+    detected = {}
+    for dataset_info in dataset_info_list:
+        columns = get_columns(dataset_info)
         if not columns:
-            raise Exception('컬럼명이 비어있습니다. 데이터셋 정보를 확인해주세요.')
+            raise Exception(f'{dataset_info}의 컬럼명이 비어있습니다.')
         
-        result = []
-        # 도메인 사전
+        detected[dataset_info] = []
+
         pii, non_pii = domain_dict(columns)
-        result.extend(pii)
+        detected[dataset_info].extend(pii)
 
-        # 임베딩 모델
         pii, non_pii = embedding_model(non_pii)
-        result.extend(pii)
+        detected[dataset_info].extend(pii)
 
-        # 카디널리티 비율
         pii, non_pii = cardinality_ratio(dataset_info, non_pii)
-        result.extend(pii)
+        detected[dataset_info].extend(pii)
 
-        data = sorted([x[0] for x in result])
-        print('detect() 결과:', data)
-        publish_event(
-            name='pii.detection.success',
-            path_variable=dataset_info,
-            json_data=json.dumps(data)
-        )
+        detected[dataset_info] = sorted([x[0] for x in detected[dataset_info]])
 
-        return result
-
-    except Exception as e:
-        # 실패 시, 실패 event 발행 해야됨
-        print('detect() 실패:', str(e))
-        raise Exception('detect() 실패:', e)
-
-
-def __get_columns(dataset_info: str) -> List[str]:
-    try:
-        columns:List[str] = get_columns(dataset_info)
-        return columns
-
-    except Exception as e:
-        raise Exception('__get_columns() 실패:', str(e))
+    pii = list(set.intersection(*(set(v) for v in detected.values())))  # 모든 dataset_info의 pii 값들의 교집합을 구함
+    response = PiiDetectionResponse(dataset_info_list=dataset_info_list, pii=pii)
+    publish_event(
+        name='pii.detection.success', 
+        data=response.to_dict()
+    )

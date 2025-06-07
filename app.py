@@ -1,24 +1,22 @@
-import os
 from flask import Flask, g
 import pymysql
 from api_gateway_utils import subscribe_topic
+from config.env import Env
 from controller.detection_controller import detection_bp
-from dotenv import load_dotenv
 
-load_dotenv()
-
+env = Env()
 app = Flask(__name__)
 app.config['DB_CONFIG'] = {
-    "host": os.getenv('DB_HOST', 'localhost'),
-    "port": int(os.getenv('DB_PORT', 3306)),
-    "user": os.getenv('DB_USER', 'root'),
-    "password": os.getenv('DB_PASSWORD', '0000'),
-    "database": os.getenv('DB_NAME', 'term_db'),
+    "host": env.db_host,
+    "port": env.db_port,
+    "user": env.db_user,
+    "password": env.db_password,
+    "database": env.db_name,
     "charset": "utf8mb4",
     "cursorclass": pymysql.cursors.DictCursor
 }
-app.config['SBERT_MODEL_PATH'] = os.getenv('SBERT_MODEL_PATH', 'model/sbert_domain_model/')
-app.config['THRESHOLD'] = os.getenv('THRESHOLD', 0.84)
+app.config['SBERT_MODEL_PATH'] = env.sbert_model_path
+app.config['THRESHOLD'] = env.threshold
 app.register_blueprint(detection_bp)
 
 @app.route('/')
@@ -34,20 +32,19 @@ def close_db(exception):
 
     
 if __name__ == '__main__':
-    host = os.getenv('HOST', '0.0.0.0')
-    port = os.getenv('PORT', 1782)
-    container_name = os.getenv('CONT_NAME', 'pii-detection-server')
-    callback_url = f'http://{container_name}:{port}/pii-detection/detect'
-    # callback_url = f'http://localhost:{port}/pii-detection/detect'
+    host = env.host
+    port = env.port
+    service_name = env.service_name
+    callback_url = f'http://{service_name}:{port}/pii-detections'
 
-    subscribe_topic(
-        name='pii.detection.request', 
-        callback_url=callback_url, 
-        method='GET',
-        use_path_variable=True,
+    # subscribe_topic(
+    #     name='pii.detection.request', 
+    #     callback_url=callback_url, 
+    #     method='GET',
+    #     use_path_variable=True,
 
-        count=3, 
-        interval=5
-    )
+    #     count=3, 
+    #     interval=5
+    # )
     
     app.run(host=host, port=port)
