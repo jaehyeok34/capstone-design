@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:8.4
+    image: mysql
     container_name: mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
@@ -13,23 +13,23 @@ services:
       - backend
 #------------------------------------------------------------------
   api-gateway:
-    container_name: ${API_GATEWAY_CONT}
+    container_name: api-gateway
     build:
-      context: ./api-gateway${W}
+      context: ./api-gateway-worktree
     ports:
       - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
     environment:
       - HOST=${HOST}
       - PORT=${API_GATEWAY_PORT}
-      - DATA_SERVER_HOST=${DATA_SERVER_CONT}
+      - DATA_SERVER_HOST=data-server
       - DATA_SERVER_PORT=${DATA_SERVER_PORT}
     networks:
       - backend
 #------------------------------------------------------------------
   data-server:
-    container_name: ${DATA_SERVER_CONT}
+    container_name: data-server
     build:
-      context: ./data-server${W}
+      context: ./data-server-worktree
     ports:
       - "${DATA_SERVER_PORT}:${DATA_SERVER_PORT}"
     environment:
@@ -41,16 +41,16 @@ services:
   matching-key-server:
     depends_on:
       - api-gateway
-    container_name: ${MATCHING_KEY_SERVER_CONT}
+    container_name: matching-key-server
     build:
-      context: ./matching-key-server${W}
+      context: ./matching-key-server-worktree
     ports:
       - "${MATCHING_KEY_SERVER_PORT}:${MATCHING_KEY_SERVER_PORT}"
     environment:
       - HOST=${HOST}
       - PORT=${MATCHING_KEY_SERVER_PORT}
-      - CONT_NAME=${MATCHING_KEY_SERVER_CONT}
-      - API_GATEWAY_HOST=${API_GATEWAY_CONT}
+      - SERVICE_NAME=matching-key-server
+      - API_GATEWAY_HOST=api-gateway
       - API_GATEWAY_PORT=${API_GATEWAY_PORT}
       - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
       - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
@@ -60,16 +60,16 @@ services:
   matching-server:
     depends_on:
       - api-gateway
-    container_name: ${MATCHING_SERVER_CONT}
+    container_name: matching-server
     build:
-      context: ./matching-server${W}
+      context: ./matching-server-worktree
     ports:
       - "${MATCHING_SERVER_PORT}:${MATCHING_SERVER_PORT}"
     environment:
       - HOST=${HOST}
       - PORT=${MATCHING_SERVER_PORT}
-      - CONT_NAME=${MATCHING_SERVER_CONT}
-      - API_GATEWAY_HOST=${API_GATEWAY_CONT}
+      - SERVICE_NAME=matching-server
+      - API_GATEWAY_HOST=api-gateway
       - API_GATEWAY_PORT=${API_GATEWAY_PORT}
       - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
       - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
@@ -80,51 +80,44 @@ services:
     depends_on:
       - api-gateway
       - mysql
-    container_name: ${PII_DETECTION_SERVER_CONT}
+    container_name: pii-detection-server
     build:
-      context: ./pii-detection-server${W}
+      context: ./pii-detection-server-worktree
     ports:
       - "${PII_DETECTION_SERVER_PORT}:${PII_DETECTION_SERVER_PORT}"
     environment:
       - HOST=${HOST}
       - PORT=${PII_DETECTION_SERVER_PORT}
-      - DB_HOST=mysql
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - THRESHOLD=${THRESHOLD}
-      - CONT_NAME=${PII_DETECTION_SERVER_CONT}
-      - API_GATEWAY_HOST=${API_GATEWAY_CONT}
+      - SERVICE_NAME=pii-detection-server
+      - API_GATEWAY_HOST=api-gateway
       - API_GATEWAY_PORT=${API_GATEWAY_PORT}
       - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
       - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
-      - SBERT_MODEL_PATH=/model/sbert_domain_model
-    volumes:
-      - ./model:/model
+    env_file:
+      - ./pii-detection-server-worktree/.env.prod
     networks:
       - backend
 #------------------------------------------------------------------
   pseudonymization-server:
     depends_on:
       - api-gateway
-    container_name: ${PSEUDONYMIZATION_SERVER_CONT}
+    container_name: pseudonymization-server
     build:
-      context: ./pseudonymization-server${W}
+      context: ./pseudonymization-server-worktree
     ports:
       - "${PSEUDONYMIZATION_SERVER_PORT}:${PSEUDONYMIZATION_SERVER_PORT}"
     environment:
       - HOST=${HOST}
       - PORT=${PSEUDONYMIZATION_SERVER_PORT}
-      - CONT_NAME=${PSEUDONYMIZATION_SERVER_CONT}
-      - API_GATEWAY_HOST=${API_GATEWAY_CONT}
+      - SERVICE_NAME=pseudonymization-server
+      - API_GATEWAY_HOST=api-gateway
       - API_GATEWAY_PORT=${API_GATEWAY_PORT}
       - API_GATEWAY_EVENT_URI=${API_GATEWAY_EVENT_URI}
       - API_GATEWAY_TOPIC_URI=${API_GATEWAY_TOPIC_URI}
     networks:
       - backend
 
-      
+
 networks:
   backend:
     driver: bridge

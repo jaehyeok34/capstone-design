@@ -22,3 +22,7 @@ u:
 
 d:
 	docker-compose down
+
+du:
+	make d
+	make u
