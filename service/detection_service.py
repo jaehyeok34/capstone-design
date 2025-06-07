@@ -1,5 +1,4 @@
-import json
-from typing import Dict, List
+from typing import List
 from api_gateway_utils import get_columns, publish_event
 from dto.pii_detection_response import PiiDetectionResponse
 from service.cardinality_ratio import cardinality_ratio

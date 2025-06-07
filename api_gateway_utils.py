@@ -1,8 +1,8 @@
-# latest: 06.07.3
+# latest: 06.07.4
 
 import json
 import time
-from typing import Any, List, Literal
+from typing import Any, List, Literal, Optional
 import pandas as pd
 from pydantic import BaseModel
 import requests
@@ -125,11 +125,15 @@ def get_all_values(dataset_info: str) -> pd.DataFrame | None:
     return pd.DataFrame(response.json())
 
 
-def register_csv(file: str):
+def register_csv(file: str) -> Optional[str]:
     if not os.path.isfile(file):
         raise FileNotFoundError(f"File not found: {file}")
     
-    requests.post(api_gateway_url+'/csv/register', files=[('file', open(file, 'rb'))])
+    response = requests.post(api_gateway_url+'/csv/register', files=[('file', open(file, 'rb'))])
+    if response.status_code != 200:
+        return None
+    
+    return str(response.json())
 
 
 def get_cardinality_ratio(dataset_info: str, column: str) -> float:
