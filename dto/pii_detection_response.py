@@ -8,4 +8,7 @@ class PiiDetectionResponse(BaseModel):
     dataset_info_list: List[str]
     pii: List[str]
 
-    model_config = ConfigDict(alias_generator=to_camel)
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )

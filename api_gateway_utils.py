@@ -1,4 +1,4 @@
-# latest: 06.07.2
+# latest: 06.07.3
 
 import json
 import time
@@ -38,7 +38,7 @@ publish_event_url = f'http://{host}:{port}{event_uri}'
 subscribe_topic_url = f'http://{host}:{port}{topic_uri}'
 
 
-def publish_event(name: str, path_variable: str, json_data: str = None) -> bool:
+def publish_event(name: str, path_variable: str = None, json_data: str = None) -> bool:
     event = EventDTO(name=name, path_variable=path_variable, json_data=json_data)
     res = requests.post(url=publish_event_url, json=event.to_dict())
 

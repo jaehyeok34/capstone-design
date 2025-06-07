@@ -13,7 +13,6 @@ def pii_detections() -> PiiDetectionResponse:
     
     try:
         response = detect(dataset_info_list)
-        print(f'[debug] {response}')
         return jsonify(response.model_dump()), 200
     
     except Exception as e:
