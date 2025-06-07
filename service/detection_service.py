@@ -7,7 +7,7 @@ from service.domain_dict import domain_dict
 from service.embedding_model import embedding_model
 
 
-def detect(dataset_info_list: List[str]):
+def detect(dataset_info_list: List[str]) -> PiiDetectionResponse:
     detected = {}
     for dataset_info in dataset_info_list:
         columns = get_columns(dataset_info)
@@ -31,5 +31,7 @@ def detect(dataset_info_list: List[str]):
     response = PiiDetectionResponse(dataset_info_list=dataset_info_list, pii=pii)
     publish_event(
         name='pii.detection.success', 
-        data=response.to_dict()
+        json_data=response.model_dump_json()
     )
+
+    return response

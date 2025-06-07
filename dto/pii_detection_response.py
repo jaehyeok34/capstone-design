@@ -1,11 +1,11 @@
-from dataclasses import dataclass
 from typing import List
-from dataclasses_json import LetterCase, dataclass_json
+
+from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
 
 
-@dataclass_json(letter_case=LetterCase.CAMEL)
-@dataclass
-class PiiDetectionResponse:
+class PiiDetectionResponse(BaseModel):
     dataset_info_list: List[str]
     pii: List[str]
-    
+
+    model_config = ConfigDict(alias_generator=to_camel)

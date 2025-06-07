@@ -1,13 +1,15 @@
-# latest: 06.07.1
+# latest: 06.07.2
 
 import json
 import time
 from typing import Any, List, Literal
 import pandas as pd
+from pydantic import BaseModel
 import requests
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json, LetterCase
 import os
+
 
 @dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
@@ -36,8 +38,8 @@ publish_event_url = f'http://{host}:{port}{event_uri}'
 subscribe_topic_url = f'http://{host}:{port}{topic_uri}'
 
 
-def publish_event(name: str, path_variable: str, data: Any = None) -> bool:
-    event = EventDTO(name=name, path_variable=path_variable, json_data=json.dumps(data))
+def publish_event(name: str, path_variable: str, json_data: str = None) -> bool:
+    event = EventDTO(name=name, path_variable=path_variable, json_data=json_data)
     res = requests.post(url=publish_event_url, json=event.to_dict())
 
     # TODO: API Gateway가 잘 받았는지 확인해야 하고, 그렇지 않을 경우 재요청 구현 예정
