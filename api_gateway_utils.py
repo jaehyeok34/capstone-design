@@ -1,10 +1,8 @@
 # latest: 06.07.4
 
-import json
 import time
-from typing import Any, List, Literal, Optional
+from typing import List, Literal, Optional
 import pandas as pd
-from pydantic import BaseModel
 import requests
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json, LetterCase
@@ -133,7 +131,7 @@ def register_csv(file: str) -> Optional[str]:
     if response.status_code != 200:
         return None
     
-    return str(response.json())
+    return response.text
 
 
 def get_cardinality_ratio(dataset_info: str, column: str) -> float:

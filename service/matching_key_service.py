@@ -34,6 +34,7 @@ def generate_matching_key(matching_key_request: MatchingKeyRequest):
                 raise Exception(f'{dataset_info} 결합키 생성 실패')
             
             new_dataset_info_list.append(new)
+    
 
     publish_event(
         name='matching-key.generate.success',
