@@ -1,12 +1,15 @@
-# latest: 06.06.1
+# latest: 06.07.4
 
+import json
 import time
-from typing import Dict, List, Literal
+from typing import Any, List, Literal, Optional
 import pandas as pd
+from pydantic import BaseModel
 import requests
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json, LetterCase
 import os
+
 
 @dataclass_json(letter_case=LetterCase.CAMEL)
 @dataclass
@@ -35,7 +38,7 @@ publish_event_url = f'http://{host}:{port}{event_uri}'
 subscribe_topic_url = f'http://{host}:{port}{topic_uri}'
 
 
-def publish_event(name: str, path_variable: str, json_data: str = None) -> bool:
+def publish_event(name: str, path_variable: str = None, json_data: str = None) -> bool:
     event = EventDTO(name=name, path_variable=path_variable, json_data=json_data)
     res = requests.post(url=publish_event_url, json=event.to_dict())
 
@@ -122,11 +125,15 @@ def get_all_values(dataset_info: str) -> pd.DataFrame | None:
     return pd.DataFrame(response.json())
 
 
-def register_csv(file: str):
+def register_csv(file: str) -> Optional[str]:
     if not os.path.isfile(file):
         raise FileNotFoundError(f"File not found: {file}")
     
-    requests.post(api_gateway_url+'/csv/register', files=[('file', open(file, 'rb'))])
+    response = requests.post(api_gateway_url+'/csv/register', files=[('file', open(file, 'rb'))])
+    if response.status_code != 200:
+        return None
+    
+    return str(response.json())
 
 
 def get_cardinality_ratio(dataset_info: str, column: str) -> float:
