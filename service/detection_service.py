@@ -28,6 +28,7 @@ def detect(dataset_info_list: List[str]) -> PiiDetectionResponse:
         detected[dataset_info] = sorted([x[0] for x in detected[dataset_info]])
 
     pii = list(set.intersection(*(set(v) for v in detected.values())))  # 모든 dataset_info의 pii 값들의 교집합을 구함
+    print(f'[debug] {type(dataset_info_list)}, {type(pii)}')
     response = PiiDetectionResponse(dataset_info_list=dataset_info_list, pii=pii)
     publish_event(
         name='pii.detection.success', 

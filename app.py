@@ -19,6 +19,7 @@ app.config['SBERT_MODEL_PATH'] = env.sbert_model_path
 app.config['THRESHOLD'] = env.threshold
 app.register_blueprint(detection_bp)
 
+
 @app.route('/')
 def home():
     return "PII(Personally Identifiable Information) Detection API", 200
@@ -37,14 +38,14 @@ if __name__ == '__main__':
     service_name = env.service_name
     callback_url = f'http://{service_name}:{port}/pii-detections'
 
-    # subscribe_topic(
-    #     name='pii.detection.request', 
-    #     callback_url=callback_url, 
-    #     method='GET',
-    #     use_path_variable=True,
+    subscribe_topic(
+        name='pii.detection.request', 
+        callback_url=callback_url, 
+        method='POST',
+        use_path_variable=False,
 
-    #     count=3, 
-    #     interval=5
-    # )
+        count=3, 
+        interval=5
+    )
     
     app.run(host=host, port=port)

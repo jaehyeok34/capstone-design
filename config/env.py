@@ -12,7 +12,7 @@ class Env(BaseModel):
     service_name: str = os.getenv('SERVICE_NAME')
 
     db_host: str = os.getenv('DB_HOST')
-    db_port: str = os.getenv('DB_PORT')
+    db_port: int = int(os.getenv('DB_PORT'))
     db_user: str = os.getenv('DB_USER')
     db_password: str = os.getenv('DB_PASSWORD')
     db_name: str = os.getenv('DB_NAME')
