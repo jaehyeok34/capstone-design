@@ -1,0 +1,202 @@
+.scrollList {
+  max-height: 440px;
+  min-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #2c313a;
+  border-radius: 10px;
+  background: #181b20;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  /* 스크롤바 기본적으로 숨김, 스크롤 시에만 표시 */
+  scrollbar-width: thin;
+  scrollbar-color: #7ab7ff #181b20;
+}
+
+.scrollList::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+  transition: background 0.2s;
+}
+.scrollList::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.scrollList:hover::-webkit-scrollbar-thumb,
+.scrollList:active::-webkit-scrollbar-thumb,
+.scrollList:focus::-webkit-scrollbar-thumb {
+  background: #7ab7ff;
+}
+.scrollList:hover::-webkit-scrollbar {
+  background: #23272f;
+}
+
+.fixedScrollList {
+  max-height: 400px;
+  min-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #2c313a;
+  border-radius: 10px;
+  background: #181b20;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  /* 스크롤바 기본적으로 숨김, 스크롤 시에만 표시 */
+  scrollbar-width: thin;
+  scrollbar-color: #7ab7ff #181b20;
+}
+
+.fixedScrollList::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+  transition: background 0.2s;
+}
+.fixedScrollList::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.fixedScrollList:hover::-webkit-scrollbar-thumb,
+.fixedScrollList:active::-webkit-scrollbar-thumb,
+.fixedScrollList:focus::-webkit-scrollbar-thumb {
+  background: #7ab7ff;
+}
+.fixedScrollList:hover::-webkit-scrollbar {
+  background: #23272f;
+}
+
+.datasetCard {
+  margin: 0.7rem 0;
+  border-radius: 10px;
+  padding: 1.2rem 1.3rem;
+  font-size: 1.08rem;
+  box-shadow: 0 2px 8px #0004;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 1px solid #23272f;
+  background: #23272f;
+  transition: 0.2s;
+  word-break: break-all;
+}
+
+.datasetTitle {
+  font-weight: 600;
+  color: #7ab7ff;
+  font-size: 1.08rem;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 520px;
+  display: block;
+}
+
+.datasetType {
+  color: #b0b6c2;
+  font-size: 0.98rem;
+  margin-top: 2px;
+}
+
+.datasetType span {
+  color: #e0e6f0;
+}
+
+.datasetDbInfo {
+  color: #b0b6c2;
+  font-size: 0.98rem;
+  margin-top: 2px;
+}
+
+.datasetDbInfo span {
+  color: #e0e6f0;
+}
+
+.container {
+  max-width: 1100px;
+  min-width: 800px;
+  margin: 2rem auto;
+  background: #23272f;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px #0008;
+  padding: 2.5rem 1.5rem;
+}
+
+.wideContainer {
+  max-width: 1100px;
+  min-width: 800px;
+}
+
+.title {
+  color: #e0e6f0;
+  margin-bottom: 2rem;
+  font-weight: 700;
+  font-size: 2rem;
+  letter-spacing: 1px;
+  text-align: left;
+}
+
+.loading,
+.error {
+  text-align: center;
+  margin-top: 3rem;
+}
+
+.loading {
+  color: #bbb;
+}
+
+.error {
+  color: #ff5555;
+}
+
+.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 420px;
+}
+
+/* 데이터군 박스들을 가운데 정렬 */
+.datasetGroups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem; /* 데이터군 사이 여백을 줄임 */
+  justify-content: center;
+  align-items: stretch;
+}
+
+.datasetGroupRow {
+  display: flex;
+  flex: 1 1 100%;
+  gap: 1.2rem; /* 데이터군 사이 여백을 줄임 */
+  justify-content: center;
+}
+
+.datasetGroupRow > div {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.scrollList,
+.fixedScrollList {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 400px;
+  max-height: 60vh;
+  margin: 0 auto;
+}
+
+/* 탭 리스트 영역을 더 넓게 */
+.datasetTabContent {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  display: block;
+}
