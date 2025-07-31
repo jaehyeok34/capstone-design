@@ -3,7 +3,9 @@ BRANCHES = api-gateway \
 	pii-detection-server \
 	matching-key-server \
 	matching-server \
-	pseudonymization-server 
+	pseudonymization-server \
+	test \
+	web
 
 a:
 	@for branch in $(BRANCHES); do \
