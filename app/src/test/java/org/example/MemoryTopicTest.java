@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
 
-import org.example.broker.topic.MemoryTopic;
+import org.example.topic.memory.MemoryTopic;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -31,18 +31,18 @@ public class MemoryTopicTest {
         buf.writeBytes("hello world".getBytes(StandardCharsets.UTF_8));
         
         topic.push(buf);
-        assertEquals(1, topic.size());
+        assertEquals(1, topic.getLength());
     }
 
     @Test
     @Order(2)
     void pull() { 
-        ByteBuf buf = topic.pull().buf();
+        ByteBuf buf = (ByteBuf) topic.pull().getValue();
         byte[] arr = new byte[buf.readableBytes()];
         buf.readBytes(arr);
 
         String msg = new String(arr, StandardCharsets.UTF_8);
         assertEquals("hello world", msg );
-        assertEquals(0, topic.size());
+        assertEquals(0, topic.getLength());
     }
 }

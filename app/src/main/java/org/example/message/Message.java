@@ -14,33 +14,17 @@ public class Message {
     private final String topicName;
     private final ByteBuf payload;
 
-    private Message(ByteBuf payload) {
-        validate(payload);
-
-        this.topicName = null;
-        this.payload = payload;
-    }
-
-    private Message(String topicName) {
-        validate(topicName);
-
-        this.topicName = topicName;
-        this.payload = null;
-    }
-    
+    private Message(Builder builder) { this(builder.topicName, builder.payload); }
     private Message(String topicName, ByteBuf payload) {
-        validate(topicName);
-        validate(payload);
-
         this.topicName = topicName;
         this.payload = payload;
     }
 
     public static Message of(String topicName, ByteBuf payload) { return new Message(topicName, payload); }
     public static Message of(String topicName, byte[] payload) { return new Message(topicName, Unpooled.copiedBuffer(payload)); }
-    public static Message of(String topicName) { return new Message(topicName); }
-    public static Message of(ByteBuf payload) { return new Message(payload); }
-    public static Message of(byte[] payload) { return new Message(Unpooled.copiedBuffer(payload)); }
+    public static Message of(String topicName) { return new Message(topicName, null); }
+    public static Message of(ByteBuf payload) { return new Message(null, payload); }
+    public static Message of(byte[] payload) { return new Message(null, Unpooled.copiedBuffer(payload)); }
 
     public ByteBuf toByteBuf() {
         if (topicName == null || topicName.isEmpty()) return payload;
@@ -57,11 +41,46 @@ public class Message {
     }
 
     public int getLength() { return (payload != null ? payload.readableBytes() : 0) + (topicName != null ? TOPIC_NAME_LENGTH + topicName.length() : 0); }
-    public void release() { if (payload != null && payload.refCnt() > 0) payload.release(payload.refCnt()); }
     public String getTopicName() { return topicName; }
-    public ByteBuf getPayload() { return payload; }
-    public boolean isPayload() { return payload != null; }
+    public byte[] getPayload() { return payload.array(); }
+    public void release() { if (payload != null && payload.refCnt() > 0) payload.release(payload.refCnt()); }
+    public ByteBuf retain() { return payload != null ? payload.retain() : null; }
+    public boolean alivePayload() { return payload != null ? payload.refCnt() > 0 : false; }
+    public static Builder builder() { return new Builder(); }
+    
+    public static class Builder {
+        private String topicName;
+        private ByteBuf payload;
 
-    private void validate(String topicName) { if (topicName == null || topicName.isEmpty()) throw new IllegalArgumentException("topicName: null 또는 비어있음"); }
-    private void validate(ByteBuf payload) { if (payload == null || payload.readableBytes() == 0) throw new IllegalArgumentException("payload: null 또는 비어있음"); }
+        private Builder() {}
+
+        public Builder topicName(String topicName) {
+            if (topicName == null || topicName.isEmpty()) {
+                throw new IllegalArgumentException("topicName: null 또는 빈 문자열");
+            }
+
+            this.topicName = topicName;
+            return this;
+        }
+
+        public Builder payload(ByteBuf payload) {
+            if (payload == null || payload.readableBytes() == 0) {
+                throw new IllegalArgumentException("payload: null 또는 빈 ByteBuf");
+            }
+
+            this.payload = payload;
+            return this;
+        }
+
+        public Builder payload(byte[] payload) {
+            if (payload == null || payload.length == 0) {
+                throw new IllegalArgumentException("payload: null 또는 빈 배열");
+            }
+
+            this.payload = Unpooled.copiedBuffer(payload);
+            return this;
+        }
+
+        public Message build() { return new Message(this); }
+    }
 }

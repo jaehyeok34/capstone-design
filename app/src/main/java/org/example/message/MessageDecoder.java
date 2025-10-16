@@ -6,20 +6,21 @@ import java.util.List;
 import org.example.message.MessageHeader.Type;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 
 public class MessageDecoder extends ByteToMessageDecoder {
     /*
-     * consumer -> broker: [type][request id][topic name length][topic name]
-     * producer -> broker: [type][request id][topic name length][topic name][payload]
-     * broker -> consumer: [type][request id][payload]
-     * broker -> producer: X
+     * header: [type][request id][message length]
+     * message: [topic name length][topic name]([payload])
+     * consumer -> broker(REQ_PULL): [type][request id][message length] / [topic name length][topic name]
+     * producer -> broker(REQ_PUSH): [type][request id][message length] / [topic name length][topic name][payload]
+     * broker -> consumer(RES_PULL): [type][request id][message length] / [payload]
+     * broker -> producer(RES_PUSH): X
      */
 
     private MessageHeader header;
-    private Message message;
+    private Message.Builder builder;
     private State state = State.READ_HEADER;
 
     @Override
@@ -33,7 +34,7 @@ public class MessageDecoder extends ByteToMessageDecoder {
                 int msgLen = in.readInt();
 
                 header = MessageHeader.of(type, reqId, msgLen);
-                if (type == Type.RES_PULL && msgLen <= 0) {
+                if (type == Type.REQ_PULL && msgLen <= 0) { // no payload
                     out.add(new MessageFrame(header, null));
                     continue;
                 }
@@ -41,35 +42,30 @@ public class MessageDecoder extends ByteToMessageDecoder {
                 state = State.READ_PAYLOAD;
             } else {
                 int msgLen = header.getMessageLength();
-                if (msgLen <= 0) {
-                    out.add(new MessageFrame(header, null));
-                    state = State.READ_HEADER;
-                    continue;
-                }
-
                 if (in.readableBytes() < msgLen) return;
 
-                Type t = header.getType();
-                if (t == Type.RES_PULL || t == Type.RES_PUSH) {
-                    message = Message.of(in.readBytes(msgLen)); // only payload
-                } else {
-                    int nameLen = in.readInt();
-                    String tName = in.readString(nameLen, StandardCharsets.UTF_8);
-                    if (t == Type.REQ_PULL) message = Message.of(tName); // only topic name
-                    else message = Message.of(tName, in.readBytes(msgLen - Message.TOPIC_NAME_LENGTH - nameLen));
+                builder = Message.builder();
+
+                Type type = header.getType();
+                if (type == Type.RES_PULL) { // only payload
+                    builder.payload(in.readBytes(msgLen));
+                } else { // topic name + (payload)
+                    int topicNameLength = in.readInt();
+                    String topicName = in.readString(topicNameLength, StandardCharsets.UTF_8);
+
+                    builder.topicName(topicName);
+
+                    if (type == Type.REQ_PUSH) {
+                        ByteBuf buf = in.readBytes(msgLen - Message.TOPIC_NAME_LENGTH - topicNameLength);
+                        builder.payload(buf);
+                    }
                 }
 
-                if (message == null) throw new IllegalStateException("message: null");
-
-                out.add(new MessageFrame(header, message));
+                out.add(new MessageFrame(header, builder.build()));
                 state = State.READ_HEADER;
             }
         }
     }
 
     private enum State { READ_HEADER, READ_PAYLOAD }
-
-    public static record MessageFrame(MessageHeader header, Message message) {
-        public static ByteBuf wrapToByteBuf(MessageHeader header, Message message) { return Unpooled.wrappedBuffer(header.toByteBuf(), message.toByteBuf()); }
-    }
 }

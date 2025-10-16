@@ -48,14 +48,3 @@ tasks.named<Test>("test") {
 }
 
 val mainClasspath = sourceSets["main"].runtimeClasspath
-
-listOf(
-    "server" to "org.example.Server",
-    "client" to "org.example.Client"
-).forEach { (taskName, mainClassName) ->
-    tasks.register<JavaExec>(taskName) {
-        classpath = mainClasspath
-        mainClass.set(mainClassName)
-        standardInput = System.`in`
-    }
-}
