@@ -8,6 +8,7 @@
 plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
     application
+    id("com.gradleup.shadow") version "9.2.2"
 }
 
 repositories {
@@ -48,3 +49,9 @@ tasks.named<Test>("test") {
 }
 
 val mainClasspath = sourceSets["main"].runtimeClasspath
+
+tasks {
+    shadowJar {
+        archiveClassifier.set("")
+    }
+}
