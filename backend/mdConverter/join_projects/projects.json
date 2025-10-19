@@ -1,0 +1,120 @@
+[
+  {
+    "id": "a9f90aa3-28ec-430c-8c72-e72a188a8b4a",
+    "projectName": "녹화1",
+    "processingType": "join",
+    "files": [
+      "dataA.csv",
+      "dataB.csv"
+    ],
+    "joinKeys": [
+      {
+        "dataA_column": "이름",
+        "dataB_column": "이름",
+        "normalized_name": "name",
+        "dataA_consistency_score": 80.0,
+        "dataB_consistency_score": 80.0,
+        "dataA_unique_ratio": 0.834,
+        "dataB_unique_ratio": 0.81,
+        "value_similarity_score": 1.0,
+        "recommended": true
+      },
+      {
+        "dataA_column": "주민등록번호",
+        "dataB_column": "주민등록번호",
+        "normalized_name": "resident_id",
+        "dataA_consistency_score": 100.0,
+        "dataB_consistency_score": 100.0,
+        "dataA_unique_ratio": 1.0,
+        "dataB_unique_ratio": 1.0,
+        "value_similarity_score": 1.0,
+        "recommended": true
+      },
+      {
+        "dataA_column": "전화번호",
+        "dataB_column": "전화번호",
+        "normalized_name": "phone",
+        "dataA_consistency_score": 98.84,
+        "dataB_consistency_score": 98.78,
+        "dataA_unique_ratio": 1.0,
+        "dataB_unique_ratio": 1.0,
+        "value_similarity_score": 1.0,
+        "recommended": true
+      },
+      {
+        "dataA_column": "주소지",
+        "dataB_column": "주소지",
+        "normalized_name": "address",
+        "dataA_consistency_score": 70.27,
+        "dataB_consistency_score": 70.3,
+        "dataA_unique_ratio": 1.0,
+        "dataB_unique_ratio": 1.0,
+        "value_similarity_score": 1.0,
+        "recommended": true
+      }
+    ],
+    "status": "진행 중",
+    "progress": 0,
+    "createdAt": "2025-10-14T10:55:27.024928",
+    "outputFile": null
+  },
+  {
+    "id": "3343789f-f5dd-4df2-bba1-ba5cdbe0ae64",
+    "projectName": "녹화2",
+    "processingType": "join",
+    "files": [
+      "dataA.csv",
+      "dataB.csv"
+    ],
+    "joinKeys": [
+      {
+        "dataA_column": "이름",
+        "dataB_column": "이름",
+        "normalized_name": "name",
+        "dataA_consistency_score": 80.0,
+        "dataB_consistency_score": 80.0,
+        "dataA_unique_ratio": 0.834,
+        "dataB_unique_ratio": 0.81,
+        "value_similarity_score": 1.0,
+        "recommended": true
+      },
+      {
+        "dataA_column": "주민등록번호",
+        "dataB_column": "주민등록번호",
+        "normalized_name": "resident_id",
+        "dataA_consistency_score": 100.0,
+        "dataB_consistency_score": 100.0,
+        "dataA_unique_ratio": 1.0,
+        "dataB_unique_ratio": 1.0,
+        "value_similarity_score": 1.0,
+        "recommended": true
+      },
+      {
+        "dataA_column": "전화번호",
+        "dataB_column": "전화번호",
+        "normalized_name": "phone",
+        "dataA_consistency_score": 98.84,
+        "dataB_consistency_score": 98.78,
+        "dataA_unique_ratio": 1.0,
+        "dataB_unique_ratio": 1.0,
+        "value_similarity_score": 1.0,
+        "recommended": true
+      },
+      {
+        "dataA_column": "주소지",
+        "dataB_column": "주소지",
+        "normalized_name": "address",
+        "dataA_consistency_score": 70.27,
+        "dataB_consistency_score": 70.3,
+        "dataA_unique_ratio": 1.0,
+        "dataB_unique_ratio": 1.0,
+        "value_similarity_score": 1.0,
+        "recommended": true
+      }
+    ],
+    "status": "진행 중",
+    "progress": 0,
+    "createdAt": "2025-10-14T10:56:23.260821",
+    "outputFile": null
+  }
+]
