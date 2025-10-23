@@ -9,4 +9,5 @@ build
 
 .vscode/
 
-memo.txt
+# log
+memo.txt 
