@@ -6,6 +6,7 @@ import org.example.message.MessageHeader;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.example.message.MessageProcessor;
 import org.example.topic.disk.DiskTopic;
@@ -22,42 +23,65 @@ public class TopicManager implements MessageProcessor {
             if (name == null || name.isEmpty() || type == null) return;
 
             try {
-                Topic topic = type == Topic.Type.MEMORY ? new MemoryTopic() : new DiskTopic(name);
+                Topic topic = type == Topic.Type.MEMORY ? MemoryTopic.of() : DiskTopic.of(name);
                 topicTable.put(name, topic);
-            } catch (IOException ignore) {}
+            } catch (IOException ignore) { return; }
         });
     }
 
-    public Topic getTopic(String name) { return topicTable.get(name); }
+    public Optional<Topic> topic(String name) { return Optional.ofNullable(topicTable.get(name)); }
 
     @Override
     public Result process(MessageFrame frame) {
-        if (frame == null) throw new IllegalArgumentException("frame: null");
-
         MessageHeader header = frame.header();
         Message message = frame.message();
 
-        // REQ_PUSH와 REQ_PULL 처리
-        if (header.getType() == MessageHeader.Type.REQ_PULL) {
-            System.out.println("[debug] TopicManager.process() - REQ_PULL 처리...");
-            TopicRecord record = topicTable.get(message.getTopicName()).pull();
+        switch (header.type()) {
+            case MessageHeader.Type.REQ_PUSH -> { 
+                System.out.println("[debug] TopicManager.process() - REQ_PUSH 처리...");
+                return push(header, message);
+            }
 
-            MessageHeader resHeader = MessageHeader.of(
-                MessageHeader.Type.RES_PULL, 
-                header.getRequestId(),
-                record != null ? record.getLength() : -1
-            );
+            case MessageHeader.Type.REQ_PULL -> {
+                System.out.println("[debug] TopicManager.process() - REQ_PULL 처리...");
+                return pull(header);
+            }
 
-            return new Result(resHeader, record);
-        } else {
-            System.out.println("[debug] TopicManager.process() - REQ_PUSH 처리...");
-            Topic topic = topicTable.get(message.getTopicName());
-            if (topic != null) {
-                topic.push(message.retain());
-                System.out.println("[debug] TopicManager.process() - 메시지 저장 완료");
+            default -> {
+                System.out.println("[debug] TopicManager.process() - RES_XXX 무시");
+                throw new IllegalStateException("type: RES_XXX");
             }
         }
+    }
 
-        return null;
+    private Result pull(MessageHeader header) {
+        String topicName = header.topicName();
+        int partition = header.partition();
+
+        MessageHeader.Builder builder = MessageHeader
+            .builder(MessageHeader.Type.RES_PULL, topicName)
+            .partition(partition);
+
+        return Optional.ofNullable(topicTable.get(topicName))
+            .flatMap(topic -> topic.pull(partition)) // Optional<TopicRecord>
+            .map(record -> {
+                MessageHeader resHeader = builder
+                    .messageLength(record.length())
+                    .build();
+
+                return Result.of(resHeader, record);
+            }).orElse(Result.of(builder.build())); // no topic or no record
+    }
+
+    private Result push(MessageHeader header, Message message) {
+        Optional.ofNullable(topicTable.get(header.topicName()))
+            .ifPresent(topic -> topic.push(header.partition(), message.retain()));
+
+        MessageHeader resHeader = MessageHeader
+            .builder(MessageHeader.Type.RES_PUSH, header.topicName())
+            .partition(header.partition())
+            .build();
+
+        return Result.of(resHeader);
     }
 }

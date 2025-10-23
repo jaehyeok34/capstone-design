@@ -1,28 +1,31 @@
 package org.example.topic.memory;
 
 import org.example.topic.TopicRecord;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCounted;
 
 public class MemoryRecord implements TopicRecord {
 
-    private final ByteBuf value;
+    private final ByteBuf buf;
     
-    public MemoryRecord(ByteBuf value) {
-        if (value == null || value.readableBytes() == 0) throw new IllegalArgumentException("value: null 또는 빈 버퍼");
+    private MemoryRecord(ByteBuf buf) {
+        if (buf == null || buf.readableBytes() == 0 || buf.refCnt() <= 0) {
+            throw new IllegalArgumentException("value: null or empty or released");
+        }
+        
+        this.buf = buf;
+    }
 
-        System.out.println("[debug] MemoryRecord() - value.refCnt(): " + value.refCnt());
-        this.value = value;
-    }
+    public static MemoryRecord of(ByteBuf buf) { return new MemoryRecord(buf); }
     
     @Override
-    public int getLength() { 
-        System.out.println("[debug] MemoryRecord.getLength() - refCnt: " + value.refCnt());
-        return value.readableBytes(); 
+    public int length() { return buf.readableBytes(); }
+    @Override
+    public ReferenceCounted value() { return buf; }
+    @Override
+    public void release() { 
+        if (buf.refCnt() > 0) {
+            buf.release(buf.refCnt());
+        }   
     }
-    @Override
-    public ReferenceCounted getValue() { return value; }
-    @Override
-    public void release() { value.release(value.refCnt()); }
 }

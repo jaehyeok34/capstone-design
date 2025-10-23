@@ -3,24 +3,23 @@ package org.example.message;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import org.example.message.MessageHeader.Type;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 
 public class MessageDecoder extends ByteToMessageDecoder {
     /*
-     * header: [type][request id][message length]
-     * message: [topic name length][topic name]([payload])
-     * consumer -> broker(REQ_PULL): [type][request id][message length] / [topic name length][topic name]
-     * producer -> broker(REQ_PUSH): [type][request id][message length] / [topic name length][topic name][payload]
-     * broker -> consumer(RES_PULL): [type][request id][message length] / [payload]
+     * header: [type][topic name length][topic name][partition][message length]
+     * message: [payload]
+     * 
+     * consumer -> broker(REQ_PULL): header only
+     * producer -> broker(REQ_PUSH): header + payload
+     * broker -> consumer(RES_PULL): header + payload
      * broker -> producer(RES_PUSH): X
      */
 
     private MessageHeader header;
-    private Message.Builder builder;
+    private Message message;
     private State state = State.READ_HEADER;
 
     @Override
@@ -28,40 +27,31 @@ public class MessageDecoder extends ByteToMessageDecoder {
         while (true) {
             if (state == State.READ_HEADER) {
                 if (in.readableBytes() < MessageHeader.HEADER_LENGTH) return;
-    
-                Type type = Type.values()[in.readByte()];
-                int reqId = in.readInt();
-                int msgLen = in.readInt();
 
-                header = MessageHeader.of(type, reqId, msgLen);
-                if (type == Type.REQ_PULL && msgLen <= 0) { // no payload
-                    out.add(new MessageFrame(header, null));
-                    continue;
+                MessageHeader.Type type = MessageHeader.Type.values()[in.readByte()];
+                int topicNameLength = in.readInt();
+                String topicName = in.readString(topicNameLength, StandardCharsets.UTF_8);
+
+                header = MessageHeader.builder(type, topicName)
+                    .partition(in.readInt())
+                    .messageLength(in.readInt())
+                    .build();
+
+                if (header.messageLength() <= 0) { // only header
+                    out.add(MessageFrame.of(header));
+                    return;
                 }
-                
+
                 state = State.READ_PAYLOAD;
             } else {
-                int msgLen = header.getMessageLength();
-                if (in.readableBytes() < msgLen) return;
+                int messageLength = header.messageLength();
 
-                builder = Message.builder();
+                if (in.readableBytes() < messageLength) return; // payload는 있지만 아직 다 안들어 옴
 
-                Type type = header.getType();
-                if (type == Type.RES_PULL) { // only payload
-                    builder.payload(in.readBytes(msgLen));
-                } else { // topic name + (payload)
-                    int topicNameLength = in.readInt();
-                    String topicName = in.readString(topicNameLength, StandardCharsets.UTF_8);
-
-                    builder.topicName(topicName);
-
-                    if (type == Type.REQ_PUSH) {
-                        ByteBuf buf = in.readBytes(msgLen - Message.TOPIC_NAME_LENGTH - topicNameLength);
-                        builder.payload(buf);
-                    }
-                }
-
-                out.add(new MessageFrame(header, builder.build()));
+                ByteBuf payload = in.readBytes(messageLength);
+                message = Message.of(payload);
+                
+                out.add(MessageFrame.of(header, message));
                 state = State.READ_HEADER;
             }
         }

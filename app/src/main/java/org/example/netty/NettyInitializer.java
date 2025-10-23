@@ -12,10 +12,6 @@ public class NettyInitializer extends ChannelInitializer<Channel> {
     private final List<ChannelHandler> handlers;
 
     private NettyInitializer(Builder builder) {
-        if (builder.handlers == null || builder.handlers.isEmpty()) {
-            throw new IllegalArgumentException("handlers: null 또는 비어있음");
-        }
-
         this.handlers = builder.handlers;
     }
 
@@ -36,6 +32,12 @@ public class NettyInitializer extends ChannelInitializer<Channel> {
             return this;
         }
 
-        public NettyInitializer build() { return new NettyInitializer(this); }
+        public NettyInitializer build() { 
+            if (handlers.isEmpty()) {
+                throw new IllegalStateException("handlers is empty");
+            }
+            
+            return new NettyInitializer(this); 
+        }
     }
 }

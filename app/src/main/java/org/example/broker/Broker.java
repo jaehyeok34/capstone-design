@@ -2,6 +2,7 @@ package org.example.broker;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.example.netty.server.NettyServer;
 import org.example.topic.Topic;
@@ -9,50 +10,69 @@ import org.example.topic.TopicManager;
 
 public class Broker implements AutoCloseable {
 
-    private final NettyServer server;
     private final TopicManager topicManager;
+    private final NettyServer server;
 
     private Broker(Builder builder) {
         topicManager = new TopicManager(builder.topicInfo);
-        server = new NettyServer(builder.port, builder.maxFrameLength, topicManager);
+        server = new NettyServer(builder.port, topicManager);
     }
+    
+    public static Builder builder() { return new Builder(); }
 
     public void start() throws InterruptedException {  server.start(); }
-    public TopicManager getTopicManager() { return topicManager; }
-    public Topic getTopic(String name) { return topicManager.getTopic(name); }
-    public long getTopicLength(String name) { return getTopic(name).getLength(); }
-    public static Builder builder() { return new Builder(); }
+    public TopicManager topicManager() { return topicManager; }
+    public Optional<Topic> topic(String name) { return topicManager.topic(name); }
+    public boolean isActive() { return server.isActive(); }
     
     @Override 
-    public void close() throws Exception { server.close(); }
+    public void close() {
+        server.shutdown();
+    }
     
     // inner class
     public static class Builder {
         private int port = 1234;
-        private int maxFrameLength = 1024 * 1024; // 1MB(MiB)
         private final Map<String, Topic.Type> topicInfo = new HashMap<>();
 
         private Builder() {} // 직접 생성 제한
 
-        public Broker build() { return new Broker(this); }
+        public Broker build() { 
+            if (topicInfo.isEmpty()) {
+                throw new IllegalStateException("topicInfo: empty");
+            }
+
+            return new Broker(this); 
+        }
 
         public Builder port(int port) {
             this.port = port;
             return this;
         }
 
-        public Builder maxFrameLength(int maxFrameLength) {
-            this.maxFrameLength = maxFrameLength;
-            return this;
-        }
-
         public Builder addTopic(String name, Topic.Type type) {
+            if (name == null || name.isEmpty()) {
+                throw new IllegalArgumentException("name: null or empty");
+            }
+
+            if (type == null) {
+                throw new IllegalArgumentException("type: null");
+            }
+
             topicInfo.put(name, type);
             return this;
         }
 
         public Builder addTopics(Map<String, Topic.Type> topics) {
-            topics.putAll(topics);
+            // 유효한 항목만 추가
+            topics.forEach((key, value) -> {
+                try {
+                    addTopic(key, value);
+                } catch (IllegalArgumentException ignore) {
+                    System.err.println("[debug] 토픽 추가 거부: " + key + ", " + value);
+                }
+            });
+
             return this;
         }
     }

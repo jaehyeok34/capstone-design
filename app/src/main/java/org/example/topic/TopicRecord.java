@@ -3,7 +3,7 @@ package org.example.topic;
 import io.netty.util.ReferenceCounted;
 
 public interface TopicRecord {
-    int getLength();
-    ReferenceCounted getValue();
+    int length();
+    ReferenceCounted value();
     void release();
 }

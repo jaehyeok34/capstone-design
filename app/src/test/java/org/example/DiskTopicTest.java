@@ -1,111 +1,118 @@
 package org.example;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.charset.StandardCharsets;
+import java.io.OutputStream;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import org.example.topic.TopicRecord;
 import org.example.topic.disk.DiskTopic;
-import org.example.topic.disk.DiskTopic.FileGroup;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestMethodOrder;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.FileRegion;
 
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class DiskTopicTest {
-    
-    static final String NAME = "test";
 
-    private final DiskTopic topic;
+    List<DiskTopic> topics = new ArrayList<>();
+    int topicCount, partitionCount;
+    final String topicName = "test";
+    final String message = "message";
 
-    public DiskTopicTest() throws IOException { 
-        topic = new DiskTopic(NAME); 
+    void addData(DiskTopic topic, int partition, String s) {
+        topic.push(partition, Unpooled.copiedBuffer(message + s, Charset.defaultCharset()));
     }
 
-    @BeforeAll
-    void setup() {
-        FileGroup fg = topic.getFileGroup();
-        try {
-            Files.deleteIfExists(fg.log());
-            Files.deleteIfExists(fg.offset());
-            Files.deleteIfExists(fg.cursor());
-        } catch (IOException e) {
-            e.printStackTrace();
+    @BeforeEach
+    void beforeEach() throws IOException {
+        topicCount = new Random().nextInt(3) + 1;
+        partitionCount = new Random().nextInt(5) + 1;
+
+        for (int i = 0; i < topicCount; i++) {
+            topics.add(DiskTopic.of(topicName + i));
         }
     }
 
-    @Test
-    @Order(1)
-    void push() throws IOException {
-        ByteBuf buf = Unpooled.buffer();
-        buf.writeBytes("hello world".getBytes(StandardCharsets.UTF_8));
-        topic.push(buf.retain());
-
-        ByteBuf buf2 = Unpooled.buffer();
-        buf2.writeBytes("test message".getBytes(StandardCharsets.UTF_8));
-        topic.push(buf2.retain());
-
-        // ByteBuf의 참조 카운트가 정상적으로 감소 했는지 확인
-        assertEquals(1, buf.refCnt());
-        assertEquals(1, buf2.refCnt());
-
-        FileGroup fg = topic.getFileGroup();
-        List<String> msg = new ArrayList<>();
-        try (
-            RandomAccessFile logFile = new RandomAccessFile(fg.log().toFile(), "r");
-            RandomAccessFile offsetFile = new RandomAccessFile(fg.offset().toFile(), "r")
-        ) {
-            // 메시지 2개 읽기
-            for (int i = 0; i < 2; i++) {
-                // 헤더 해석(offset 획득 -> length 획득 -> 메시지 읽기)
-                offsetFile.seek(i * Long.BYTES); // 읽기 위치 이동
-                long offset = offsetFile.readLong();
-
-                logFile.seek(offset); // 읽기 위치 이동
-                int length = logFile.readInt(); // 메시지 길이 획득
-
-                // 실제 메시지 읽기
-                byte[] msgBuf = new byte[length];
-                logFile.readFully(msgBuf);
-                msg.add(new String(msgBuf, StandardCharsets.UTF_8));
+    @AfterEach
+    void afterEach() throws IOException {
+        topics.forEach(topic -> {
+            // clear partition files
+            for (int i = 0; i < partitionCount; i++) {
+                topic.clearFiles(i);
+                try {
+                    Files.deleteIfExists(topic.partitionPath(i));
+                } catch (Exception ignore) {}
             }
-        }
+            
+            // clear topic
+            try {
+                Files.deleteIfExists(topic.rootPath());
+            } catch (Exception ignore) {}
+            topic = null;
+        });
 
-        assertEquals("hello world", msg.get(0));
-        assertEquals("test message", msg.get(1));
+        topics = null;
     }
 
     @Test
-    @Order(2)
-    void getLength() {
-        assertEquals(2, topic.getLength());
+    void push() {
+        System.out.println("topic count: " + topicCount);
+        System.out.println("partition count: " + partitionCount);
+
+        topics.forEach(topic -> {
+            for (int i = 0; i < partitionCount; i++) {
+                int n = new Random().nextInt(10) + 1;
+                for (int j = 0; j < n; j++) {
+                    addData(topic, i, String.valueOf(j));
+                }
+
+                assertEquals(n, topic.length(i));
+            }
+        });
     }
-
+    
     @Test
-    @Order(3)
-    void pull() throws IOException{
-        List<String> targets = List.of("hello world", "test message");
-        for (int i = 0; i < 2; i++) {
-            TopicRecord record = topic.pull();
-            assertNotNull(record);
-            assertEquals(2, topic.getLength());
-            assertEquals(i + 1, topic.getCursor());
+    void pull() throws IOException {
+        System.out.println("topic count: " + topicCount);
+        System.out.println("partition count: " + partitionCount);
 
-            // 꺼낸 데이터와 검증 데이터의 길이가 같은지(내용이 동일한지) 비교
-            assertEquals(targets.get(i).length(), record.getLength());
-        }
+        // 데이터 준비
+        topics.forEach(topic -> {
+            for (int i = 0; i < partitionCount; i++) {
+                int n = new Random().nextInt(10) + 1;
+                for (int j = 0; j < n; j++) {
+                    addData(topic, i, String.valueOf(j));
+                }
+            }
+        });
+
+        // 데이터 검증
+        topics.forEach(topic -> {
+            for (int i = 0; i < partitionCount; i++) {
+                for (int j = 0; j < topic.length(i); j++) {
+                    TopicRecord record = topic.pull(i).get();
+                    if (record.value() instanceof FileRegion region) {
+                        try (
+                            OutputStream out = new ByteArrayOutputStream();
+                            WritableByteChannel channel = Channels.newChannel(out);
+                        ) {
+                            region.transferTo(channel, 0);
+                            assertEquals(message + j, out.toString());
+                            assertEquals(j + 1, topic.cursor(i));
+                        } catch (IOException ignore) {}
+                    }
+                }
+            }
+        });
     }
 }

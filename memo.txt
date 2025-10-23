@@ -7,55 +7,35 @@ localhost:8000/api/join-projects
             /api/convert
             /api/exeport
 
+------------------------------
+MemoryTopicTest, DiskTopicTest, MessageDecoderTest 완료 했음!
+TopicManager 수정하고 테스팅 하면 될듯? 그 다음 Broker, Consumer, Producer 순으로 처리하면 되고?
 
-가명처리 요청을 한다고 가정
-1. gui에서 api_gateway/pseudonymization 으로 api 호출
-2. pseudonymization() 메소드에서는 producer 객체를 통해 "pseudo_topic"에 파일 전달
-3. psedunymization_server는 consumer 객체를 통해 pseudo_topic에서 파일 가져와서 가명처리
-4. pseudonymization_server의 producer 객체를 통해 pseudo_result_topic에 가명처리 파일 전달
-5. pseudonymization() 메소드는 consumer 객체를 통해 pseudo_result_topic에서 값을 가져와서 처리..
 
-ag에서 id=1에 해당하는 요청을 pt에 적재 요청(producer)
-동일하게 id=1에 해당하는 요청을 prt에 요청(consumer)
+server inbound handler에서 channeRead가 decoder에서 획득한 MessageFrame을
+process에게 전달함
 
-의도: producer로 전달한 파일이 내부적으로 가명처리 돼서 consumer로 요청할 때 가명처리된 파일로 가져와 지는 것
-현재 동작: producer로 전달한 파일 A가 가명처리 되는것 까지는 OK, 하지만 consumer로 요청되면 FIFO를 기준으로 동작하기 때문에 [A]만 있을 경우는 정상 동작
-but, [B, A] 순으로 적재된 경우 consumer가 request를 하면 B를 반환해줌...
--------------------------------------------------------------
-producer.request(topic name, message id, payload) 형태로 전달 해야 함
+process는 frame.header.type을 확인하여 pull인지 push인지 판단하고
+pull일 경우에 frame.header.topic_name과 frame.header.partition에 해당하는
+토픽 파티션에서 값을 꺼내는 것을 시도함
 
-broker는 이를 받아서 topic name에 해당하는 topic에 { message id: payload, ... } 형태로 값을 저장함
+값이 있다면 server에 값을 반환해줘야 하는데, 서버는 반환 받은 값을 곧바로 네트워크로 전송하니까
+header와 message로 구성해서 전달해야 함
+---------(중요!!!!!!)---------------
+MessageDecoder에서 생성 후 전달하는 MessageFrame의 message는 refCnt() == 1인 상태
+따라서, Topic에 전달할때도 refCnt는 1인 상태이고,
 
-ConcurrentLinkedQueue<MemoryRecord>가 아닌 ConcurrentHashMap<UUID, ConcurrentLinkeQueue<MemoryRecord>> 형태로 저장하는 것은 어떨까?
+기존 channelRead() 마지막에서 super.channelRead()는 호출하지 않아도 됨
+(어차피 다음 inbound handler가 없어서 tail context로 넘어가서 무시 되기 떄문)
 
-예를 들어
-UUID == message id라고 가정하고, a 유저가 보는 gui에서 가명처리 요청을 보내는 상황이면 a.producer.request(t1, a, file1) 형태로 보내게 되면,
-broker는 이를 아래 형태와 같이 저장할거야.
+또한, msg(frame)의 refCnt()를 따로 감소시키지 않아도 됨
+대신 DiskTopic은 저장하고 난 다음에 명시적으로 감소시켜서 message를 해제 해야 함
+또, req_pull에 대한 process 호출로 받은 Result의 message도 writeAndFlush() 이후에
+명시적으로 message를 해제해야 함
 
-map = {
-    a: (file1), ...
-}
+topic_manager.process()에서 메시지를 저장하는 push()에서 msg.retain()을 하여
+참조 카운트 1 증가시킴(즉, MemoryTopic, DiskTopic에 전달되는 msg는 refCnt == 2임)
+memoryTopic은 저장하고 1 감소 시키고,
+diskTopic은 저장하고 모두 감소 시키면 될듯?
 
-그리고 다시 가명처리 완료된 파일을 획득하기 위해 t2를 구독한다면, a.consumer.request(t2, a) 형태로 구독하게 되는거지.
-
-이렇게 map으로 관리하는 이유는, 동적 토픽 생성을 제한하기 위함이야.
-
-왜냐하면, a 이외에 클라이언트가 t1에 값을 생산하게 될 경우, a가 생산한 가명처리 대상 파일이 b가 생산한 가명처리 대상 파일과 동일한 토픽 t1에 저장될 것이고,
-가명처리 서버는 t1 토픽에서 값을 가져오면 이게 a거인지 b 거인지 상관없이 가명처리한 뒤 t2에 결과를 저장하게 될거야.
-이렇게 되면 a와 b는 t2에서 값을 꺼내게 될 경우 원래 자기거인지를 모르는거지.
-
-이를 해소하기 위해서는 a_t1 b_t2을 생성해야 하는데(처음부터 분리) 이럴 경우 가명처리 서버는 클라이언트가 늘어남에따라 소비를 위해 구독해야하는 토픽이 계속 증가하게 되버림
-따라서 토픽 구조를 queue가 아닌 map으로 하고 가명처리 서버가 t1만을 구독하면 t1 내부에서 a의 queue 값을 꺼내서 처리했다면 t2에도 a에 값을 넣고, ... 를 하게 되는거지
-
-consumer.requets()는 기본적으로 topic name과 message id를 전달 받게 되는데(request(topic name, message id)) 만약 message id가 null일 경우에는
-topic name에 해당하는 토픽에서 a, b, .. 와 상관없이 아무 queue에서 값을 꺼내오는데 대신 값은 Map("a" or "b" or ..., MemoryRecord@xx) 형태로 전달되게 돼.
-
-달리 말하면, topic name, message id를 모두 전달한 경우에는 topic name에 해당하는 topic에서 message id에 해당하는 큐에서만 값을 꺼내오게 되는거지
-즉, message id를 지정하게 되면, 특정 클라이언트에 1:1 대응되는 "전용 처리자"를 붙이게 되는거고, message id를 지정하지 않게 되면 모든 클라이언트에 대한 n:1 처리자가 돼서
-처리하게 되는거지.
-
-정리 하면 메모리 토픽 구조는 ConcurrentLinkedQueue<MemoryRecord> -> ConcurrentHashMap<UUID, ConcurrenTLinkedQueue<MemoryRecord>> 형태로 변경
-netty_client.request()는 기존 (type, message)에서 (type, message, id)를 전달받도록 변경, reuqest id는 삭제해도 무방할듯..?
-
-그렇다면 이제 파일 토픽인데...
-기존 토픽 명이 t1일 경우에는 topic/t1/ 에 .log, .offset, .cursor 파일이 생성되는데.. 이것도 topic/t1/a, topic/t1/b 형태로 해야될듯..?
+------------

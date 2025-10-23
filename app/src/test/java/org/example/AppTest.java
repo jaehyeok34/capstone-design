@@ -1,22 +1,26 @@
 package org.example;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
+import org.example.netty.NettyInitializer;
 import org.junit.jupiter.api.Test;
 
 class AppTest {
 
     @Test
-    void test() {
-        Map<String, List<String>> map = new HashMap<>();
-        
-        map.put(null, List.of("v1", "v2"));
-        map.put("k1", List.of("v3", "v4"));
+    void nettyInitializerTest() {
+        // handler를 하나도 등록하지 않으면 IllegalStateException 발생
+        assertThrows(IllegalStateException.class, () -> {
+            NettyInitializer.builder().build();
+        });
+    }
 
-        assertEquals("v1", map.get(null).get(0));
+    @Test
+    void optionalTest() {
+        Optional<Object> o1 = Optional.ofNullable(null);
+        assertThrows(NoSuchElementException.class, () -> o1.get());
     }
 }
