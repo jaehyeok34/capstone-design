@@ -1,6 +1,8 @@
 package org.example.netty.server;
 
+import org.example.Utils;
 import org.example.message.MessageDecoder;
+import org.example.message.MessageEncoder;
 import org.example.message.MessageProcessor;
 import org.example.netty.NettyInitializer;
 
@@ -26,9 +28,7 @@ public class NettyServer {
             throw new IllegalArgumentException("port: " + port);
         }
 
-        if (processor == null) {
-            throw new IllegalArgumentException("processor: null");
-        }
+        Utils.validate(processor);
 
         this.port = port;
         this.bootstrap = new ServerBootstrap()
@@ -38,6 +38,7 @@ public class NettyServer {
         NettyInitializer initializer = NettyInitializer.builder()
             .addHandler(new MessageDecoder())
             .addHandler(new ServerInboundHandler(processor))
+            .addHandler(new MessageEncoder())
             .build();
 
         bootstrap.childHandler(initializer);

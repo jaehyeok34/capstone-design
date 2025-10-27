@@ -3,14 +3,19 @@ package org.example.netty.client;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayDeque;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
+import org.example.Utils;
 import org.example.message.Message;
 import org.example.message.MessageDecoder;
-import org.example.message.MessageFrame;
-import org.example.message.MessageHeader;
+import org.example.message.MessageEncoder;
+import org.example.message.MessageOption;
 import org.example.netty.NettyInitializer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -22,8 +27,11 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 
 public class NettyClient {
 
+    public static final String DEFAULT_ID = "anonymous";
+
     private final EventLoopGroup group = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
-    private final Queue<CompletableFuture<MessageFrame>> requests = new ArrayDeque<>();
+    private final Queue<CompletableFuture<Message>> requests = new ArrayDeque<>();
+    private final Map<String, Map<Integer, BlockingQueue<Message>>> subscriptions = new ConcurrentHashMap<>();
     private final Channel channel;
 
     public NettyClient(int port) throws Exception {
@@ -35,9 +43,22 @@ public class NettyClient {
     }
 
     private Channel createChannel(int port) throws UnknownHostException, InterruptedException {
+        ClientInboundHandler inboundHandler = new ClientInboundHandler(
+            requests::poll, 
+            (topicName, partition) -> {
+                Map<Integer, BlockingQueue<Message>> partitionMap = subscriptions.get(topicName);
+                if (partitionMap == null) {
+                    return null;
+                }
+
+                return partitionMap.get(partition);
+            }
+        );
+
         NettyInitializer initializer = NettyInitializer.builder()
             .addHandler(new MessageDecoder())
-            .addHandler(new ClientInboundHandler(requests::poll))
+            .addHandler(inboundHandler)
+            .addHandler(new MessageEncoder())
             .build();
 
         Bootstrap bootstrap = new Bootstrap()
@@ -49,29 +70,98 @@ public class NettyClient {
         return future.channel();
     }
 
-    public CompletableFuture<MessageFrame> request(MessageFrame frame) {
-        if (frame == null) {
-            throw new IllegalArgumentException("frame: null");
-        }
+    /**
+     * 서버에 메시지를 전송하고, 응답을 future에 전달함(request <-> response)
+     * @return 서버의 응답을 담는 future
+     */
+    public CompletableFuture<Message> request(Message message) {
+        Utils.validate(message);
 
-        System.out.println("[debug]: 메시지 전송 시작");
-
-        // 메시지 전송
-        MessageHeader header = frame.header();
-        channel.write(header.toByteBuf());
-
-        Message message = frame.message();
-        Optional.ofNullable(message)
-            .ifPresentOrElse(
-                msg -> channel.writeAndFlush(msg.toByteBuf()), 
-                channel::flush
-            );
-
-        // 결과 대기용 future 생성
-        CompletableFuture<MessageFrame> future = new CompletableFuture<>();
+        // // 결과 대기용 future 생성
+        CompletableFuture<Message> future = new CompletableFuture<>();
         requests.add(future);
 
+        // 메시지 전송
+        channel.writeAndFlush(message);
+
         return future;
+    }
+
+    /**
+     * 서버에 메시지 전송만 함(응답 무시)
+     */
+    public void command(Message message) {
+        Utils.validate(message);
+        channel.writeAndFlush(message);
+    }
+
+    /**
+     * 특정 토픽/파티션을 구독하고, 메시지가 업데이트되면 out 큐에 TOPIC_UPDATE를 포함한 정보가 담김
+     * 따라서, out 큐를 blocking하게 모니터링해서 TOPIC_UPDATE 메시지를 처리할 수 있음
+     */
+    public ExecutorService subscribe(String topicName, int partition, String id, Queue<Message> out) {
+        Utils.validate(topicName, id, out);
+
+        Message subscribeMsg = new Message().addOptions(Map.of(
+            MessageOption.TYPE, Message.Type.REQ_SUBSCRIBE.getByte(),
+            MessageOption.ID, id,
+            MessageOption.TOPIC_NAME, topicName,
+            MessageOption.PARTITION, partition
+        ));
+
+        // 구독 요청
+        Message subscribeResponse = request(subscribeMsg).join(); // 구독 요청 대기
+        byte responseType = subscribeResponse.option(MessageOption.TYPE, Byte.class);
+        
+        // 구독 성공 시
+        if (responseType == Message.Type.RES_SUBSCRIBE.getByte()) {
+            Map<Integer, BlockingQueue<Message>> partitionMap = subscriptions.computeIfAbsent(
+                topicName, 
+                ignored -> new ConcurrentHashMap<>()
+            );
+
+            BlockingQueue<Message> queue = partitionMap.computeIfAbsent(
+                partition, 
+                ignored -> new LinkedBlockingDeque<>()
+            );
+
+            partitionMap.put(partition, queue); // partition 맵 갱신
+            subscriptions.put(topicName, partitionMap); // 토픽 구독 맵 갱신
+
+            // 별도의 스레드에서 알람 수신 대기
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            executor.submit(() -> {
+                while (true) {
+                    try {
+                        Message updateMsg = queue.take(); // blocking
+                        out.add(updateMsg);
+                    } catch (Exception ignored) {}
+    
+                    break;
+                }
+
+                partitionMap.remove(partition); // 모니터링 종료 후 파티션 맵에서 제거
+                unsubscribe(topicName, partition, id); // 구독 해제
+            });
+
+            return executor;
+        }
+
+        return null;
+    }
+
+    public void unsubscribe(String topicName, int partition, String id) {
+        Utils.validate(topicName, id);
+
+        Message unsubscribeMsg = new Message().addOptions(Map.of(
+            MessageOption.TYPE, Message.Type.REQ_UNSUBSCRIBE.getByte(),
+            MessageOption.ID, id,
+            MessageOption.TOPIC_NAME, topicName,
+            MessageOption.PARTITION, partition
+        ));
+
+        // 구독 취소 요청
+        request(unsubscribeMsg);
     }
 
     public void shutdownGracefully() {

@@ -4,7 +4,6 @@ import java.net.SocketAddress;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelConfig;
 import io.netty.channel.ChannelFuture;
@@ -17,17 +16,17 @@ import io.netty.util.AttributeKey;
 
 public class SpyChannel implements Channel {
 
-    public Queue<ByteBuf> queue = new ArrayDeque<>();
+    public Queue<Object> queue = new ArrayDeque<>();
 
     @Override
     public ChannelFuture write(Object msg) {
-        queue.add((ByteBuf) msg);
+        queue.add(msg);
         return null;
     }
 
     @Override
     public ChannelFuture writeAndFlush(Object msg) {
-        queue.add((ByteBuf) msg);
+        queue.add(msg);
         return null;
     }
 
@@ -53,7 +52,7 @@ public class SpyChannel implements Channel {
 
     @Override
     public boolean isActive() {
-        return false;
+        return true;
     }
 
     @Override

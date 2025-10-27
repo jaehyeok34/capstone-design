@@ -2,20 +2,27 @@ package org.example;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.example.broker.Broker;
 import org.example.client.Consumer;
 import org.example.client.Producer;
 import org.example.message.Message;
+import org.example.message.MessageOption;
+import org.example.spy.SpyContext;
 import org.example.topic.Topic;
 import org.example.topic.disk.DiskTopic;
 import org.junit.jupiter.api.AfterEach;
@@ -28,11 +35,23 @@ import io.netty.buffer.Unpooled;
 public class NetworkTest {
 
     Broker broker;
+    ExecutorService executor;
+
     final String t1 = "memory_topic";
     final String t2 = "disk_topic";
     final int partition = 0;
     final int port = 3400;
-    final String message = "message";
+    final String payload = "payload";
+    final List<ByteBuf> bufs = new ArrayList<>();
+
+    void add() throws Exception {
+        for (String t : List.of(t1, t2)) {
+            ByteBuf buf = Unpooled.buffer().writeBytes(payload.getBytes(StandardCharsets.UTF_8));
+            bufs.add(buf);
+
+            broker.topic(t).push(partition, "user", buf.retain());
+        }
+    }
 
     @BeforeEach
     void beforeEach() throws Exception {
@@ -42,13 +61,13 @@ public class NetworkTest {
             .addTopic(t2, Topic.Type.DISK)
             .build();
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor = Executors.newSingleThreadExecutor();
         executor.submit(() -> {
             try {
                 broker.start();
-            } catch (InterruptedException __) {
-                broker.close();
-            }
+            } catch (Exception ignored) {}
+
+            broker.close();
         });
 
         while (!broker.isActive()) {
@@ -60,101 +79,198 @@ public class NetworkTest {
     void afterEach() throws IOException {
         broker.close();
         clear();
+        executor.shutdown();
+        
+        for (ByteBuf buf : bufs) {
+            while (buf.refCnt() > 0) {
+                buf.release();
+            }
+        }
+        bufs.clear();
+    }
+
+    @Test
+    void invalidTopicProduceTest() throws Exception {
+        try (Producer producer = new Producer(port)) {
+            // 존재하지 않는 토픽에 데이터 전송 시도
+            assertDoesNotThrow(() -> {
+                // 서버에서 존재하지 않는 토픽에 데이터 전송 시 토픽 조회 단계에서 무시되고 RES_PUSH 응답이 옴
+                producer.syncProduce("invalid_topic", partition, payload);
+                producer.syncProduce(t1, 99, payload);
+            });
+        }
     }
 
     @Test
     void produceTest() throws Exception {
-        try (Producer producer = new Producer(port)) {
+        String id = "user";
+        try (Producer producer = new Producer(port, id)) {
             // 메시지 각각 2번씩 전송
             for (int i = 0; i < 2; i++) {
-                producer.request(t1, partition, message + i);
-                producer.request(t2, partition, message + i);
+                producer.asyncProduce(t1, partition, payload + i);
+                producer.asyncProduce(t2, partition, payload + i);
             }
 
-            // client -> server로 writeAndFlush 후, 실제 server가 이를 수신해서 처리하는 시간 대기
-            // 단, 최대 1초 까지만 대기
-            int limit = 10;
-            while (broker.topic(t1).get().length(partition) == 0 && limit > 0) {
-                Thread.sleep(100);
-                limit--;
+            // 서버가 데이터를 처리하는 시간 최대 3초 대기
+            int count = 0;
+            while (broker.topic(t2).length(partition, id) == 0 && count < 10) {
+                Thread.sleep(300);
+                count++;
             }
 
-            assertTrue(limit > 0); // 데이터가 정상 처리 됐는지 검증(limit이 0이면 토픽에 갱신 실패 했다는 의미)
-            assertEquals(2, broker.topic(t1).get().length(partition));
-            assertEquals(2, broker.topic(t2).get().length(partition));
+            assertTrue(count < 10); // 데이터가 정상 처리 됐는지 검증
+
+            // 두 토픽 모두 메시지가 2개인지 확인
+            List.of(t1, t2).forEach(t -> assertEquals(2, broker.topic(t).length(partition, id)));
         }
     }
 
     @Test
-    void invalidProduceTest() throws Exception {
-        try (Producer producer = new Producer(port)) {
-            // 존재하지 않는 토픽에 데이터 전송 시도
-            assertDoesNotThrow(() -> {
-                producer.request("invalid_topic", partition, message);
-                producer.request(t1, 99, message);
-            });
+    void invaildConsumeTest() throws Exception {
+        try (Consumer consumer = new Consumer(port, "user")) {
+            // 데이터가 없는 상태
+            Message mm = consumer.consume(t1, partition); // memory topic에 데이터 요청
+            Message dm = consumer.consume(t2, partition); // disk topic에 데이터 요청
+
+            assertNull(mm.option(MessageOption.PAYLOAD));
+            assertNull(dm.option(MessageOption.PAYLOAD));
         }
     }
-    
 
     @Test
     void consumeTest() throws Exception {
-        addData(); // 데이터 준비
+        try (Consumer consumer = new Consumer(port, "user")) {
+            add(); // 데이터 준비
 
-        try (Consumer consumer = new Consumer(port)) {
-            List.of(t1, t2).forEach(topic -> {
-                Optional<Message> msg = consumer.request(topic, partition);
-                assertTrue(msg.isPresent());
+            Message mm = consumer.consume(t1, partition); // memory topic에 데이터 요청
+            Message dm = consumer.consume(t2, partition); // disk topic에 데이터 요청
 
-                msg.ifPresent(m -> {
-                    // 꺼낸 데이터 검증
-                    assertEquals(message, m.toByteBuf().toString(StandardCharsets.UTF_8));
-                    assertEquals(1, m.toByteBuf().refCnt());
-                });
-            });
+            // 토픽 상태 검증
+            assertEquals(0, broker.topic(t1).length(partition, "user"));
+
+            // disk topic은 cursor만 증가해야 함
+            assertEquals(1, broker.topic(t2).length(partition, "user")); 
+            assertEquals(1, ((DiskTopic) broker.topic(t2)).cursor(partition));
+
+            // payload 검증
+            assertNotNull(mm.option(MessageOption.PAYLOAD));
+            assertEquals(payload, mm.option(MessageOption.PAYLOAD, ByteBuf.class).readString(payload.length(), StandardCharsets.UTF_8));
+
+            assertNotNull(dm.option(MessageOption.PAYLOAD));
+            assertEquals(payload, dm.option(MessageOption.PAYLOAD, ByteBuf.class).readString(payload.length(), StandardCharsets.UTF_8));
         }
-
-        // 토픽 상태 검증
-        assertEquals(0, broker.topic(t1).get().length(partition));
-        assertEquals(1, ((DiskTopic) broker.topic(t2).get()).cursor(partition));
     }
 
     @Test
-    void invalidConsumeTest() throws Exception {
-        try (Consumer consumer = new Consumer(port)) {
-            // 존재하지 않는 토픽에 데이터 요청
-            var msg1 = consumer.request("invalid_topic", partition);
-            assertTrue(msg1.isEmpty());
+    void subscribeMemoryTopicAndConsumeTest() throws Exception { 
+        try (Consumer consumer = new Consumer(port, "user1");) {
+            BlockingQueue<Message> out = new LinkedBlockingQueue<>();
 
-            // 존재하지 않는 파티션에 데이터 요청(토픽은 존재)
-            var msg2 = consumer.request(t1, 99);
-            assertTrue(msg2.isEmpty());
+            // 구독 과정에서 실패(예외) 하지 않아야 함
+            ExecutorService executor = consumer.subscribeAndConsume(t1, partition, out);
+            
+            /*
+             * NettyInitializer의 경우 test 환경에서 동일 핸들러(MessageDecoder) 등이 있으면
+             * new 키워드를 사용하더라도 재사용하는 문제가 있어서
+             * id="user2"는 별도의 consumer 객체를 만들지 않고 topic에 직접 구독하여 테스트함
+             */
+            SpyContext ctx = new SpyContext();
+            Queue<Object> q = ctx.channel.queue;
+            broker.topic(t1).subscribe(ctx, partition, "user2");
 
-            // 데이터가 없는 파티션에 데이터 요청(토픽, 파티션 존재)
-            assertEquals(0, broker.topic(t1).get().length(partition)); // 데이터 없는지 확인
-            var msg3 = consumer.request(t1, partition);
-            assertTrue(msg3.isEmpty());
+            assertEquals(0, out.size()); // 아직 데이터 없어야함
 
-            assertEquals(0, broker.topic(t2).get().length(partition));
-            var msg4 = consumer.request(t2, partition);
-            assertTrue(msg4.isEmpty());
+            // 데이터 추가
+            ByteBuf buf = Unpooled.buffer().writeBytes(payload.getBytes(StandardCharsets.UTF_8));
+            bufs.add(buf);
+            broker.topic(t1).push(partition, consumer.id(), buf.retain()); // user1에만 데이터 추가
+
+            /*
+             * user2도 topic/partition을 구독했지만,
+             * memory topic의 경우 id 기준으로 큐가 나눠있기 때문에
+             * user2는 알람을 받지 않아야 하기 때문에 q가 비어있어야 함
+             * -> ctx.write() 호출 시 SpyContext는 큐에 값을 쌓이게 되는데
+             * 호출되지 않아야 하기 때문에 비어있는게 맞음
+             */
+            assertEquals(0, q.size());
+
+            // consume 테스트
+            Message response = out.take(); // 구독한 데이터 받기
+            assertEquals(0, out.size()); // 앞에서 하나 꺼냈기 때문에 비어 있어야함
+
+            // payload 검증
+            Byte type = response.option(MessageOption.TYPE, Byte.class);
+            String id = response.option(MessageOption.ID, String.class);
+            String tn = response.option(MessageOption.TOPIC_NAME, String.class);
+            Integer p = response.option(MessageOption.PARTITION, Integer.class);
+            Long c = response.option(MessageOption.CURSOR, Long.class);
+            ByteBuf pb = response.option(MessageOption.PAYLOAD, ByteBuf.class);
+
+            assertEquals(Message.Type.RES_PULL.getByte(), type);
+            assertEquals(consumer.id(), id);
+            assertEquals(t1, tn);
+            assertEquals(partition, p);
+            assertEquals(-1, c); 
+            assertEquals(payload, pb.readString(payload.length(), StandardCharsets.UTF_8));
+
+            executor.shutdownNow();
         }
     }
 
-    void addData() {
-        List.of(t1, t2).forEach(t -> {
-            broker.topic(t)
-                .ifPresent(topic -> {
-                    ByteBuf buf = Unpooled.buffer()
-                        .writeBytes(message.getBytes(StandardCharsets.UTF_8));
+    @Test
+    void subscribeDiskTopicAndConsumeTest() throws Exception {
+        try (Consumer consumer = new Consumer(port, "user1")) {
+            BlockingQueue<Message> out = new LinkedBlockingQueue<>();
 
-                    topic.push(partition, buf.retain());
-                });
-        });
+            // memory topic과 동일하게 구독 과정에서는 실패하지 않아야 함
+            ExecutorService executor = consumer.subscribeAndConsume(t2, partition, out);
+
+            /*
+             * 마찬가지로 id="user"는 별도의 consumer 객체를 만들지 않고 
+             * 직접 topic에 구독하여 테스트 함
+             */
+            SpyContext ctx = new SpyContext();
+            Queue<Object> q = ctx.channel.queue;
+            broker.topic(t2).subscribe(ctx, partition, "user2");
+
+            assertEquals(0, out.size()); // 아직 데이터 없어야함
+
+            // 데이터 추가
+            ByteBuf buf = Unpooled.buffer().writeBytes(payload.getBytes(StandardCharsets.UTF_8));
+            bufs.add(buf);
+            broker.topic(t2).push(partition, consumer.id(), buf.retain());
+
+            Message response = out.take(); // 구독한 데이터 받기
+            assertEquals(0, out.size()); // 앞에서 하나 꺼냈기 때문에 비어 있어야함
+
+            /*
+             * 디스크 토픽의 경우 아이디와 상관없이 topic/partition을 구독하면
+             * 구독한 모든 클라이언트(id)에게 알림이 가기 때문에
+             * user2도 알림을 받아야 함
+             */
+            assertTrue(q.size() > 0);
+
+            // payload 검증
+            Byte type = response.option(MessageOption.TYPE, Byte.class);
+            String id = response.option(MessageOption.ID, String.class);
+            String tn = response.option(MessageOption.TOPIC_NAME, String.class);
+            Integer p = response.option(MessageOption.PARTITION, Integer.class);
+            Long c = response.option(MessageOption.CURSOR, Long.class);
+            ByteBuf pb = response.option(MessageOption.PAYLOAD, ByteBuf.class);
+
+            assertEquals(Message.Type.RES_PULL.getByte(), type);
+            assertEquals(consumer.id(), id);
+            assertEquals(t2, tn);
+            assertEquals(partition, p);
+            assertEquals(-1, c);
+            assertEquals(payload, pb.readString(payload.length(), StandardCharsets.UTF_8));
+
+            executor.shutdown();
+        }
     }
-
+    
     void clear() throws IOException {
-        if (broker.topic(t2).get() instanceof DiskTopic topic) {
+        if (broker.topic(t2) instanceof DiskTopic topic) {
             topic.clearFiles(partition);
             Files.deleteIfExists(topic.partitionPath(partition));
             Files.deleteIfExists(topic.rootPath());

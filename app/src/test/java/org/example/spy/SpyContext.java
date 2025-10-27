@@ -3,6 +3,7 @@ package org.example.spy;
 import java.net.SocketAddress;
 
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
@@ -24,7 +25,7 @@ public class SpyContext implements ChannelHandlerContext {
     }
 
     @Override
-    public ByteBufAllocator alloc() { return null; }
+    public ByteBufAllocator alloc() { return UnpooledByteBufAllocator.DEFAULT; }
     @Override
     public <T> Attribute<T> attr(AttributeKey<T> key) { return null; }
     @Override
@@ -84,7 +85,10 @@ public class SpyContext implements ChannelHandlerContext {
     @Override
     public ChannelPromise voidPromise() { return null; }
     @Override
-    public ChannelFuture write(Object msg, ChannelPromise promise) { return null; }
+    public ChannelFuture write(Object msg, ChannelPromise promise) { 
+        channel.write(msg);
+        return null;   
+    }
     @Override
     public ChannelFuture writeAndFlush(Object msg, ChannelPromise promise) { return null; }
 }

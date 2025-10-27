@@ -2,8 +2,6 @@ package org.example.broker;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-
 import org.example.netty.server.NettyServer;
 import org.example.topic.Topic;
 import org.example.topic.TopicManager;
@@ -22,7 +20,7 @@ public class Broker implements AutoCloseable {
 
     public void start() throws InterruptedException {  server.start(); }
     public TopicManager topicManager() { return topicManager; }
-    public Optional<Topic> topic(String name) { return topicManager.topic(name); }
+    public Topic topic(String name) { return topicManager.topic(name); }
     public boolean isActive() { return server.isActive(); }
     
     @Override 

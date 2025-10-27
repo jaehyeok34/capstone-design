@@ -1,87 +1,126 @@
 package org.example.topic;
 
+import org.example.Utils;
 import org.example.message.Message;
-import org.example.message.MessageFrame;
-import org.example.message.MessageHeader;
+import org.example.message.MessageOption;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.example.message.MessageProcessor;
 import org.example.topic.disk.DiskTopic;
 import org.example.topic.memory.MemoryTopic;
+import org.jspecify.annotations.Nullable;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
 
 public class TopicManager implements MessageProcessor {
 
     private final Map<String, Topic> topicTable = new ConcurrentHashMap<>();
 
     public TopicManager(Map<String, Topic.Type> topicInfo) {
-        if (topicInfo == null) throw new IllegalArgumentException("topicInfo: null");
-
         topicInfo.forEach((name, type) -> {
-            if (name == null || name.isEmpty() || type == null) return;
-
             try {
-                Topic topic = type == Topic.Type.MEMORY ? MemoryTopic.of() : DiskTopic.of(name);
+                Utils.validate(name, type);
+
+                Topic topic = (type == Topic.Type.MEMORY) ? 
+                    new MemoryTopic(name) : new DiskTopic(name);
                 topicTable.put(name, topic);
-            } catch (IOException ignore) { return; }
+            } catch (Exception ignored) { return; }
         });
     }
 
-    public Optional<Topic> topic(String name) { return Optional.ofNullable(topicTable.get(name)); }
+    @Nullable
+    public Topic topic(String name) { return topicTable.get(name); }
 
     @Override
-    public Result process(MessageFrame frame) {
-        MessageHeader header = frame.header();
-        Message message = frame.message();
+    public void process(ChannelHandlerContext context, Message message) {
+        Utils.validate(context, message);
+        
+        Byte type = message.option(MessageOption.TYPE, Byte.class);
+        Utils.validate(type);
 
-        switch (header.type()) {
-            case MessageHeader.Type.REQ_PUSH -> { 
-                System.out.println("[debug] TopicManager.process() - REQ_PUSH 처리...");
-                return push(header, message);
-            }
-
-            case MessageHeader.Type.REQ_PULL -> {
-                System.out.println("[debug] TopicManager.process() - REQ_PULL 처리...");
-                return pull(header);
-            }
-
-            default -> {
-                System.out.println("[debug] TopicManager.process() - RES_XXX 무시");
-                throw new IllegalStateException("type: RES_XXX");
-            }
+        switch (Message.Type.values()[type]) {
+            case REQ_PUSH -> push(context, message);
+            case REQ_PULL -> pull(context, message);
+            case REQ_SUBSCRIBE -> subscribe(context, message);
+            case REQ_UNSUBSCRIBE -> unsubscribe(context, message);
+            default -> throw new IllegalStateException("알 수 없는 타입");
         }
     }
 
-    private Result pull(MessageHeader header) {
-        String topicName = header.topicName();
-        int partition = header.partition();
+    private void push(ChannelHandlerContext context, Message message) {
+        String id = message.option(MessageOption.ID, String.class);
+        String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
+        Integer partition = message.option(MessageOption.PARTITION, Integer.class);
+        ByteBuf payload = message.option(MessageOption.PAYLOAD, ByteBuf.class);
 
-        MessageHeader.Builder builder = MessageHeader
-            .builder(MessageHeader.Type.RES_PULL, topicName)
-            .partition(partition);
+        Utils.validate(id, topicName, partition, payload);
 
-        return Optional.ofNullable(topicTable.get(topicName))
-            .flatMap(topic -> topic.pull(partition)) // Optional<TopicRecord>
-            .map(record -> {
-                MessageHeader resHeader = builder
-                    .messageLength(record.length())
-                    .build();
+        Topic topic = topicTable.get(topicName);
+        if (topic != null) {
+            topic.push(partition, id, payload.retain());
+        }
 
-                return Result.of(resHeader, record);
-            }).orElse(Result.of(builder.build())); // no topic or no record
+        // RES_PUSH 응답
+        message.addOption(MessageOption.TYPE, Message.Type.RES_PUSH.getByte()) // type 변경
+            .removeOption(MessageOption.PAYLOAD); // payload 제거
+
+        context.channel().writeAndFlush(message); // message encoder로 전달
     }
 
-    private Result push(MessageHeader header, Message message) {
-        Optional.ofNullable(topicTable.get(header.topicName()))
-            .ifPresent(topic -> topic.push(header.partition(), message.retain()));
+    private void pull(ChannelHandlerContext context, Message message) {
+        String id = message.option(MessageOption.ID, String.class);
+        String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
+        Integer partition = message.option(MessageOption.PARTITION, Integer.class);
+        Long cursor = message.option(MessageOption.CURSOR, Long.class);
+        
+        Utils.validate(id, topicName, partition);
 
-        MessageHeader resHeader = MessageHeader
-            .builder(MessageHeader.Type.RES_PUSH, header.topicName())
-            .partition(header.partition())
-            .build();
+        message.addOption(MessageOption.TYPE, Message.Type.RES_PULL.getByte()) // type 변경
+            .removeOption(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
 
-        return Result.of(resHeader);
+        Topic topic = topicTable.get(topicName);
+        if (topic != null) {
+            TopicRecord record = topic.pull(partition, id, cursor);
+            if (record != null) {
+                message.addOption(MessageOption.PAYLOAD, record);
+            }
+        }
+
+        // context.channel().writeAndFlush(message);
+        context.channel().write(message);
+    }
+
+    private void subscribe(ChannelHandlerContext context, Message message) {
+        String id = message.option(MessageOption.ID, String.class);
+        String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
+        Integer partition = message.option(MessageOption.PARTITION, Integer.class);
+
+        Utils.validate(id, topicName, partition);
+
+        Topic topic = topicTable.get(topicName);
+        if (topic != null) {
+            topic.subscribe(context, partition, id);
+        }
+
+        message.addOption(MessageOption.TYPE, Message.Type.RES_SUBSCRIBE.getByte());
+        context.channel().writeAndFlush(message);
+    }
+
+    private void unsubscribe(ChannelHandlerContext context, Message message) {
+        String id = message.option(MessageOption.ID, String.class);
+        String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
+        Integer partition = message.option(MessageOption.PARTITION, Integer.class);
+
+        Utils.validate(id, topicName, partition);
+
+        Topic topic = topicTable.get(topicName);
+        if (topic != null) {
+            topic.unsubscribe(partition, id);
+        }
+
+        message.addOption(MessageOption.TYPE, Message.Type.RES_UNSUBSCRIBE.getByte());
+        context.channel().writeAndFlush(message);
     }
 }
