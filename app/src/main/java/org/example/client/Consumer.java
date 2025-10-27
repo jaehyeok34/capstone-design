@@ -19,11 +19,11 @@ public class Consumer implements AutoCloseable {
     private final NettyClient client;
     private final String id;
 
-    public Consumer(int port, String id) throws Exception { 
-        this.client = new NettyClient(port);
+    public Consumer(String host, int port, String id) throws Exception { 
+        this.client = new NettyClient(host, port);
         this.id = (id != null && !id.isEmpty()) ? id : NettyClient.DEFAULT_ID;
     }
-    public Consumer(int port) throws Exception { this(port, null); }
+    public Consumer(String host, int port) throws Exception { this(host, port, null); }
     
     @Nullable
     public Message consume(String topicName, int partition, Long cursor) {

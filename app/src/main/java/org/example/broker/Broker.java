@@ -2,6 +2,8 @@ package org.example.broker;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import org.example.Utils;
 import org.example.netty.server.NettyServer;
 import org.example.topic.Topic;
 import org.example.topic.TopicManager;
@@ -11,14 +13,17 @@ public class Broker implements AutoCloseable {
     private final TopicManager topicManager;
     private final NettyServer server;
 
-    private Broker(Builder builder) {
+    private Broker(Builder builder) throws Exception {
         topicManager = new TopicManager(builder.topicInfo);
         server = new NettyServer(builder.port, topicManager);
     }
     
     public static Builder builder() { return new Builder(); }
 
-    public void start() throws InterruptedException {  server.start(); }
+    public void start() throws InterruptedException { 
+        System.out.println("[debug] 브로커 시작");
+        server.start(); 
+    }
     public TopicManager topicManager() { return topicManager; }
     public Topic topic(String name) { return topicManager.topic(name); }
     public boolean isActive() { return server.isActive(); }
@@ -35,10 +40,8 @@ public class Broker implements AutoCloseable {
 
         private Builder() {} // 직접 생성 제한
 
-        public Broker build() { 
-            if (topicInfo.isEmpty()) {
-                throw new IllegalStateException("topicInfo: empty");
-            }
+        public Broker build() throws Exception { 
+            Utils.validate(topicInfo);
 
             return new Broker(this); 
         }

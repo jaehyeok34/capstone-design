@@ -26,11 +26,7 @@ public class MessageDecoder extends ByteToMessageDecoder {
     }
 
     private boolean readMagic(ByteBuf in) {
-        if (in.readableBytes() < Integer.BYTES) {
-            return false;
-        }
-
-        while (true) {
+        while (in.readableBytes() >= Integer.BYTES) {
             in.markReaderIndex(); // 현재 readerIndex 저장
 
             int magic = in.readInt();
@@ -43,6 +39,8 @@ public class MessageDecoder extends ByteToMessageDecoder {
             state = State.READ_LENGTH;
             return true;
         }
+
+        return false;
      }
 
     private boolean readLength(ByteBuf in) {
@@ -51,10 +49,8 @@ public class MessageDecoder extends ByteToMessageDecoder {
         }
 
         length = in.readLong();
-        if (length > 0) {
-            state = State.READ_MESSAGE;
-        }
-
+        state = State.READ_MESSAGE;
+        
         return true;
     }
 

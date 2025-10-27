@@ -22,8 +22,8 @@ public class NettyServer {
     private final EventLoopGroup workerGroup = new MultiThreadIoEventLoopGroup(5, NioIoHandler.newFactory());
     private final ServerBootstrap bootstrap;
     private Channel channel;
-    
-    public NettyServer(int port, MessageProcessor processor) {
+
+    public NettyServer(int port, MessageProcessor processor) throws Exception {
         if (port <= 0 || port > 65535) {
             throw new IllegalArgumentException("port: " + port);
         }
@@ -36,9 +36,9 @@ public class NettyServer {
             .channel(NioServerSocketChannel.class);
 
         NettyInitializer initializer = NettyInitializer.builder()
-            .addHandler(new MessageDecoder())
-            .addHandler(new ServerInboundHandler(processor))
-            .addHandler(new MessageEncoder())
+            .addHandler(MessageDecoder.class)
+            .addHandler(ServerInboundHandler.class, new Class<?>[] { MessageProcessor.class }, processor)
+            .addHandler(MessageEncoder.class)
             .build();
 
         bootstrap.childHandler(initializer);

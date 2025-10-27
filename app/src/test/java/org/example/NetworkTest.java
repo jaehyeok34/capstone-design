@@ -91,7 +91,7 @@ public class NetworkTest {
 
     @Test
     void invalidTopicProduceTest() throws Exception {
-        try (Producer producer = new Producer(port)) {
+        try (Producer producer = new Producer("localhost", port)) {
             // 존재하지 않는 토픽에 데이터 전송 시도
             assertDoesNotThrow(() -> {
                 // 서버에서 존재하지 않는 토픽에 데이터 전송 시 토픽 조회 단계에서 무시되고 RES_PUSH 응답이 옴
@@ -104,7 +104,7 @@ public class NetworkTest {
     @Test
     void produceTest() throws Exception {
         String id = "user";
-        try (Producer producer = new Producer(port, id)) {
+        try (Producer producer = new Producer("localhost", port, id)) {
             // 메시지 각각 2번씩 전송
             for (int i = 0; i < 2; i++) {
                 producer.asyncProduce(t1, partition, payload + i);
@@ -127,7 +127,7 @@ public class NetworkTest {
 
     @Test
     void invaildConsumeTest() throws Exception {
-        try (Consumer consumer = new Consumer(port, "user")) {
+        try (Consumer consumer = new Consumer("localhost", port, "user")) {
             // 데이터가 없는 상태
             Message mm = consumer.consume(t1, partition); // memory topic에 데이터 요청
             Message dm = consumer.consume(t2, partition); // disk topic에 데이터 요청
@@ -139,7 +139,7 @@ public class NetworkTest {
 
     @Test
     void consumeTest() throws Exception {
-        try (Consumer consumer = new Consumer(port, "user")) {
+        try (Consumer consumer = new Consumer("localhost", port, "user")) {
             add(); // 데이터 준비
 
             Message mm = consumer.consume(t1, partition); // memory topic에 데이터 요청
@@ -163,7 +163,7 @@ public class NetworkTest {
 
     @Test
     void subscribeMemoryTopicAndConsumeTest() throws Exception { 
-        try (Consumer consumer = new Consumer(port, "user1");) {
+        try (Consumer consumer = new Consumer("localhost", port, "user1");) {
             BlockingQueue<Message> out = new LinkedBlockingQueue<>();
 
             // 구독 과정에서 실패(예외) 하지 않아야 함
@@ -219,7 +219,7 @@ public class NetworkTest {
 
     @Test
     void subscribeDiskTopicAndConsumeTest() throws Exception {
-        try (Consumer consumer = new Consumer(port, "user1")) {
+        try (Consumer consumer = new Consumer("localhost", port, "user1")) {
             BlockingQueue<Message> out = new LinkedBlockingQueue<>();
 
             // memory topic과 동일하게 구독 과정에서는 실패하지 않아야 함

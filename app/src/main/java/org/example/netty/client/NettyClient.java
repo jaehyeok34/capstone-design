@@ -11,6 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
+
 import org.example.Utils;
 import org.example.message.Message;
 import org.example.message.MessageDecoder;
@@ -34,39 +37,38 @@ public class NettyClient {
     private final Map<String, Map<Integer, BlockingQueue<Message>>> subscriptions = new ConcurrentHashMap<>();
     private final Channel channel;
 
-    public NettyClient(int port) throws Exception {
+    public NettyClient(String host, int port) throws Exception {
+        Utils.validate(host);
         if (port <= 0 || port > 65535) {
             throw new IllegalArgumentException("port: 유효하지 않은 값");
         }
 
-        channel = createChannel(port);
+        channel = createChannel(host, port);
     }
 
-    private Channel createChannel(int port) throws UnknownHostException, InterruptedException {
-        ClientInboundHandler inboundHandler = new ClientInboundHandler(
-            requests::poll, 
-            (topicName, partition) -> {
-                Map<Integer, BlockingQueue<Message>> partitionMap = subscriptions.get(topicName);
-                if (partitionMap == null) {
-                    return null;
-                }
-
-                return partitionMap.get(partition);
+    private Channel createChannel(String host, int port) throws UnknownHostException, InterruptedException {
+        Supplier<CompletableFuture<Message>> supplier = requests::poll;
+        BiFunction<String, Integer, BlockingQueue<Message>> queueProvider = (topicName, partition) -> {
+            Map<Integer, BlockingQueue<Message>> partitionMap = subscriptions.get(topicName);
+            if (partitionMap == null) {
+                return null;
             }
-        );
+
+            return partitionMap.get(partition);
+        };
 
         NettyInitializer initializer = NettyInitializer.builder()
-            .addHandler(new MessageDecoder())
-            .addHandler(inboundHandler)
-            .addHandler(new MessageEncoder())
+            .addHandler(MessageDecoder.class)
+            .addHandler(ClientInboundHandler.class, supplier, queueProvider)
+            .addHandler(MessageEncoder.class)
             .build();
 
         Bootstrap bootstrap = new Bootstrap()
             .group(group)
             .channel(NioSocketChannel.class)
             .handler(initializer);
-        
-        ChannelFuture future = bootstrap.connect(InetAddress.getByName("localhost"), port).sync();
+
+        ChannelFuture future = bootstrap.connect(InetAddress.getByName(host), port).sync();
         return future.channel();
     }
 

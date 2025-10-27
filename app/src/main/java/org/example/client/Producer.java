@@ -12,11 +12,11 @@ public class Producer implements AutoCloseable {
     private final NettyClient client;
     private final String id;
 
-    public Producer(int port, String id) throws Exception {
-        this.client = new NettyClient(port);
+    public Producer(String host, int port, String id) throws Exception {
+        this.client = new NettyClient(host, port);
         this.id = (id != null && !id.isEmpty()) ? id : NettyClient.DEFAULT_ID;
     }
-    public Producer(int port) throws Exception { this(port, null); }
+    public Producer(String host, int port) throws Exception { this(host, port, null); }
 
     private Message createMessage(String topicName, int partition, byte[] payload) {
         Utils.validate(topicName, payload);

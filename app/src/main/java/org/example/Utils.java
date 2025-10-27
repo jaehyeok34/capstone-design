@@ -1,5 +1,7 @@
 package org.example;
 
+import java.util.Map;
+
 import io.netty.buffer.ByteBuf;
 
 public class Utils {
@@ -21,6 +23,10 @@ public class Utils {
                 throw new IllegalStateException("released or empty buf");
             } else if (object instanceof byte[] arr && arr.length == 0) {
                 throw new IllegalStateException("empty byte array");
+            } else if (object instanceof Map<?, ?> map && map.isEmpty()) {
+                throw new IllegalStateException("empty map");
+            } else if (object instanceof Iterable<?> iterable && !iterable.iterator().hasNext()) {
+                throw new IllegalStateException("empty iterable");
             }
          }
     }
