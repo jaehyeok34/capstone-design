@@ -61,7 +61,6 @@ public class Consumer implements AutoCloseable {
                         continue; // 유효한 알림이 아니면 무시
                     }
                     
-                    // null일 수가 없음.. cursor를 생략하고 toByteBuf()를 호출하면 decoder 등에서 -1로 처리됨
                     Long cursor = notified.option(MessageOption.CURSOR, Long.class);
                     out.add(consume(topicName, partition, cursor));
                 } catch (Exception ignored) {}

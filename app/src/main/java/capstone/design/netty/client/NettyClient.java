@@ -163,7 +163,7 @@ public class NettyClient {
         ));
 
         // 구독 취소 요청
-        request(unsubscribeMsg);
+        command(unsubscribeMsg);
     }
 
     public void shutdownGracefully() {
