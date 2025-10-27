@@ -38,7 +38,7 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass.set("org.example.App")
+    mainClass.set("capstone.design.App")
 }
 
 tasks.named<Test>("test") {
