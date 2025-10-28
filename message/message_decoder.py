@@ -1,7 +1,7 @@
 import struct
-from message.message import Message
-from message.message_option import MessageOption
-from utils import Utils
+from .message import Message
+from .message_option import MessageOption
+from ..utils import Utils
 
 
 class MessageDecoder:
@@ -11,7 +11,7 @@ class MessageDecoder:
         self.state = 0 # read magic
         self.length = 0
     
-    def decode(self, data: bytes) -> 'Message':
+    def decode(self, data: bytes):
         self.buffer.extend(data)
 
         while True:
@@ -88,7 +88,7 @@ class MessageDecoder:
         offset += 4
 
         if payload_length > 0:
-            message.add_option(MessageOption.PAYLOAD, msg_bytes[offset : offset + payload_length])
+            message.add_option(MessageOption.PAYLOAD, bytes(msg_bytes[offset : offset + payload_length]))
             offset += payload_length
 
         self.state = 0

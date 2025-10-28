@@ -4,11 +4,11 @@ import socket
 import threading
 from typing import Dict
 
-from message.message import Message
-from message.message_decoder import MessageDecoder
-from message.message_option import MessageOption
-from message.message_type import MessageType
-from utils import Utils
+from .message.message import Message
+from .message.message_decoder import MessageDecoder
+from .message.message_option import MessageOption
+from .message.message_type import MessageType
+from .utils import Utils
 
 
 class Client:
@@ -48,8 +48,10 @@ class Client:
                 if message_type == MessageType.TOPIC_UPDATE.value:
                     topic_name = message.option(MessageOption.TOPIC_NAME)
                     partition = message.option(MessageOption.PARTITION)
+                    if (topic_name is None) or (partition is None):
+                        continue
 
-                    partition_map: Dict[int, Queue] = self.subscriptions.get(topic_name)
+                    partition_map = self.subscriptions.get(topic_name)
                     if partition_map is None:
                         continue
 

@@ -9,3 +9,7 @@ class Utils:
 
             if isinstance(arg, str) and not arg.strip():
                 raise ValueError("Empty String")
+            
+    @staticmethod
+    def is_none(*args):
+        return any((arg is None) for arg in args)

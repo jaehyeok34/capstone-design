@@ -1,11 +1,11 @@
 
 from queue import Queue
-import threading
-from client import Client
-from message.message import Message
-from message.message_option import MessageOption
-from message.message_type import MessageType
-from utils import Utils
+from threading import Thread, Event
+from .client import Client
+from .message.message import Message
+from .message.message_option import MessageOption
+from .message.message_type import MessageType
+from .utils import Utils
 
 
 class Consumer:
@@ -23,7 +23,7 @@ class Consumer:
         self.client.sock.close()
         return False
         
-    def consume(self, topic_name: str, partition, cursor: int = None):
+    def consume(self, topic_name: str, partition, cursor: int = -1):
         Utils.validate(topic_name)
 
         message = Message().add_options({
@@ -38,14 +38,14 @@ class Consumer:
 
         return self.client.request(message)
     
-    def subscribeAndConsume(self, topic_name: str, partition: int, out: Queue[Message]):
+    def subscribeAndConsume(self, topic_name: str, partition: int, event: Event, out: Queue[Message]):
         notified_queue = Queue()
         notifier_thread = self.client.subscribe(topic_name, partition, self.consumer_id, notified_queue)
 
         Utils.validate(notifier_thread) # 구독 실패 시 notifier_thread는 None
     
         def do():
-            while True:
+            while not event.is_set():
                 try:
                     notified: Message = notified_queue.get() # blocking
                     notified_type = notified.option(MessageOption.TYPE)
@@ -53,12 +53,15 @@ class Consumer:
                         continue
 
                     cursor = notified.option(MessageOption.CURSOR)
+                    if (cursor is None) or (not isinstance(cursor, int)):
+                        continue
+
                     out.put(self.consume(topic_name, partition, cursor).result())
 
                 except Exception:
                     break
 
-        thread = threading.Thread(target=do, daemon=True)
+        thread = Thread(target=do, daemon=True)
         thread.start()
 
         return thread
@@ -67,7 +70,8 @@ class Consumer:
 if __name__ == "__main__":
     with Consumer("localhost", 3401, "user") as consumer:
         queue: Queue[Message] = Queue()
-        consumer.subscribeAndConsume("test_topic", 0, queue)
+        event = Event()
+        consumer.subscribeAndConsume("test_topic", 0, event, queue)
 
         for _ in range(3):
             message = queue.get()

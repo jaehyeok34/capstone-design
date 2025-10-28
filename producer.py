@@ -1,8 +1,8 @@
-from client import Client
-from message.message_option import MessageOption
-from message.message_type import MessageType
-from utils import Utils
-from message.message import Message
+from .message.message import Message
+from .message.message_option import MessageOption
+from .message.message_type import MessageType
+from .utils import Utils
+from .client import Client
 
 class Producer:
 

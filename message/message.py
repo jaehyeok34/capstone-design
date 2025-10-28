@@ -1,7 +1,9 @@
 from typing import Any, Dict
-from message.message_option import MessageOption
-from utils import Utils
 import struct
+
+from ..utils import Utils
+from .message_option import MessageOption
+from .message_type import MessageType
 
 
 class Message:
@@ -44,23 +46,28 @@ class Message:
 
     def to_bytes(self):
         type = self.option(MessageOption.TYPE)
-        id = self.option(MessageOption.ID)
+        id_ = self.option(MessageOption.ID)
         topic_name = self.option(MessageOption.TOPIC_NAME)
         partition = self.option(MessageOption.PARTITION)
         cursor = self.option(MessageOption.CURSOR)
         payload = self.option(MessageOption.PAYLOAD)
 
-        Utils.validate(type, id, topic_name, partition) # 필수 옵션 검증
+        if Utils.is_none(type, id_, topic_name, partition):
+            raise ValueError("to_bytes() 실패: 필수 옵션 누락")
+
+        Utils.validate(type, id_, topic_name, partition) # 필수 옵션 검증
         if (cursor is None):
             cursor = -1
 
         # I(magic) Q(total lenth) B(type) I(id length) {}s(id) I(topic name length) {}s(topic name)
         # i(partition) q(cursor, signed long long) i(payload length, unsigned int)
-        fmt = f">I Q B I{len(id)}s I{len(topic_name)}s i q i"
+        assert id_ is not None and isinstance(id_, str)
+        assert topic_name is not None and isinstance(topic_name, str)
+        fmt = f">I Q B I{len(id_)}s I{len(topic_name)}s i q i"
 
         options = [
             type, 
-            len(id), id.encode('utf-8'),
+            len(id_), id_.encode('utf-8'),
             len(topic_name), topic_name.encode('utf-8'),
             partition,
             cursor,
