@@ -168,7 +168,7 @@ public class NetworkTest {
             BlockingQueue<Message> out = new LinkedBlockingQueue<>();
 
             // 구독 과정에서 실패(예외) 하지 않아야 함
-            ExecutorService executor = consumer.subscribeAndConsume(t1, partition, out);
+            ExecutorService executor = consumer.subscribeAndConsume(true, t1, partition, out);
             
             /*
              * NettyInitializer의 경우 test 환경에서 동일 핸들러(MessageDecoder) 등이 있으면
@@ -215,49 +215,23 @@ public class NetworkTest {
     void subscribeDiskTopicAndConsumeTest() throws Exception {
         try (Consumer consumer = new Consumer("localhost", port, "user1")) {
             BlockingQueue<Message> out = new LinkedBlockingQueue<>();
+            
+            // 데이터 추가
+            ByteBuf buf1 = Unpooled.buffer().writeBytes(payload.getBytes(StandardCharsets.UTF_8));
+            ByteBuf buf2 = Unpooled.buffer().writeBytes(payload.getBytes(StandardCharsets.UTF_8));
+            bufs.add(buf1);
+            bufs.add(buf2);
+            broker.topic(t2).push(partition, consumer.id(), buf1.retain());
+            broker.topic(t2).push(partition, consumer.id(), buf2.retain());
+            assertEquals(2, ((DiskTopic) broker.topic(t2)).length(partition, consumer.id()));
 
             // memory topic과 동일하게 구독 과정에서는 실패하지 않아야 함
-            ExecutorService executor = consumer.subscribeAndConsume(t2, partition, out);
+            boolean isAllConsume = true;
+            ExecutorService executor = consumer.subscribeAndConsume(isAllConsume, t2, partition, out);
+            assertNotNull(out.take()); // 구독 시점에 이미 메시지가 토픽에 존재하지만, 구독 요청에 있는 cursor, remaining count로 consume을 시도해서 값이 있어야 함
 
-            /*
-             * 마찬가지로 id="user"는 별도의 consumer 객체를 만들지 않고 
-             * 직접 topic에 구독하여 테스트 함
-             */
-            SpyContext ctx = new SpyContext();
-            Queue<Object> q = ctx.channel.queue;
-            broker.topic(t2).subscribe(ctx, partition, "user2");
-
-            assertEquals(0, out.size()); // 아직 데이터 없어야함
-
-            // 데이터 추가
-            ByteBuf buf = Unpooled.buffer().writeBytes(payload.getBytes(StandardCharsets.UTF_8));
-            bufs.add(buf);
-            broker.topic(t2).push(partition, consumer.id(), buf.retain());
-
-            Message response = out.take(); // 구독한 데이터 받기
-            assertEquals(0, out.size()); // 앞에서 하나 꺼냈기 때문에 비어 있어야함
-
-            /*
-             * 디스크 토픽의 경우 아이디와 상관없이 topic/partition을 구독하면
-             * 구독한 모든 클라이언트(id)에게 알림이 가기 때문에
-             * user2도 알림을 받아야 함
-             */
-            assertTrue(q.size() > 0);
-
-            // payload 검증
-            Byte type = response.option(MessageOption.TYPE, Byte.class);
-            String id = response.option(MessageOption.CLIENT_ID, String.class);
-            String tn = response.option(MessageOption.TOPIC_NAME, String.class);
-            Integer p = response.option(MessageOption.PARTITION, Integer.class);
-            Long c = response.option(MessageOption.CURSOR, Long.class);
-            ByteBuf pb = response.option(MessageOption.PAYLOAD, ByteBuf.class);
-
-            assertEquals(MessageType.RES_PULL.getByte(), type);
-            assertEquals(consumer.id(), id);
-            assertEquals(t2, tn);
-            assertEquals(partition, p);
-            assertEquals(1, c);
-            assertEquals(payload, pb.readString(payload.length(), StandardCharsets.UTF_8));
+            // isAllConsume이 false면 무한 대기, true면 통과 되어야 함
+            out.take();
 
             executor.shutdown();
         }

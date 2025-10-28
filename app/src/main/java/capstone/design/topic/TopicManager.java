@@ -81,6 +81,7 @@ public class TopicManager implements MessageProcessor {
         String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
         Integer partition = message.option(MessageOption.PARTITION, Integer.class);
         Long cursor = message.option(MessageOption.CURSOR, Long.class);
+        cursor = (cursor != null) ? cursor : -1L;
         
         Utils.validate(id, topicName, partition);
 
@@ -113,6 +114,11 @@ public class TopicManager implements MessageProcessor {
         Topic topic = topicTable.get(topicName);
         if (topic != null) {
             topic.subscribe(context, partition, id);
+            message.addOptions(Map.of(
+                MessageOption.CURSOR, topic.cursor(partition, id),
+                MessageOption.OFFSET, topic.offset(partition, id),
+                MessageOption.REMAINING_COUNT, topic.remainingCount(partition, id)
+            ));
         }
 
         message.addOption(MessageOption.TYPE, MessageType.RES_SUBSCRIBE.getByte());
