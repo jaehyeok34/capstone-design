@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.DS_Store
+.venv/
+.vscode/
+node_modules/
+
+memo.txt
