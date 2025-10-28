@@ -14,6 +14,7 @@ const ProjectDetail = ({ project, onClose }) => {
     setPreviewingFile(fileName);
     
     try {
+      console.log(`[debug] api/file-preview/${project.id}/${fileName} 요청`);
       // 백엔드에서 파일 내용을 가져오는 API 호출
       const response = await fetch(`http://localhost:8000/api/file-preview/${project.id}/${encodeURIComponent(fileName)}`);
       

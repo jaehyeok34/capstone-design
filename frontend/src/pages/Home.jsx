@@ -61,6 +61,7 @@ function Home() {
         const formData = new FormData();
         formData.append('file', file);
         
+        console.log('[debug] /api/convert 호출')
         const res = await axios.post('http://localhost:8000/api/convert', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
           timeout: 300000, // 5분 타임아웃으로 증가
@@ -102,6 +103,7 @@ function Home() {
         formData.append('markdown', markdownFile.markdown);
         formData.append('format', selectedFormat);
 
+        console.log('[debug] /api/export 호출');
         const res = await axios.post(
           `http://localhost:8000/api/export`,
           formData,

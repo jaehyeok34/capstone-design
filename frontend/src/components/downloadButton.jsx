@@ -3,6 +3,7 @@ function downloadFile(file, format) {
     formData.append("file", file);
     formData.append("format", format);
 
+    console.log("[debug] /convert-and-download 요청");
     fetch("http://localhost:8000/convert-and-download", {
         method: "POST",
         body: formData,

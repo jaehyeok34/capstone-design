@@ -11,6 +11,8 @@ const Analysis = () => {
     const fetchJoinProjects = async () => {
       try {
         setLoading(true);
+
+        console.log('[debug] /api/join-projects 요청');
         const response = await fetch('http://localhost:8000/api/join-projects');
         const data = await response.json();
         

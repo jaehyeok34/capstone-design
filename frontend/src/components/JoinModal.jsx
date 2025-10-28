@@ -82,6 +82,7 @@ const JoinModal = ({ isOpen, onClose }) => {
         formData.append('files', file);
       });
 
+      console.log('[debug] /api/find-join-keys 요청');
       const response = await fetch('http://localhost:8000/api/find-join-keys', {
         method: 'POST',
         body: formData,
@@ -163,6 +164,7 @@ const JoinModal = ({ isOpen, onClose }) => {
       formData.append('files', file);
     });
 
+    console.log('[debug] /api/join 요청');
     try {
       const response = await fetch('http://localhost:8000/api/join', {
         method: 'POST',
