@@ -7,7 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import capstone.design.message.Message;
-import capstone.design.message.MessageEncoder;
 import capstone.design.message.MessageOption;
 import capstone.design.spy.SpyMessageDecoder;
 import org.junit.jupiter.api.AfterEach;
@@ -25,7 +24,7 @@ public class MessageDecoderTest {
 
     @BeforeEach
     void beforeEach() {
-        decoder = new SpyMessageDecoder();
+        decoder = new SpyMessageDecoder("");
         in = Unpooled.buffer();
         out = new ArrayList<>();
     }
@@ -52,7 +51,7 @@ public class MessageDecoderTest {
 
     @Test
     void withMagic() throws Exception {
-        in.writeByte(0).writeInt(MessageEncoder.MAGIC); // 쓰레기 값 + magic
+        in.writeByte(0).writeInt(Utils.MAGIC); // 쓰레기 값 + magic
         decoder.decode(null, in, out);
 
         /*
@@ -65,7 +64,7 @@ public class MessageDecoderTest {
 
     @Test
     void withMagicAndLength() throws Exception {
-        in.writeInt(1234).writeInt(MessageEncoder.MAGIC).writeLong(10);
+        in.writeInt(1234).writeInt(Utils.MAGIC).writeLong(10);
         decoder.decode(null, in, out);
 
         /*
@@ -79,7 +78,7 @@ public class MessageDecoderTest {
     @Test
     void withOneByteMessage() throws Exception {
         in.writeInt(1234) // 쓰레기 값
-            .writeInt(MessageEncoder.MAGIC) // 매직
+            .writeInt(Utils.MAGIC) // 매직
             .writeLong(1) // 길이 정보
             .writeByte(1); // 메시지
 
@@ -98,7 +97,7 @@ public class MessageDecoderTest {
     @Test
     void withIdMessage() throws Exception {
         in.writeInt(0) // 쓰레기 값
-            .writeInt(MessageEncoder.MAGIC) // magic
+            .writeInt(Utils.MAGIC) // magic
             .writeLong(1 + Integer.BYTES + 5) // length
             .writeByte(0) // type
             .writeInt(4) // id length

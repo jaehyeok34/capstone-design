@@ -89,7 +89,7 @@ public class TopicManager implements MessageProcessor {
         }
 
         // context.channel().writeAndFlush(message);
-        context.channel().write(message);
+        context.channel().writeAndFlush(message);
     }
 
     private void subscribe(ChannelHandlerContext context, Message message) {

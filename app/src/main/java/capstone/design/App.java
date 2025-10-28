@@ -9,7 +9,7 @@ public class App {
         Broker.Builder builder  = Broker.builder()
             .port(3401)
             .addTopic("test_topic", Topic.Type.DISK)
-            .addTopic("files", Topic.Type.DISK);
+            .addTopic("convert_file", Topic.Type.DISK);
 
         try (Broker broker = builder.build()) {
             broker.start();

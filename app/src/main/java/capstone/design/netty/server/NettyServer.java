@@ -35,10 +35,11 @@ public class NettyServer {
             .group(workerGroup, bossGroup)
             .channel(NioServerSocketChannel.class);
 
+        String mappingFilePath = "../option_mapping_table.properties";
         NettyInitializer initializer = NettyInitializer.builder()
-            .addHandler(MessageDecoder.class)
+            .addHandler(MessageDecoder.class, mappingFilePath)
             .addHandler(ServerInboundHandler.class, new Class<?>[] { MessageProcessor.class }, processor)
-            .addHandler(MessageEncoder.class)
+            .addHandler(MessageEncoder.class, mappingFilePath)
             .build();
 
         bootstrap.childHandler(initializer);

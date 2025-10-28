@@ -52,6 +52,10 @@ public class Message {
         return options.get(key);
     }
 
+    public Map<String, Object> options() {
+        return options;
+    }
+
     public void clearOptions() {
         options.clear();
     }

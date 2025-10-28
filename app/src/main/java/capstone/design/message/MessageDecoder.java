@@ -1,8 +1,14 @@
 package capstone.design.message;
 
+import java.io.FileReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
+import capstone.design.Utils;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -10,8 +16,15 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 public class MessageDecoder extends ByteToMessageDecoder {
 
     private long length;
-    private Message message;
     private State state = State.READ_MAGIC;
+
+    private final String filePath;
+
+    public MessageDecoder(String filePath) {
+        Utils.validate(filePath);
+        
+        this.filePath = filePath;
+    }
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
@@ -25,18 +38,37 @@ public class MessageDecoder extends ByteToMessageDecoder {
         }
     }
 
+    /**
+     * channel handler가 아닌 곳에서 직접 메시지를 디코딩해야 할 때 사용
+     */
+    public Message decode(ByteBuf in) throws Exception {
+        int magic = in.readInt();
+        if (magic != Utils.MAGIC) {
+            return null;
+        }
+
+        long length = in.readLong();
+        BlockingQueue<Object> out = new LinkedBlockingQueue<>();
+
+        if(!readMessage(length, in, out)) {
+            return null;
+        }
+
+        return (Message) out.take();
+    }
+
     private boolean readMagic(ByteBuf in) {
         while (in.readableBytes() >= Integer.BYTES) {
             in.markReaderIndex(); // 현재 readerIndex 저장
 
             int magic = in.readInt();
-            if (magic != MessageEncoder.MAGIC) {
+            if (magic != Utils.MAGIC) {
                 in.resetReaderIndex(); // readerIndex를 저장된 위치로 복원
                 in.readByte(); // 1byte 버림
                 continue;
             }
 
-            state = State.READ_LENGTH;
+            this.state = State.READ_LENGTH;
             return true;
         }
 
@@ -48,95 +80,105 @@ public class MessageDecoder extends ByteToMessageDecoder {
             return false;
         }
 
-        length = in.readLong();
-        state = State.READ_MESSAGE;
+        this.length = in.readLong();
+        this.state = State.READ_MESSAGE;
         
         return true;
     }
 
-    private boolean readMessage(ByteBuf in, List<Object> out) {
+    public boolean readMessage(ByteBuf in, List<Object> out) throws Exception {
+        return readMessage(this.length, in, out);
+    }
+
+    public boolean readMessage(long length, ByteBuf in, Collection<Object> out) throws Exception {
         if (in.readableBytes() < length) {
             return false;
         }
 
-        message = new Message();
-        try {
-            // type
-            message.addOption(MessageOption.TYPE, in.readByte());
+        long offset = 0;
+        Properties props = new Properties();
+        try (FileReader reader = new FileReader(filePath)) {
+            props.load(reader);
+        }
+        props = invertProperties(props);
 
-            // id
-            String id = read(in, String.class);
-            if (id != null) {
-                message.addOption(MessageOption.ID, id);
-            }
+        Message message = new Message();
+        while (offset < length) {
+            byte optionType = in.readByte();
+            offset += 1;
 
-            // topic name
-            String topicName = read(in, String.class);
-            if (topicName != null) {
-                message.addOption(MessageOption.TOPIC_NAME, topicName);
-            }
+            /*
+             * encoder에서 option_mapping_table.properties에 없는 key는 encode 하지 않기 때문에
+             * key가 없는 경우는 고려하지 않음
+             */
+            String key = props.getProperty(String.valueOf(optionType));
 
-            // partition
-            if (in.readableBytes() < Integer.BYTES) {
-                throw new IndexOutOfBoundsException();
-            }
-            message.addOption(MessageOption.PARTITION, in.readInt());
+            switch (optionType) {
+                case 0 -> {
+                    byte messageType = in.readByte();
+                    message.addOption(key, messageType);
+                    offset += 1;
+                }
 
-            // cursor
-            if (in.readableBytes() < Long.BYTES) {
-                throw new IndexOutOfBoundsException();
-            }
-            message.addOption(MessageOption.CURSOR, in.readLong());
+                case 5 -> {
+                    int len = in.readInt();
+                    byte[] data = new byte[len];
+                    in.readBytes(data);
+                    message.addOption(key, data);
+                    offset += Integer.BYTES + len;
+                }
 
-            // payload
-            ByteBuf payload = read(in, ByteBuf.class);
-            if (payload != null) {
-                message.addOption(MessageOption.PAYLOAD, payload);
+                case 8 -> {
+                    boolean success = in.readBoolean();
+                    message.addOption(key, success);
+                    offset += 1;
+                }
+
+                default -> {
+                    int len = in.readInt();
+                    byte[] data = new byte[len];
+                    in.readBytes(data);
+                    castAdd(optionType, message, key, new String(data, StandardCharsets.UTF_8));
+                    offset += Integer.BYTES + len;
+                }
             }
-        } catch (IndexOutOfBoundsException ignored) {} 
-        finally { // 데이터를 더이상 읽지 못하면 지금까지 읽은 message 반환
-            out.add(message);
-            state = State.READ_MAGIC;
         }
 
+        out.add(message);
+        this.state = State.READ_MAGIC;
         return true;
     }
 
-    /**
-     * 유효한 데이터가 아니라 읽을 수 없다면 IndexOutOfBoundsException 발생
-     *  1. readableBytes가 Integer.BYTES 만큼 없어서 length를 읽지 못하는 상황
-     *  2. readableBytes가 length 만큼 없어서 데이터를 읽지 못하는 상황
-     * 
-     * 누락된 정보면 null 반환
-     * 
-     * 유효한 데이터면 해당 타입으로 반환
-     */
-    private <T> T read(ByteBuf buf, Class<T> type) throws IndexOutOfBoundsException {
-        // length 읽을 수 있는지 판단
-        if (buf.readableBytes() < Integer.BYTES) {
-            throw new IndexOutOfBoundsException();
+    private Properties invertProperties(Properties props) {
+        Properties inverted = new Properties();
+        for (String key : props.stringPropertyNames()) {
+            String value = props.getProperty(key);
+            inverted.setProperty(value, key);
         }
 
-        // length 읽기
-        int length = buf.readInt();
-        if (length <= 0) {
-            return null; // 해당 정보 누락됨
-        }
+        return inverted;
+    }
 
-        // length 만큼 데이터를 읽을 수 있는지 판단
-        if (buf.readableBytes() < length) {
-            // throw new IndexOutOfBoundsException();
-            return null;
-        }
+    private void castAdd(byte optionType, Message message, String key, String data) {
+        switch (optionType) {
+            case 1, 2 -> { // client_id, topic_name(String)
+                message.addOption(key, data);
+            }
 
-        // 데이터 읽기
-        if (type == String.class) {
-            return type.cast(buf.readString(length, StandardCharsets.UTF_8));
-        } else if (type == ByteBuf.class) {
-            return type.cast(buf.readBytes(length));
-        }
+            case 3 -> { // partition(int)
+                try {
+                    int value = Integer.parseInt(data);
+                    message.addOption(key, value);
+                } catch (NumberFormatException ignored) {}
+            }
 
-        return null;
+            case 4, 6, 7 -> { // cursor, offset, remaining_count(long)
+                try {
+                    long value = Long.parseLong(data);
+                    message.addOption(key, value);
+                } catch (NumberFormatException ignored) {}
+            } 
+        }
     }
 
     private enum State { READ_MAGIC, READ_LENGTH, READ_MESSAGE }

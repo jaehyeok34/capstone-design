@@ -57,10 +57,11 @@ public class NettyClient {
             return partitionMap.get(partition);
         };
 
+        String mappingFilePath = "../option_mapping_table.properties";
         NettyInitializer initializer = NettyInitializer.builder()
-            .addHandler(MessageDecoder.class)
+            .addHandler(MessageDecoder.class, mappingFilePath)
             .addHandler(ClientInboundHandler.class, new Class<?>[] { Supplier.class, BiFunction.class }, supplier, queueProvider)
-            .addHandler(MessageEncoder.class)
+            .addHandler(MessageEncoder.class, mappingFilePath)
             .build();
 
         Bootstrap bootstrap = new Bootstrap()

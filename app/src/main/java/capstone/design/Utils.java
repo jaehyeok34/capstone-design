@@ -6,6 +6,8 @@ import java.util.Map;
 import io.netty.buffer.ByteBuf;
 
 public class Utils {
+
+    public static final int MAGIC = 0x6B3FA0FF;
     
     /**
      * 기본적으로 null 체크
