@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import capstone.design.message.Message;
 import capstone.design.message.MessageDecoder;
 import capstone.design.message.MessageEncoder;
+import capstone.design.message.MessageType;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 
@@ -30,7 +31,7 @@ public class MessageCodecTest {
         encoder = new MessageEncoder(filePath);
         decoder = new MessageDecoder(filePath);
         msg = new Message().addOptions(Map.of(
-            "message_type", Message.Type.REQ_PULL.getByte(),
+            "message_type", MessageType.REQ_PULL.getByte(),
             "client_id", "user",
             "topic_name", "topic",
             "partition", 0,
@@ -41,6 +42,7 @@ public class MessageCodecTest {
             "success", true,
             "payload", "hello world".getBytes()
         ));
+        msg.addOption("request_id", 12345);
     }
 
     @AfterEach
@@ -67,9 +69,9 @@ public class MessageCodecTest {
         Message decoded = decoder.decode(encoded);
 
         // 디코딩된 메시지의 옵션 개수는 invalid_option 제외 9개여야 함
-        assertEquals(9, decoded.options().size());
+        assertEquals(10, decoded.options().size());
 
-        assertEquals(Message.Type.REQ_PULL.getByte(), decoded.option("message_type"));
+        assertEquals(MessageType.REQ_PULL.getByte(), decoded.option("message_type"));
 
         assertInstanceOf(String.class, decoded.option("client_id"));
         assertEquals("user", decoded.option("client_id"));
@@ -92,8 +94,11 @@ public class MessageCodecTest {
         assertInstanceOf(Boolean.class, decoded.option("success"));
         assertEquals(true, decoded.option("success"));
 
-        assertInstanceOf(byte[].class, decoded.option("payload"));
-        assertEquals("hello world", new String((byte[]) decoded.option("payload"), StandardCharsets.UTF_8));
+        assertInstanceOf(ByteBuf.class, decoded.option("payload"));
+        assertEquals("hello world", decoded.option("payload", ByteBuf.class).readString("hello world".length(), StandardCharsets.UTF_8));
+
+        assertInstanceOf(Integer.class, decoded.option("request_id"));
+        assertEquals(12345, decoded.option("request_id"));
 
         if (encoded.refCnt() > 0) {
             encoded.release();

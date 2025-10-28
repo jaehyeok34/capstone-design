@@ -8,8 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Optional;
-
 import capstone.design.topic.TopicRecord;
 import capstone.design.topic.subscribe.SubscriberManager;
 import org.jspecify.annotations.Nullable;
@@ -33,12 +31,13 @@ public class DiskTopic implements Topic {
         this.manager = new SubscriberManager(name);
     }
 
-    /*
+    /**
      * ByteBuf buf는 push가 끝나면 모든 refCnt를 감소시킴
-     * 디스크에 이미 저장을 했기 때문에 메모리에는 남아있을 필요가 없음
+     * 디스크에 이미 저장을 했기 때문에 메모리에는 남아있을 필요 없음
+     * @param clientId MemoryTopic과 동일한 메서드 시그니처를 유지하기 위한 값으로 실제로는 사용하지 않음
      */
     @Override
-    public void push(int partition, String id, ByteBuf buf) {
+    public void push(int partition, String clientId, ByteBuf buf) {
         Utils.validate(buf);
 
         // 파티션 디렉토리 생성(이미 존재한다면 무시)
@@ -64,13 +63,13 @@ public class DiskTopic implements Topic {
             e.printStackTrace();
         } finally {
             buf.release(buf.refCnt());
-            manager.notify(partition);
+            manager.notify(partition, cursor(partition), offset(partition), remainingCount(partition));
         }
     }
     public void push(int partition, ByteBuf buf) { push(partition, null, buf); }
     
     @Override
-    public TopicRecord pull(int partition, String id, Long cursor) {
+    public TopicRecord pull(int partition, String clientId, long cursor) {
         FileGroup fileGroup = fileGroup(partition);
         if (fileGroup == null) {
             System.err.println("[debug] DiskTopic.pull() - [" + partition + "] 파티션 없음");
@@ -81,7 +80,7 @@ public class DiskTopic implements Topic {
             RandomAccessFile offsetFile = new RandomAccessFile(fileGroup.offset().toFile(), "r");
         ) {
             // cursor 획득
-            if (cursor == null || cursor < 0) {
+            if (cursor < 0) {
                 cursor = readCursor(fileGroup);
             }
             
@@ -104,36 +103,70 @@ public class DiskTopic implements Topic {
             updateCursor(fileGroup, cursor + 1);
             
             return record;
-        } catch (Exception e) { 
+        } catch (Exception e) {
+            System.err.println("[debug] DiskTopic.pull() - [" + partition + "] 메시지 읽기 실패"); 
             e.printStackTrace();
+
             return null;
         }
     }
     public TopicRecord pull(int partition, long cursor) { return pull(partition, null, cursor); }
-    public TopicRecord pull(int partition) { return pull(partition, null, null); }
+    public TopicRecord pull(int partition) { return pull(partition, -1); }
         
     @Override
-    public void subscribe(ChannelHandlerContext context, int partition, String id) {
-        manager.subscribe(context, partition, id);
+    public void subscribe(ChannelHandlerContext context, int partition, String clientId) {
+        manager.subscribe(context, partition, clientId);
     }
 
     @Override
-    public void unsubscribe(int partition, String id) {
-        manager.unsubscribe(partition, id);
+    public void unsubscribe(int partition, String clientId) {
+        manager.unsubscribe(partition, clientId);
     }
 
     
+    /**
+     * @param clientId memory topic과 동일한 메서드 시그니처 유지를 위해 남겨둠.
+     * 실제로는 사용하지 않음
+     */
     @Override
-    public long length(int partition, String id) { 
-        /*
-        * id는 memory topic과 동일한 메서드 시그니처 유지를 위해 남겨둠
-        * 실제로는 사용하지 않음
-        */
-        return Optional.ofNullable(fileGroup(partition))
-        .map(group -> group.offset().toFile().length() / Long.BYTES)
-        .orElse(0L);
+    public long length(int partition, String clientId) { 
+        FileGroup fileGroup = fileGroup(partition);
+        if (fileGroup == null) {
+            return 0L;
+        }
+
+        return fileGroup.offset().toFile().length() / Long.BYTES;
     }
     public long length(int partition) { return length(partition, null); }
+
+    @Override
+    public long cursor(int partition, String clientId) {
+        FileGroup fileGroup = fileGroup(partition);
+        if (fileGroup == null) {
+            return 0;
+        }
+
+        return readCursor(fileGroup);
+    }
+    public long cursor(int partition) { return cursor(partition, null); }
+
+    /**
+     * disk topic에서는 offset과 length가 동일함(메시지가 삭제되지 않으므로)
+     */
+    @Override
+    public long offset(int partition, String clientId) {
+        return length(partition);
+    }
+    public long offset(int partition) { return offset(partition, null); }
+
+    /**
+     * disk topic에서는 남은 메시지 수가 length와 동일함(메시지가 삭제되지 않으므로)
+     */
+    @Override
+    public long remainingCount(int partition, String clientId) {
+        return length(partition);
+    }
+    public long remainingCount(int partition) { return remainingCount(partition, null); }
     
     @Nullable
     private FileGroup fileGroup(int partition) {
@@ -202,21 +235,18 @@ public class DiskTopic implements Topic {
         }
     }
 
-    public long cursor(int partition) {
-        return Optional.ofNullable(fileGroup(partition))
-            .map(this::readCursor)
-            .orElse(0L);
-    }
-
     public void clearFiles(int partition) {
-        Optional.ofNullable(fileGroup(partition))
-            .ifPresent(fileGroup -> {
-                try {
-                    fileGroup.clearAll();
-                } catch (Exception e) {
-                    System.err.println("[debug] DiskTopic.clearFiles() - [" + partition + "] 파일 삭제 실패");
-                }
-            });
+        FileGroup fileGroup = fileGroup(partition);
+        if (fileGroup == null) {
+            return;
+        }
+        
+        try {
+            fileGroup.clearAll();
+        } catch (IOException e) {
+            System.err.println("[debug] DiskTopic.clearFiles() - [" + partition + "] 파티션 없음");
+            e.printStackTrace();
+        }
     }
 
     public Path rootPath() { return root; }

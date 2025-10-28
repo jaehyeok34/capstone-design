@@ -22,6 +22,7 @@ import capstone.design.client.Consumer;
 import capstone.design.client.Producer;
 import capstone.design.message.Message;
 import capstone.design.message.MessageOption;
+import capstone.design.message.MessageType;
 import capstone.design.spy.SpyContext;
 import capstone.design.topic.Topic;
 import capstone.design.topic.disk.DiskTopic;
@@ -185,14 +186,7 @@ public class NetworkTest {
             bufs.add(buf);
             broker.topic(t1).push(partition, consumer.id(), buf.retain()); // user1에만 데이터 추가
 
-            /*
-             * user2도 topic/partition을 구독했지만,
-             * memory topic의 경우 id 기준으로 큐가 나눠있기 때문에
-             * user2는 알람을 받지 않아야 하기 때문에 q가 비어있어야 함
-             * -> ctx.write() 호출 시 SpyContext는 큐에 값을 쌓이게 되는데
-             * 호출되지 않아야 하기 때문에 비어있는게 맞음
-             */
-            assertEquals(0, q.size());
+            assertEquals(1, q.size());
 
             // consume 테스트
             Message response = out.take(); // 구독한 데이터 받기
@@ -200,13 +194,13 @@ public class NetworkTest {
 
             // payload 검증
             Byte type = response.option(MessageOption.TYPE, Byte.class);
-            String id = response.option(MessageOption.ID, String.class);
+            String id = response.option(MessageOption.CLIENT_ID, String.class);
             String tn = response.option(MessageOption.TOPIC_NAME, String.class);
             Integer p = response.option(MessageOption.PARTITION, Integer.class);
             Long c = response.option(MessageOption.CURSOR, Long.class);
             ByteBuf pb = response.option(MessageOption.PAYLOAD, ByteBuf.class);
 
-            assertEquals(Message.Type.RES_PULL.getByte(), type);
+            assertEquals(MessageType.RES_PULL.getByte(), type);
             assertEquals(consumer.id(), id);
             assertEquals(t1, tn);
             assertEquals(partition, p);
@@ -252,17 +246,17 @@ public class NetworkTest {
 
             // payload 검증
             Byte type = response.option(MessageOption.TYPE, Byte.class);
-            String id = response.option(MessageOption.ID, String.class);
+            String id = response.option(MessageOption.CLIENT_ID, String.class);
             String tn = response.option(MessageOption.TOPIC_NAME, String.class);
             Integer p = response.option(MessageOption.PARTITION, Integer.class);
             Long c = response.option(MessageOption.CURSOR, Long.class);
             ByteBuf pb = response.option(MessageOption.PAYLOAD, ByteBuf.class);
 
-            assertEquals(Message.Type.RES_PULL.getByte(), type);
+            assertEquals(MessageType.RES_PULL.getByte(), type);
             assertEquals(consumer.id(), id);
             assertEquals(t2, tn);
             assertEquals(partition, p);
-            assertEquals(-1, c);
+            assertEquals(1, c);
             assertEquals(payload, pb.readString(payload.length(), StandardCharsets.UTF_8));
 
             executor.shutdown();

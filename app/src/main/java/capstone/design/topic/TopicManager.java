@@ -7,6 +7,7 @@ import capstone.design.message.MessageOption;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import capstone.design.message.MessageProcessor;
+import capstone.design.message.MessageType;
 import capstone.design.topic.disk.DiskTopic;
 import capstone.design.topic.memory.MemoryTopic;
 import org.jspecify.annotations.Nullable;
@@ -40,7 +41,7 @@ public class TopicManager implements MessageProcessor {
         Byte type = message.option(MessageOption.TYPE, Byte.class);
         Utils.validate(type);
 
-        switch (Message.Type.values()[type]) {
+        switch (MessageType.values()[type]) {
             case REQ_PUSH -> push(context, message);
             case REQ_PULL -> pull(context, message);
             case REQ_SUBSCRIBE -> subscribe(context, message);
@@ -50,50 +51,60 @@ public class TopicManager implements MessageProcessor {
     }
 
     private void push(ChannelHandlerContext context, Message message) {
-        String id = message.option(MessageOption.ID, String.class);
+        String clientId = message.option(MessageOption.CLIENT_ID, String.class);
         String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
         Integer partition = message.option(MessageOption.PARTITION, Integer.class);
         ByteBuf payload = message.option(MessageOption.PAYLOAD, ByteBuf.class);
 
-        Utils.validate(id, topicName, partition, payload);
+        Utils.validate(clientId, topicName, partition, payload);
 
         Topic topic = topicTable.get(topicName);
         if (topic != null) {
-            topic.push(partition, id, payload.retain());
+            topic.push(partition, clientId, payload.retain());
+
+            message.addOptions(Map.of(
+                MessageOption.CURSOR, topic.cursor(partition, clientId),
+                MessageOption.OFFSET, topic.offset(partition, clientId),
+                MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
+            ));
         }
 
         // RES_PUSH 응답
-        message.addOption(MessageOption.TYPE, Message.Type.RES_PUSH.getByte()) // type 변경
+        message.addOption(MessageOption.TYPE, MessageType.RES_PUSH.getByte()) // type 변경
             .removeOption(MessageOption.PAYLOAD); // payload 제거
 
         context.channel().writeAndFlush(message); // message encoder로 전달
     }
 
     private void pull(ChannelHandlerContext context, Message message) {
-        String id = message.option(MessageOption.ID, String.class);
+        String id = message.option(MessageOption.CLIENT_ID, String.class);
         String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
         Integer partition = message.option(MessageOption.PARTITION, Integer.class);
         Long cursor = message.option(MessageOption.CURSOR, Long.class);
         
         Utils.validate(id, topicName, partition);
 
-        message.addOption(MessageOption.TYPE, Message.Type.RES_PULL.getByte()) // type 변경
+        message.addOption(MessageOption.TYPE, MessageType.RES_PULL.getByte()) // type 변경
             .removeOption(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
 
         Topic topic = topicTable.get(topicName);
         if (topic != null) {
             TopicRecord record = topic.pull(partition, id, cursor);
             if (record != null) {
-                message.addOption(MessageOption.PAYLOAD, record);
+                message.addOptions(Map.of(
+                    MessageOption.PAYLOAD, record,
+                    MessageOption.CURSOR, topic.cursor(partition, id),
+                    MessageOption.OFFSET, topic.offset(partition, id),
+                    MessageOption.REMAINING_COUNT, topic.remainingCount(partition, id)
+                ));
             }
         }
 
-        // context.channel().writeAndFlush(message);
         context.channel().writeAndFlush(message);
     }
 
     private void subscribe(ChannelHandlerContext context, Message message) {
-        String id = message.option(MessageOption.ID, String.class);
+        String id = message.option(MessageOption.CLIENT_ID, String.class);
         String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
         Integer partition = message.option(MessageOption.PARTITION, Integer.class);
 
@@ -104,12 +115,12 @@ public class TopicManager implements MessageProcessor {
             topic.subscribe(context, partition, id);
         }
 
-        message.addOption(MessageOption.TYPE, Message.Type.RES_SUBSCRIBE.getByte());
+        message.addOption(MessageOption.TYPE, MessageType.RES_SUBSCRIBE.getByte());
         context.channel().writeAndFlush(message);
     }
 
     private void unsubscribe(ChannelHandlerContext context, Message message) {
-        String id = message.option(MessageOption.ID, String.class);
+        String id = message.option(MessageOption.CLIENT_ID, String.class);
         String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
         Integer partition = message.option(MessageOption.PARTITION, Integer.class);
 
@@ -120,7 +131,7 @@ public class TopicManager implements MessageProcessor {
             topic.unsubscribe(partition, id);
         }
 
-        message.addOption(MessageOption.TYPE, Message.Type.RES_UNSUBSCRIBE.getByte());
+        message.addOption(MessageOption.TYPE, MessageType.RES_UNSUBSCRIBE.getByte());
         context.channel().writeAndFlush(message);
     }
 }

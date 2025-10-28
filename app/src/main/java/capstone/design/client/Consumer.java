@@ -10,6 +10,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageOption;
+import capstone.design.message.MessageType;
 import capstone.design.netty.client.NettyClient;
 import org.jspecify.annotations.Nullable;
 
@@ -17,19 +18,20 @@ import org.jspecify.annotations.Nullable;
 public class Consumer implements AutoCloseable {
     
     private final NettyClient client;
-    private final String id;
+    private final String clientId;
 
-    public Consumer(String host, int port, String id) throws Exception { 
-        this.client = new NettyClient(host, port);
-        this.id = (id != null && !id.isEmpty()) ? id : NettyClient.DEFAULT_ID;
+    public Consumer(String host, int port, String clientId, String filePath) throws Exception { 
+        this.client = new NettyClient(host, port, filePath);
+        this.clientId = (clientId != null && !clientId.isEmpty()) ? clientId : NettyClient.DEFAULT_ID;
     }
-    public Consumer(String host, int port) throws Exception { this(host, port, null); }
+    public Consumer(String host, int port, String clientId) throws Exception { this(host, port, clientId, null); }
+    public Consumer(String host, int port) throws Exception { this(host, port, null, null); }
     
     @Nullable
     public Message consume(String topicName, int partition, Long cursor) {
         Message message = new Message().addOptions(Map.of(
-            MessageOption.TYPE, Message.Type.REQ_PULL.getByte(),
-            MessageOption.ID, id,
+            MessageOption.TYPE, MessageType.REQ_PULL.getByte(),
+            MessageOption.CLIENT_ID, clientId,
             MessageOption.TOPIC_NAME, topicName,
             MessageOption.PARTITION, partition
         ));
@@ -47,7 +49,7 @@ public class Consumer implements AutoCloseable {
 
     public ExecutorService subscribeAndConsume(String topicName, int partition, Queue<Message> out) {
         BlockingQueue<Message> notifiedQueue = new LinkedBlockingQueue<>();
-        ExecutorService notifier = client.subscribe(topicName, partition, id, notifiedQueue);
+        ExecutorService notifier = client.subscribe(topicName, partition, clientId, notifiedQueue);
         
         Utils.validate(notifier); // 구독 실패 시: notifier == null -> IllegalStateException 발생
 
@@ -57,7 +59,7 @@ public class Consumer implements AutoCloseable {
                 try {
                     Message notified = notifiedQueue.take(); // blocking...
                     Byte type = notified.option(MessageOption.TYPE, Byte.class);
-                    if (type == null || type != Message.Type.TOPIC_UPDATE.getByte()) {
+                    if (type == null || type != MessageType.TOPIC_UPDATED.getByte()) {
                         continue; // 유효한 알림이 아니면 무시
                     }
                     
@@ -73,7 +75,7 @@ public class Consumer implements AutoCloseable {
         return executor;
     }
 
-    public String id() { return id; }
+    public String id() { return clientId; }
 
     @Override
     public void close() throws Exception { 

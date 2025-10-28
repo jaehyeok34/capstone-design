@@ -3,22 +3,21 @@ package capstone.design.netty.client;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
-
+import java.util.function.Function;
 import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageOption;
-
+import capstone.design.message.MessageType;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
 public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
 
-    private final Supplier<CompletableFuture<Message>> requests; // RES_XXX 처리 용
-    private final BiFunction<String, Integer, BlockingQueue<Message>> subscriptions; // TOPIC_UPDATE 알림 용
+    private final Function<Integer, CompletableFuture<Message>> requests; // RES_XXX 처리 용
+    private final BiFunction<String, Integer, BlockingQueue<Message>> subscriptions; // TOPIC_UPDATED 알림 용
 
     public ClientInboundHandler(
-        Supplier<CompletableFuture<Message>> requests,
+        Function<Integer, CompletableFuture<Message>> requests,
         BiFunction<String, Integer, BlockingQueue<Message>> subscriptions
     ) {
         Utils.validate(requests, subscriptions);
@@ -33,16 +32,17 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
 
         if (msg instanceof Message message) {
             Byte type = message.option(MessageOption.TYPE, Byte.class);
+            
             Utils.validate(type);
 
-            switch (Message.Type.values()[type]) {
-                case TOPIC_UPDATE -> {
+            switch (MessageType.values()[type]) {
+                case TOPIC_UPDATED -> {
                     String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
-                    Integer partition = message.option(MessageOption.PARTITION, Integer.class);
-                    if (topicName == null || partition == null) { // 토픽/파티션 정보가 없으면 알림 X
+                    if (topicName == null) { // 토픽 정보가 없으면 알림 X
                         return; 
                     }
-
+                    
+                    int partition = message.option(MessageOption.PARTITION, Integer.class);
                     BlockingQueue<Message> queue = subscriptions.apply(topicName, partition);
                     if (queue == null) { // 구독 정보가 없으면 알림 X
                         return;
@@ -52,7 +52,17 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
                 }
 
                 default -> {
-                    CompletableFuture<Message> future = requests.get();
+                    Integer requestId = message.option(MessageOption.REQUEST_ID, Integer.class);
+                    if (requestId == null) {
+                        /*
+                         * RES_XXX 메시지인데, 요청 ID가 없다는 것은
+                         * client.request()가 아닌 command()로 보냈다는 뜻.
+                         * 즉, 응답을 기다리지 않기 때문에 무시해도 됨
+                         */
+                        return;
+                    }
+
+                    CompletableFuture<Message> future = requests.apply(requestId);
                     if (future == null) {
                         return;
                     }

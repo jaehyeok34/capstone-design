@@ -1,5 +1,6 @@
 package capstone.design.topic.memory;
 
+import capstone.design.Utils;
 import capstone.design.topic.TopicRecord;
 import io.netty.buffer.ByteBuf;
 import io.netty.util.ReferenceCounted;
@@ -9,9 +10,7 @@ public class MemoryRecord implements TopicRecord {
     private final ByteBuf buf;
     
     private MemoryRecord(ByteBuf buf) {
-        if (buf == null || buf.readableBytes() == 0 || buf.refCnt() <= 0) {
-            throw new IllegalArgumentException("value: null or empty or released");
-        }
+        Utils.validate(buf);
         
         this.buf = buf;
     }

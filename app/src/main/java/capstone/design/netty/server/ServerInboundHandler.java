@@ -1,6 +1,7 @@
 package capstone.design.netty.server;
 
 import capstone.design.message.MessageProcessor;
+import capstone.design.Utils;
 import capstone.design.message.Message;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -10,9 +11,7 @@ public class ServerInboundHandler extends ChannelInboundHandlerAdapter {
     private final MessageProcessor processor;
 
     public ServerInboundHandler(MessageProcessor processor) {
-        if (processor == null) {
-            throw new IllegalArgumentException("processor: null");
-        }
+        Utils.validate(processor);
 
         this.processor = processor;
     }

@@ -23,26 +23,32 @@ public class NettyServer {
     private final ServerBootstrap bootstrap;
     private Channel channel;
 
-    public NettyServer(int port, MessageProcessor processor) throws Exception {
+    public NettyServer(int port, MessageProcessor processor, String filePath) throws Exception {
+        Utils.validate(processor);
         if (port <= 0 || port > 65535) {
             throw new IllegalArgumentException("port: " + port);
         }
 
-        Utils.validate(processor);
+        if (filePath == null || filePath.isBlank()) {
+            filePath = Utils.DEFAULT_OPTION_MAPPING_TABLE_FILE_PATH;
+        }
 
         this.port = port;
         this.bootstrap = new ServerBootstrap()
             .group(workerGroup, bossGroup)
             .channel(NioServerSocketChannel.class);
 
-        String mappingFilePath = "../option_mapping_table.properties";
         NettyInitializer initializer = NettyInitializer.builder()
-            .addHandler(MessageDecoder.class, mappingFilePath)
+            .addHandler(MessageDecoder.class, filePath)
             .addHandler(ServerInboundHandler.class, new Class<?>[] { MessageProcessor.class }, processor)
-            .addHandler(MessageEncoder.class, mappingFilePath)
+            .addHandler(MessageEncoder.class, filePath)
             .build();
 
         bootstrap.childHandler(initializer);
+    }
+
+    public NettyServer(int port, MessageProcessor processor) throws Exception {
+        this(port, processor, Utils.DEFAULT_OPTION_MAPPING_TABLE_FILE_PATH);
     }
 
     public void start() throws InterruptedException {
@@ -51,7 +57,9 @@ public class NettyServer {
             this.channel = future.channel();
 
             channel.closeFuture().sync(); // 채널이 닫힐 때까지 대기(외부에서 닫으라는 이벤트 모니터링)
-        } finally { shutdown(); }
+        } finally { 
+            shutdown(); 
+        }
     }
 
     public void shutdownGracefully() { // non-blocking

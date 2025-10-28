@@ -2,9 +2,8 @@ package capstone.design.netty.client;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,13 +11,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
-
+import java.util.function.Function;
 import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageDecoder;
 import capstone.design.message.MessageEncoder;
 import capstone.design.message.MessageOption;
+import capstone.design.message.MessageType;
 import capstone.design.netty.NettyInitializer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -33,21 +32,30 @@ public class NettyClient {
     public static final String DEFAULT_ID = "anonymous";
 
     private final EventLoopGroup group = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
-    private final Queue<CompletableFuture<Message>> requests = new ArrayDeque<>();
+    private final Map<Integer, CompletableFuture<Message>> requests = new ConcurrentHashMap<>();
     private final Map<String, Map<Integer, BlockingQueue<Message>>> subscriptions = new ConcurrentHashMap<>();
     private final Channel channel;
+    private int requestCounter = 0;
 
-    public NettyClient(String host, int port) throws Exception {
+    public NettyClient(String host, int port, String filePath) throws Exception {
         Utils.validate(host);
         if (port <= 0 || port > 65535) {
             throw new IllegalArgumentException("port: 유효하지 않은 값");
         }
 
-        channel = createChannel(host, port);
+        this.channel = createChannel(host, port, filePath);
     }
 
-    private Channel createChannel(String host, int port) throws UnknownHostException, InterruptedException {
-        Supplier<CompletableFuture<Message>> supplier = requests::poll;
+    public NettyClient(String host, int port) throws Exception {
+        this(host, port, Utils.DEFAULT_OPTION_MAPPING_TABLE_FILE_PATH);
+    }
+
+    private Channel createChannel(String host, int port, String filePath) throws UnknownHostException, InterruptedException {
+        if (filePath == null || filePath.isEmpty()) {
+            filePath = Utils.DEFAULT_OPTION_MAPPING_TABLE_FILE_PATH;
+        }
+        
+        Function<Integer, CompletableFuture<Message>> function = requests::get;
         BiFunction<String, Integer, BlockingQueue<Message>> queueProvider = (topicName, partition) -> {
             Map<Integer, BlockingQueue<Message>> partitionMap = subscriptions.get(topicName);
             if (partitionMap == null) {
@@ -57,11 +65,10 @@ public class NettyClient {
             return partitionMap.get(partition);
         };
 
-        String mappingFilePath = "../option_mapping_table.properties";
         NettyInitializer initializer = NettyInitializer.builder()
-            .addHandler(MessageDecoder.class, mappingFilePath)
-            .addHandler(ClientInboundHandler.class, new Class<?>[] { Supplier.class, BiFunction.class }, supplier, queueProvider)
-            .addHandler(MessageEncoder.class, mappingFilePath)
+            .addHandler(MessageDecoder.class, filePath)
+            .addHandler(ClientInboundHandler.class, new Class<?>[] { Function.class, BiFunction.class }, function, queueProvider)
+            .addHandler(MessageEncoder.class, filePath)
             .build();
 
         Bootstrap bootstrap = new Bootstrap()
@@ -80,9 +87,15 @@ public class NettyClient {
     public CompletableFuture<Message> request(Message message) {
         Utils.validate(message);
 
-        // // 결과 대기용 future 생성
+        int requestId = requestCounter++;
+        message.addOption(MessageOption.REQUEST_ID, requestId); // 요청 식별용 ID 추가
+
+        // 결과 대기용 future 생성
         CompletableFuture<Message> future = new CompletableFuture<>();
-        requests.add(future);
+        future.whenComplete((result, err) -> { // 서버 응답 수신 시 맵에서 제거
+            requests.remove(requestId);
+        });
+        requests.put(requestId, future);
 
         // 메시지 전송
         channel.writeAndFlush(message);
@@ -95,19 +108,20 @@ public class NettyClient {
      */
     public void command(Message message) {
         Utils.validate(message);
+
         channel.writeAndFlush(message);
     }
 
     /**
-     * 특정 토픽/파티션을 구독하고, 메시지가 업데이트되면 out 큐에 TOPIC_UPDATE를 포함한 정보가 담김
-     * 따라서, out 큐를 blocking하게 모니터링해서 TOPIC_UPDATE 메시지를 처리할 수 있음
+     * 특정 토픽/파티션을 구독하고, 메시지가 업데이트되면 out 큐에 TOPIC_UPDATED를 포함한 메시지가 담김
+     * 따라서, out 큐를 blocking하게 모니터링해서 TOPIC_UPDATED 메시지를 처리할 수 있음
      */
-    public ExecutorService subscribe(String topicName, int partition, String id, Queue<Message> out) {
-        Utils.validate(topicName, id, out);
+    public ExecutorService subscribe(String topicName, int partition, String clientId, Collection<Message> out) {
+        Utils.validate(topicName, clientId, out);
 
         Message subscribeMsg = new Message().addOptions(Map.of(
-            MessageOption.TYPE, Message.Type.REQ_SUBSCRIBE.getByte(),
-            MessageOption.ID, id,
+            MessageOption.TYPE, MessageType.REQ_SUBSCRIBE.getByte(),
+            MessageOption.CLIENT_ID, clientId,
             MessageOption.TOPIC_NAME, topicName,
             MessageOption.PARTITION, partition
         ));
@@ -117,7 +131,7 @@ public class NettyClient {
         byte responseType = subscribeResponse.option(MessageOption.TYPE, Byte.class);
         
         // 구독 성공 시
-        if (responseType == Message.Type.RES_SUBSCRIBE.getByte()) {
+        if (responseType == MessageType.RES_SUBSCRIBE.getByte()) {
             Map<Integer, BlockingQueue<Message>> partitionMap = subscriptions.computeIfAbsent(
                 topicName, 
                 ignored -> new ConcurrentHashMap<>()
@@ -144,7 +158,7 @@ public class NettyClient {
                 }
 
                 partitionMap.remove(partition); // 모니터링 종료 후 파티션 맵에서 제거
-                unsubscribe(topicName, partition, id); // 구독 해제
+                unsubscribe(topicName, partition, clientId); // 구독 해제
             });
 
             return executor;
@@ -157,8 +171,8 @@ public class NettyClient {
         Utils.validate(topicName, id);
 
         Message unsubscribeMsg = new Message().addOptions(Map.of(
-            MessageOption.TYPE, Message.Type.REQ_UNSUBSCRIBE.getByte(),
-            MessageOption.ID, id,
+            MessageOption.TYPE, MessageType.REQ_UNSUBSCRIBE.getByte(),
+            MessageOption.CLIENT_ID, id,
             MessageOption.TOPIC_NAME, topicName,
             MessageOption.PARTITION, partition
         ));
@@ -186,9 +200,9 @@ public class NettyClient {
             e.printStackTrace();
         } finally {
             shutdownGracefully();
-            requests.forEach(request -> {
+            for (CompletableFuture<Message> request : requests.values()) {
                 request.completeExceptionally(new IllegalStateException("채널 종료"));
-            });
+            }
 
             requests.clear();
         }

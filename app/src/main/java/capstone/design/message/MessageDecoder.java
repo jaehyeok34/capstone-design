@@ -114,21 +114,20 @@ public class MessageDecoder extends ByteToMessageDecoder {
             String key = props.getProperty(String.valueOf(optionType));
 
             switch (optionType) {
-                case 0 -> {
+                case 0 -> { // message type
                     byte messageType = in.readByte();
                     message.addOption(key, messageType);
                     offset += 1;
                 }
 
-                case 5 -> {
+                case 5 -> { // payload
                     int len = in.readInt();
-                    byte[] data = new byte[len];
-                    in.readBytes(data);
+                    ByteBuf data = in.readBytes(len);
                     message.addOption(key, data);
                     offset += Integer.BYTES + len;
                 }
 
-                case 8 -> {
+                case 8 -> { // success
                     boolean success = in.readBoolean();
                     message.addOption(key, success);
                     offset += 1;
@@ -165,7 +164,7 @@ public class MessageDecoder extends ByteToMessageDecoder {
                 message.addOption(key, data);
             }
 
-            case 3 -> { // partition(int)
+            case 3, 9 -> { // partition, request_id(int)
                 try {
                     int value = Integer.parseInt(data);
                     message.addOption(key, value);

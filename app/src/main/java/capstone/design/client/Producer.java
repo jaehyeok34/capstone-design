@@ -5,25 +5,27 @@ import java.util.Map;
 import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageOption;
+import capstone.design.message.MessageType;
 import capstone.design.netty.client.NettyClient;
 
 public class Producer implements AutoCloseable {
 
     private final NettyClient client;
-    private final String id;
+    private final String client_id;
 
-    public Producer(String host, int port, String id) throws Exception {
-        this.client = new NettyClient(host, port);
-        this.id = (id != null && !id.isEmpty()) ? id : NettyClient.DEFAULT_ID;
+    public Producer(String host, int port, String clientId, String filePath) throws Exception {
+        this.client = new NettyClient(host, port, filePath);
+        this.client_id = (clientId != null && !clientId.isEmpty()) ? clientId : NettyClient.DEFAULT_ID;
     }
-    public Producer(String host, int port) throws Exception { this(host, port, null); }
+    public Producer(String host, int port, String clientId) throws Exception { this(host, port, clientId, null); }
+    public Producer(String host, int port) throws Exception { this(host, port, null, null); }
 
     private Message createMessage(String topicName, int partition, byte[] payload) {
         Utils.validate(topicName, payload);
 
         return new Message().addOptions(Map.of(
-            MessageOption.TYPE, Message.Type.REQ_PUSH.getByte(),
-            MessageOption.ID, id,
+            MessageOption.TYPE, MessageType.REQ_PUSH.getByte(),
+            MessageOption.CLIENT_ID, client_id,
             MessageOption.TOPIC_NAME, topicName,
             MessageOption.PARTITION, partition,
             MessageOption.PAYLOAD, payload

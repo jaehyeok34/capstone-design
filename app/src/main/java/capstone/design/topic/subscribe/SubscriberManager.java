@@ -4,12 +4,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-
 import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageOption;
-
+import capstone.design.message.MessageType;
 import io.netty.channel.ChannelHandlerContext;
 
 public class SubscriberManager {
@@ -23,57 +21,57 @@ public class SubscriberManager {
         this.name = name;
     }
 
-    public void subscribe(ChannelHandlerContext context, int partition, String id) {
-        Utils.validate(context, id);
+    public void subscribe(ChannelHandlerContext context, int partition, String clientId) {
+        Utils.validate(context, clientId);
 
-        subscriberTable.computeIfAbsent(partition, k -> new ArrayList<>())
-            .add(new Subscriber(context, id));
+        subscriberTable.computeIfAbsent(partition, ignored -> new ArrayList<>())
+            .add(new Subscriber(context, clientId));
     }
 
-    public void unsubscribe(int partition, String id) {
-        Utils.validate(id);
+    public void unsubscribe(int partition, String clientId) {
+        Utils.validate(clientId);
 
         List<Subscriber> subscribers = subscriberTable.get(partition);
         if (subscribers == null) {
             return;
         }
 
-        subscribers.removeIf(subscriber -> subscriber.id().equals(id));
+        subscribers.removeIf(subscriber -> subscriber.clientId().equals(clientId));
     }
 
-    public void notify(int partition) { notify(partition, -1); } 
-    public void notify(int partition, long cursor) { notifyTo(partition, null, cursor); }
-    public void notifyTo(int partition, String id) { notifyTo(partition, id, -1); }
-    public void notifyTo(int partition, String id, long cursor) {
+    public void notify(int partition) { notify(partition, -1, -1, -1); }
+    public void notify(int partition, long cursor) { notify(partition, cursor, -1, -1); }
+    public void notify(int partition, long cursor, long offset) { notify(partition, cursor, offset, -1); }
+    public void notify(int partition, long cursor, long offset, long remaining_count) {
         List<Subscriber> subscribers = subscriberTable.get(partition);
         if (subscribers == null) {
             return;
         }
 
-        subscribers.stream()
-            .filter(subscriber -> { // id를 지정하면 그 id만, null이면 전체
-                if (id == null) {
-                    return true;
-                }
-
-                return subscriber.id().equals(id);
-            }).forEach(subscriber -> {
-                ChannelHandlerContext context = subscriber.context();
-
-                Message message = new Message()
-                    .addOption(MessageOption.TYPE, Message.Type.TOPIC_UPDATE.getByte())
-                    .addOption(MessageOption.ID, subscriber.id())
-                    .addOption(MessageOption.TOPIC_NAME, name)
-                    .addOption(MessageOption.PARTITION, partition)
-                    .addOption(MessageOption.CURSOR, cursor);
-
-                context.channel().writeAndFlush(message); // message encoder로 전달
-            });
+        for (Subscriber subscriber : subscribers) {
+            ChannelHandlerContext context = subscriber.context();
+        
+            Message message = new Message().addOptions(Map.of(
+                MessageOption.TYPE, MessageType.TOPIC_UPDATED.getByte(),
+                MessageOption.CLIENT_ID, subscriber.clientId(),
+                MessageOption.TOPIC_NAME, name,
+                MessageOption.PARTITION, partition
+            ));
+            
+            if (cursor >= 0) message.addOption(MessageOption.CURSOR, cursor);
+            if (offset >= 0) message.addOption(MessageOption.OFFSET, offset);
+            if (remaining_count >= 0) message.addOption(MessageOption.REMAINING_COUNT, remaining_count);
+            
+            context.channel().writeAndFlush(message);
+        }
     }
 
     public int count(int partition) {
-        return Optional.ofNullable(subscriberTable.get(partition))
-            .map(List::size)
-            .orElse(0);
+        List<Subscriber> subscribers = subscriberTable.get(partition);
+        if (subscribers == null) {
+            return 0;
+        }
+
+        return subscribers.size();
     }
 }

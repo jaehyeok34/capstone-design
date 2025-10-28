@@ -120,7 +120,7 @@ public class DiskTopicTest {
             ) {
                 region.transferTo(channel, 0);
                 assertEquals(message + 1, out.toString());
-                assertEquals(2, topic.cursor(0));
+                assertEquals(2, topic.cursor(0 ));
             } catch (IOException ignore) {}
         }
     }

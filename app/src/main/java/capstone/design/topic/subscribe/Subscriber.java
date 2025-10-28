@@ -1,16 +1,11 @@
 package capstone.design.topic.subscribe;
 
+import capstone.design.Utils;
 import io.netty.channel.ChannelHandlerContext;
 
-public record Subscriber(ChannelHandlerContext context, String id) {
+public record Subscriber(ChannelHandlerContext context, String clientId) {
 
     public Subscriber {
-        if (context == null) {
-            throw new IllegalArgumentException("context: null");
-        }
-
-        if (id == null || id.isEmpty()) {
-            throw new IllegalArgumentException("id: null or empty");
-        }
+        Utils.validate(context, clientId);
     }
 }
