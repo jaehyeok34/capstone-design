@@ -42,15 +42,18 @@ public class MemoryTopic implements Topic {
             ignored -> new ConcurrentHashMap<>()
         );
 
-        Queue<MemoryRecord> queue = partitionMap.computeIfAbsent(
-            id, 
-            ignored -> new ConcurrentLinkedQueue<>()  
-        );
+        // partition에 id에 해당하는 큐가 없다면 새롭게 생성
+        partitionMap.computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>());
+    
+        // partition의 모든 구독자에게 레코드 추가
+        for (var queue : partitionMap.values()) {
+            queue.add(MemoryRecord.of(buf));
+        }
 
-        queue.add(MemoryRecord.of(buf));
         buf.release();
 
-        manager.notifyTo(partition, id);
+        // partition의 모든 구독자드에게 알림
+        manager.notify(partition);
     }
     
     @Override
@@ -72,11 +75,21 @@ public class MemoryTopic implements Topic {
 
     @Override
     public void subscribe(ChannelHandlerContext context, int partition, String id) {
+        // 구독하려는 partition/id에 해당하는 큐가 없다면 새롭게 생성
+        storage.computeIfAbsent(partition, ignored -> new ConcurrentHashMap<>())
+            .computeIfAbsent(id, ignored -> new ConcurrentLinkedQueue<>());
+
         manager.subscribe(context, partition, id);
     }
 
     @Override
     public void unsubscribe(int partition, String id) {
+        // partition/id에 해당하는 큐 삭제
+        var partitionMap = storage.get(partition);
+        if (partitionMap != null) {
+            partitionMap.remove(id);
+        }
+
         manager.unsubscribe(partition, id);
     }
 }

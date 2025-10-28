@@ -49,13 +49,16 @@ public class MemoryTopicTest {
     void pushTest() {
         addData();
         
-        // 각 id에 대해서 length 확인
-        for (int i = 0; i < 2; i++) {
-            assertEquals(1, topic.length(partition, id + i));
-        }
+        /*
+         * 첫 번째 id는 2개의 메시지가 쌓여야함
+         * partition에 대하여 push하게 되면, partition에 있는 id 전체에게 메시지가 쌓이기 때문에
+         * 첫 번째 id는 2회 push(자신 + 다음), 두 번째 id는 1회 push(자신)이기 때문
+         */
+        assertEquals(2, topic.length(partition, id + 0));
+        assertEquals(1, topic.length(partition, id + 1));
 
         // 없는 partition에 대해서 length 확인
-        assertEquals(0, topic.length(partition + 1, id));
+        assertEquals(0, topic.length(partition + 1, id + 0));
 
         // 없는 id에 대해서 length 확인
         assertEquals(0, topic.length(partition, id + 2));
@@ -67,8 +70,8 @@ public class MemoryTopicTest {
 
         // partition, id에 대해서 pull 확인
         if (topic.pull(partition, id + 0) instanceof MemoryRecord record) {
-            // 값이 잘 꺼내졌는지 확인
-            assertEquals(0, topic.length(partition, id + 0));
+            // length 감소 확인
+            assertEquals(1, topic.length(partition, id + 0));
 
             // 값 확인
             if (record.value() instanceof ByteBuf buf) {
@@ -99,5 +102,20 @@ public class MemoryTopicTest {
         // 구독 해제 후 구독자수 확인
         topic.unsubscribe(partition, "s1");
         assertEquals(0, topic.subscriberManager().count(partition));
+    }
+
+    @Test
+    void subscribeAndPushTest() {
+        SpyContext context = new SpyContext();
+        topic.subscribe(context, partition, id);
+        topic.subscribe(context, partition, id + 0);
+
+        addData();
+
+        /*
+         * 같은 context 객체이기 때문에, 같은 곳에 TOPIC_UPDATE에 대한 메시지가 쌓임
+         * 따라서, 2개의 구독자가 있으므로 2개씩 메시지가 쌓여야함(addData()가 2개의 메시지를 push하므로 총 4개)
+         */
+        assertEquals(4, context.channel.queue.size());
     }
 }
