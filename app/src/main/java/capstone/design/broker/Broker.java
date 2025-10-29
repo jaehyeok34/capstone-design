@@ -15,7 +15,7 @@ public class Broker implements AutoCloseable {
 
     private Broker(Builder builder) throws Exception {
         topicManager = new TopicManager(builder.topicInfo);
-        server = new NettyServer(builder.port, topicManager);
+        server = new NettyServer(builder.port, topicManager, builder.filePath);
     }
     
     public static Builder builder() { return new Builder(); }
@@ -37,6 +37,7 @@ public class Broker implements AutoCloseable {
     public static class Builder {
         private int port = 1234;
         private final Map<String, Topic.Type> topicInfo = new HashMap<>();
+        private String filePath = null;
 
         private Builder() {} // 직접 생성 제한
 
@@ -74,6 +75,11 @@ public class Broker implements AutoCloseable {
                 }
             });
 
+            return this;
+        }
+
+        public Builder mappingTableFilePath(String filePath) {
+            this.filePath = filePath;
             return this;
         }
     }

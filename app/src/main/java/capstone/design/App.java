@@ -9,7 +9,8 @@ public class App {
         Broker.Builder builder  = Broker.builder()
             .port(3401)
             .addTopic("test_topic", Topic.Type.DISK)
-            .addTopic("convert_file", Topic.Type.DISK);
+            .addTopic("convert_file", Topic.Type.DISK)
+            .mappingTableFilePath("option_mapping_table.properties");
 
         try (Broker broker = builder.build()) {
             broker.start();
