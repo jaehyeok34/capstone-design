@@ -107,4 +107,20 @@ public class MessageCodecTest {
             encoded.release();
         }
     }
+
+    @Test
+    void customeOptionTest() throws Exception {
+        Message msg = new Message().addOptions(Map.of(
+            "c1", 123,
+            "c2", "custom option",
+            "c3", -277
+        ));
+
+        ByteBuf encoded = (ByteBuf) encoder.encode(ByteBufAllocator.DEFAULT, msg).get(0);
+        Message decoded = decoder.decode(encoded);
+        assertEquals(3, decoded.options().size());
+        assertEquals(123, Integer.parseInt((String) decoded.option("c1")));
+        assertEquals("custom option", decoded.option("c2"));
+        assertEquals(-277, Integer.parseInt((String) decoded.option("c3")));
+    }
 }

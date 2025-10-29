@@ -1,6 +1,7 @@
 package capstone.design.message;
 
 import java.io.FileReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
@@ -106,13 +107,17 @@ public class MessageDecoder extends ByteToMessageDecoder {
             byte optionType = in.readByte();
             offset += 1;
 
+            if (optionType == Byte.parseByte(Utils.UNKNOWN_OPTION_TYPE)) { // TLVLV 형식 처리
+                offset += addUnknownOption(message, in);
+                continue;
+            }
+
             /*
-             * encoder에서 option_mapping_table.properties에 없는 key는 encode 하지 않기 때문에
+             * encoder에서 option_mapping_table.properties에 없는 key는 unknown option으로 처리하므로
              * key가 없는 경우는 고려하지 않음
              */
             String key = props.getProperty(String.valueOf(optionType));
             int len = in.readInt();
-
             switch (key) {
                 case MessageOption.PAYLOAD -> {
                     ByteBuf buf = in.readBytes(len);
@@ -132,6 +137,22 @@ public class MessageDecoder extends ByteToMessageDecoder {
         out.add(message);
         this.state = State.READ_MAGIC;
         return true;
+    }
+
+    private long addUnknownOption(Message message, ByteBuf in) {
+        long offset = 0;
+        int keyLength = in.readInt();
+        String key = in.readString(keyLength, StandardCharsets.UTF_8);
+        offset += Integer.BYTES + keyLength;
+
+        int valueLength = in.readInt();
+        byte[] buf = new byte[valueLength];
+        in.readBytes(buf);
+        offset += Integer.BYTES + valueLength;
+
+        message.addOption(key, new String(buf, StandardCharsets.UTF_8));
+
+        return offset;
     }
 
     private Properties invertProperties(Properties props) {

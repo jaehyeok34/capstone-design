@@ -18,8 +18,9 @@ import io.netty.channel.ChannelPromise;
 
 public class MessageEncoder extends ChannelOutboundHandlerAdapter {
     
-    private final String filePath;
     private final static String PAYLOAD_TYPE = "5";
+    
+    private final String filePath;
 
     public MessageEncoder(String filePath) {
         Utils.validate(filePath);
@@ -42,60 +43,66 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
         }
 
         ByteBuf encoded = allocator.buffer().writeInt(Utils.MAGIC);
-        ByteBuf options = allocator.buffer();
+        ByteBuf in = allocator.buffer();
         Object payload = null;
 
         for (Map.Entry<String, Object> entry : message.options().entrySet()) {
             String key = entry.getKey();
-            if (!props.containsKey(key)) {
-                System.out.println("[debug] skip unknown option key: " + key);
+            Object option = entry.getValue();
+            if (!props.containsKey(key)) { // unknown option(TLVLV 형식)
+                byte[] buf = option.toString().getBytes(StandardCharsets.UTF_8);
+                in.writeByte(Byte.parseByte(Utils.UNKNOWN_OPTION_TYPE)) // type
+                    .writeInt(key.length()) // key length
+                    .writeBytes(key.getBytes(StandardCharsets.UTF_8)) // key value
+                    .writeInt(buf.length) // value length
+                    .writeBytes(buf); // value
                 continue;
             }
 
-            Object option = entry.getValue();
-            String mappedKey = props.getProperty(key);
-            if (mappedKey.equals(PAYLOAD_TYPE)) { // payload 라면 lazy 처리
+            String optionType = props.getProperty(key);
+            if (optionType.equals(PAYLOAD_TYPE)) { // payload 라면 lazy 처리
                 payload = option;
                 continue;
-            }
+            } 
 
-            writeOption(options, mappedKey, option);
+            writeOption(in, optionType, option); // TLV 형식
         }
 
         int weight = 0;
         if (payload != null) {
-            options.writeByte(5); // type
+            in.writeByte(Byte.parseByte(PAYLOAD_TYPE)); // type
 
             /*
-                * payload를 항상 마지막에 처리하는 이유는
-                * payload가 TopicRecord일 때, 실제 구현체가 DiskTopic 이면 value()가 FileRegion이기 때문에
-                * ByteBuf에 담을 수 없음. 따라서 length 정보만 담아두고 가중치 값 증가시켜 
-                * message total length 계산 시 반영하도록 함
-                */
+             * payload를 항상 마지막에 처리하는 이유는
+             * payload가 TopicRecord일 때, 실제 구현체가 DiskTopic 이면 value()가 FileRegion이기 때문에
+             * ByteBuf에 담을 수 없음. 따라서 length 정보만 담아두고 가중치 값 증가시켜 
+             * message total length 계산 시 반영하도록 함
+             */
             if (payload instanceof TopicRecord record) { 
-                options.writeInt(record.length());
+                in.writeInt(record.length());
                 weight = record.length();
                 out.add(record.value());
             } else if (payload instanceof ByteBuf buf) {
-                options.writeInt(buf.readableBytes()).writeBytes(buf);;
+                in.writeInt(buf.readableBytes()).writeBytes(buf);
             } else if (payload instanceof byte[] buf) {
-                options.writeInt(buf.length).writeBytes(buf);
+                in.writeInt(buf.length).writeBytes(buf);
             } else { 
-                options.writeInt(0);
+                in.writeInt(0);
             }
         }
 
-        encoded.writeLong(options.readableBytes() + weight) // message total length
-            .writeBytes(options); // message options
+        encoded.writeLong(in.readableBytes() + weight) // message total length
+            .writeBytes(in); // message options
 
         out.addFirst(encoded);
 
         return out;
     }
 
-    private void writeOption(ByteBuf in, String key, Object option) {
+    private void writeOption(ByteBuf in, String optionType, Object option) {
         byte[] buf = option.toString().getBytes(StandardCharsets.UTF_8);
-        in.writeByte(Byte.parseByte(key)) // type
+
+        in.writeByte(Byte.parseByte(optionType)) // type
             .writeInt(buf.length) // length
             .writeBytes(buf); // value
     }
