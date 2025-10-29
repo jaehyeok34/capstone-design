@@ -12,7 +12,7 @@ public class Utils {
 
     public static final int MAGIC = 0x6B3FA0FF;
     public static final String DEFAULT_OPTION_MAPPING_TABLE_FILE_PATH = "../option_mapping_table.properties";
-    public static final String UNKNOWN_OPTION_TYPE = Byte.toString(Byte.MIN_VALUE);
+    public static final String UNKNOWN_OPTION_TYPE = String.valueOf(-1);
     
     /**
      * 기본적으로 null 체크
