@@ -1,15 +1,13 @@
 import struct
-from .message import Message
-from .message_option import MessageOption
-from ..utils import Utils
-
+from utils import Utils
 
 class MessageDecoder:
 
-    def __init__ (self):
+    def __init__ (self, file_path: str):
+        self.file_path = file_path
         self.buffer = bytearray()
         self.state = 0 # read magic
-        self.length = 0
+        self.total_length = 0
     
     def decode(self, data: bytes):
         self.buffer.extend(data)
@@ -48,49 +46,42 @@ class MessageDecoder:
         if len(self.buffer) < 8:
             return False
         
-        self.length = struct.unpack('>Q', self.buffer[:8])[0]
+        self.total_length = struct.unpack('>Q', self.buffer[:8])[0]
         self.buffer = self.buffer[8:]
         self.state = 2 # read message
         return True
-    
+
     def __read_message(self):
-        if len(self.buffer) < self.length:
+        if len(self.buffer) < self.total_length:
             return None
         
-        msg_bytes = self.buffer[:self.length]
-        self.buffer = self.buffer[self.length:]
+        buf = self.buffer[:self.total_length] # total_length만큼 slice
+        self.buffer = self.buffer[self.total_length:] # 남은 부분 다시 할당
+        
+        props = Utils.read_properties(self.file_path)
+        props = {v: k for k, v in props.items()}
 
-        message = Message()
         offset = 0
 
-        message.add_option(MessageOption.TYPE, msg_bytes[offset]) 
-        offset += 1
+        from message.message import Message
+        message = Message()
+        while (offset < self.total_length):
+            option_type = buf[offset]
+            offset += 1
 
-        id_length = struct.unpack(">I", msg_bytes[offset : offset + 4])[0]
-        offset += 4
+            try:
+                key = props[str(option_type)]
 
-        message.add_option(MessageOption.ID, msg_bytes[offset : offset + id_length].decode('utf-8'))
-        offset += id_length
+            except KeyError:
+                continue
 
-        topic_name_length = struct.unpack(">I", msg_bytes[offset : offset + 4])[0]
-        offset += 4
+            length = struct.unpack('>I', buf[offset : offset + 4])[0]
+            offset += 4
 
-        message.add_option(MessageOption.TOPIC_NAME, msg_bytes[offset : offset + topic_name_length].decode('utf-8'))
-        offset += topic_name_length
+            value = buf[offset : offset + length]
+            offset += length
 
-        message.add_option(MessageOption.PARTITION, struct.unpack(">i", msg_bytes[offset : offset + 4])[0])
-        offset += 4
-
-        message.add_option(MessageOption.CURSOR, struct.unpack(">q", msg_bytes[offset : offset + 8])[0])
-        offset += 8
-
-        payload_length = struct.unpack(">i", msg_bytes[offset : offset + 4])[0]
-        offset += 4
-
-        if payload_length > 0:
-            message.add_option(MessageOption.PAYLOAD, bytes(msg_bytes[offset : offset + payload_length]))
-            offset += payload_length
+            Utils.cast_add(message, key, value)
 
         self.state = 0
         return message
-

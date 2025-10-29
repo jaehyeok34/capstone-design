@@ -1,7 +1,11 @@
 class MessageOption:
-    TYPE = "type"
-    ID = "id"
+    MESSAGE_TYPE = "message_type"
+    CLIENT_ID = "client_id"
     TOPIC_NAME = "topic_name"
     PARTITION = "partition"
     CURSOR = "cursor"
     PAYLOAD = "payload"
+    OFFSET = "offset"
+    REMAINING_COUNT = "remaining_count"
+    SUCCESS = "success"
+    REQUEST_ID = "request_id"

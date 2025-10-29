@@ -1,16 +1,14 @@
-from .message.message import Message
-from .message.message_option import MessageOption
-from .message.message_type import MessageType
-from .utils import Utils
-from .client import Client
+from utils import Utils
 
 class Producer:
 
-    def __init__(self, host: str, port: int, producer_id: str):
+    def __init__(self, host: str, port: int, producer_id: str, file_path: str | None = None):
         Utils.validate(host, port, producer_id)
 
         self.producer_id = producer_id
-        self.client = Client(host, port)
+
+        from client import Client
+        self.client = Client(host, port, file_path)
 
     def __enter__(self):
         return self
@@ -20,9 +18,13 @@ class Producer:
         return False
 
     def __createMessage(self, topic_name: str, partition: int, payload: bytes):
+        from message.message import Message
+        from message.message_option import MessageOption    
+        from message.message_type import MessageType
+
         return Message().add_options({
-            MessageOption.TYPE: MessageType.REQ_PUSH,
-            MessageOption.ID: self.producer_id,
+            MessageOption.MESSAGE_TYPE: MessageType.REQ_PUSH,
+            MessageOption.CLIENT_ID: self.producer_id,
             MessageOption.TOPIC_NAME: topic_name,
             MessageOption.PARTITION: partition,
             MessageOption.PAYLOAD: payload
@@ -38,7 +40,7 @@ class Producer:
         Utils.validate(topic_name, partition, payload)
 
         message = self.__createMessage(topic_name, partition, payload)
-        response = self.client.request(message)
+        response = self.client.request(message).result()
 
         return response
     

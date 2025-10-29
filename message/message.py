@@ -1,15 +1,11 @@
 from typing import Any, Dict
-import struct
-
-from ..utils import Utils
-from .message_option import MessageOption
-from .message_type import MessageType
+from utils import Utils
 
 
 class Message:
 
     def __init__(self):
-        self.options = {}
+        self.options: Dict[str, Any] = {}
 
     def add_option(self, key: str, value):
         Utils.validate(key, value)
@@ -33,6 +29,9 @@ class Message:
 
         return self.options.get(key, None)
     
+    def get_options(self):
+        return self.options
+    
     def remove_option(self, key: str):
         Utils.validate(key)
 
@@ -43,43 +42,48 @@ class Message:
     
     def count(self) -> int:
         return len(self.options)
+    
+    def clear(self):
+        self.options.clear()
 
-    def to_bytes(self):
-        type = self.option(MessageOption.TYPE)
-        id_ = self.option(MessageOption.ID)
-        topic_name = self.option(MessageOption.TOPIC_NAME)
-        partition = self.option(MessageOption.PARTITION)
-        cursor = self.option(MessageOption.CURSOR)
-        payload = self.option(MessageOption.PAYLOAD)
+        return self
 
-        if Utils.is_none(type, id_, topic_name, partition):
-            raise ValueError("to_bytes() 실패: 필수 옵션 누락")
+    # def to_bytes(self):
+    #     type = self.option(MessageOption.TYPE)
+    #     id_ = self.option(MessageOption.ID)
+    #     topic_name = self.option(MessageOption.TOPIC_NAME)
+    #     partition = self.option(MessageOption.PARTITION)
+    #     cursor = self.option(MessageOption.CURSOR)
+    #     payload = self.option(MessageOption.PAYLOAD)
 
-        Utils.validate(type, id_, topic_name, partition) # 필수 옵션 검증
-        if (cursor is None):
-            cursor = -1
+    #     if Utils.is_none(type, id_, topic_name, partition):
+    #         raise ValueError("to_bytes() 실패: 필수 옵션 누락")
 
-        # I(magic) Q(total lenth) B(type) I(id length) {}s(id) I(topic name length) {}s(topic name)
-        # i(partition) q(cursor, signed long long) i(payload length, unsigned int)
-        assert id_ is not None and isinstance(id_, str)
-        assert topic_name is not None and isinstance(topic_name, str)
-        fmt = f">I Q B I{len(id_)}s I{len(topic_name)}s i q i"
+    #     Utils.validate(type, id_, topic_name, partition) # 필수 옵션 검증
+    #     if (cursor is None):
+    #         cursor = -1
 
-        options = [
-            type, 
-            len(id_), id_.encode('utf-8'),
-            len(topic_name), topic_name.encode('utf-8'),
-            partition,
-            cursor,
-            len(payload) if payload is not None else -1
-        ]
+    #     # I(magic) Q(total lenth) B(type) I(id length) {}s(id) I(topic name length) {}s(topic name)
+    #     # i(partition) q(cursor, signed long long) i(payload length, unsigned int)
+    #     assert id_ is not None and isinstance(id_, str)
+    #     assert topic_name is not None and isinstance(topic_name, str)
+    #     fmt = f">I Q B I{len(id_)}s I{len(topic_name)}s i q i"
 
-        if (payload is not None):
-            fmt += f"{len(payload)}s"
-            options.append(payload)
+    #     options = [
+    #         type, 
+    #         len(id_), id_.encode('utf-8'),
+    #         len(topic_name), topic_name.encode('utf-8'),
+    #         partition,
+    #         cursor,
+    #         len(payload) if payload is not None else -1
+    #     ]
 
-        total_length = struct.calcsize(fmt) - 12 # I(magic) Q(total length) 제외
-        options = [Utils.MAGIC, total_length] + options
-        packed = struct.pack(fmt, *options)
+    #     if (payload is not None):
+    #         fmt += f"{len(payload)}s"
+    #         options.append(payload)
 
-        return packed
+    #     total_length = struct.calcsize(fmt) - 12 # I(magic) Q(total length) 제외
+    #     options = [Utils.MAGIC, total_length] + options
+    #     packed = struct.pack(fmt, *options)
+
+    #     return packed
