@@ -1,11 +1,12 @@
 import configparser
 
-from message.message_option import MessageOption
+from py_client.message.message_option import MessageOption
 
 
 class Utils:
     MAGIC = 0x6B3FA0FF
     DEFAULT_MAPPING_FILE_PATH = "option_mapping_table.properties"
+    UNKNOWN_OPTION_TYPE = -1
 
     @staticmethod
     def validate(*args):

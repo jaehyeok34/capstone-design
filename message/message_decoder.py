@@ -1,5 +1,8 @@
 import struct
-from utils import Utils
+
+from py_client.message.message import Message
+from py_client.utils import Utils
+
 
 class MessageDecoder:
 
@@ -61,20 +64,18 @@ class MessageDecoder:
         props = Utils.read_properties(self.file_path)
         props = {v: k for k, v in props.items()}
 
+        message = Message()
         offset = 0
 
-        from message.message import Message
-        message = Message()
         while (offset < self.total_length):
-            option_type = buf[offset]
+            option_type = struct.unpack('b', buf[offset : offset + 1])[0]
             offset += 1
 
-            try:
-                key = props[str(option_type)]
-
-            except KeyError:
+            if option_type == Utils.UNKNOWN_OPTION_TYPE:
+                offset = self.__add_unknown_option(message, buf, offset)
                 continue
 
+            key = props[str(option_type)]
             length = struct.unpack('>I', buf[offset : offset + 4])[0]
             offset += 4
 
@@ -85,3 +86,22 @@ class MessageDecoder:
 
         self.state = 0
         return message
+    
+    def __add_unknown_option(self, message: 'Message', buf: bytearray, start_offset: int):
+        offset = start_offset
+
+        key_length = struct.unpack('>I', buf[offset : offset + 4])[0]
+        offset += 4
+
+        key = buf[offset : offset + key_length]
+        offset += key_length
+
+        option_length = struct.unpack('>I', buf[offset : offset + 4])[0]
+        offset += 4
+
+        option = buf[offset : offset + option_length]
+        offset += option_length
+
+        message.add_option(key.decode('utf-8'), option.decode('utf-8'))
+        return offset
+

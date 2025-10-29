@@ -1,9 +1,8 @@
-from message.message_decoder import MessageDecoder
-from message.message_encoder import MessageEncoder
-from message.message import Message
+from py_client.message.message_decoder import MessageDecoder
+from py_client.message.message_encoder import MessageEncoder
+from py_client.message.message import Message
 
 if __name__ == "__main__":
-    encoder = MessageEncoder("option_mapping_table.properties")
     decoder = MessageDecoder("option_mapping_table.properties")
     msg = Message().add_options({
         "message_type": 0,
@@ -19,7 +18,7 @@ if __name__ == "__main__":
         "request_id": 12345
     })
 
-    encoded = encoder.encode(msg)
+    encoded = MessageEncoder.encode("option_mapping_table.properties", msg)
     decoded = decoder.decode(encoded)
 
     assert decoded is not None

@@ -1,0 +1,11 @@
+setup.py
+message/__init__.py
+message/message.py
+message/message_decoder.py
+message/message_encoder.py
+message/message_option.py
+message/message_type.py
+py_client.egg-info/PKG-INFO
+py_client.egg-info/SOURCES.txt
+py_client.egg-info/dependency_links.txt
+py_client.egg-info/top_level.txt

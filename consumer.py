@@ -1,10 +1,10 @@
 
 from queue import Queue
 from threading import Event
-from message.message import Message
-from message.message_option import MessageOption
-from message.message_type import MessageType
-from utils import Utils
+from py_client.message.message import Message
+from py_client.message.message_option import MessageOption
+from py_client.message.message_type import MessageType
+from py_client.utils import Utils
 
 
 class Consumer:
@@ -14,7 +14,7 @@ class Consumer:
 
         self.consumer_id = consumer_id
         
-        from client import Client
+        from py_client.client import Client
         self.client = Client(host, port, file_path)
 
     def __enter__(self):

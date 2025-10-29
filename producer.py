@@ -1,4 +1,4 @@
-from utils import Utils
+from py_client.utils import Utils
 
 class Producer:
 
@@ -7,7 +7,7 @@ class Producer:
 
         self.producer_id = producer_id
 
-        from client import Client
+        from py_client.client import Client
         self.client = Client(host, port, file_path)
 
     def __enter__(self):
@@ -18,9 +18,9 @@ class Producer:
         return False
 
     def __createMessage(self, topic_name: str, partition: int, payload: bytes):
-        from message.message import Message
-        from message.message_option import MessageOption    
-        from message.message_type import MessageType
+        from py_client.message.message import Message
+        from py_client.message.message_option import MessageOption    
+        from py_client.message.message_type import MessageType
 
         return Message().add_options({
             MessageOption.MESSAGE_TYPE: MessageType.REQ_PUSH,

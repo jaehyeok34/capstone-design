@@ -1,5 +1,4 @@
-from enum import IntEnum, auto
-
+from enum import IntEnum
 
 class MessageType(IntEnum):
     REQ_PULL        = 0

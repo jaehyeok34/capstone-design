@@ -4,10 +4,10 @@ import socket
 import threading
 from typing import Dict
 
-from message.message import Message
-from message.message_option import MessageOption
-from message.message_type import MessageType
-from utils import Utils
+from py_client.message.message import Message
+from py_client.message.message_option import MessageOption
+from py_client.message.message_type import MessageType
+from py_client.utils import Utils
 
 
 class Client:
@@ -36,7 +36,7 @@ class Client:
         self.sock.close()
 
     def __receive(self):
-        from message.message_decoder import MessageDecoder
+        from py_client.message.message_decoder import MessageDecoder
         decoder = MessageDecoder(self.file_path)
 
         while not self.stop_event.is_set():
@@ -88,7 +88,7 @@ class Client:
     def command(self, message: 'Message'):
         Utils.validate(message)
 
-        from message.message_encoder import MessageEncoder
+        from py_client.message.message_encoder import MessageEncoder
         self.sock.sendall(MessageEncoder.encode(self.file_path, message))
 
     def request(self, message: 'Message'):
@@ -104,7 +104,7 @@ class Client:
             # self.requests[request_id] = queue
             self.requests[request_id] = future
 
-        from message.message_encoder import MessageEncoder
+        from py_client.message.message_encoder import MessageEncoder
         self.sock.sendall(MessageEncoder.encode(self.file_path, message))
 
         # return queue

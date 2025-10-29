@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from utils import Utils
+from py_client.utils import Utils
 
 
 class Message:
@@ -47,43 +47,3 @@ class Message:
         self.options.clear()
 
         return self
-
-    # def to_bytes(self):
-    #     type = self.option(MessageOption.TYPE)
-    #     id_ = self.option(MessageOption.ID)
-    #     topic_name = self.option(MessageOption.TOPIC_NAME)
-    #     partition = self.option(MessageOption.PARTITION)
-    #     cursor = self.option(MessageOption.CURSOR)
-    #     payload = self.option(MessageOption.PAYLOAD)
-
-    #     if Utils.is_none(type, id_, topic_name, partition):
-    #         raise ValueError("to_bytes() 실패: 필수 옵션 누락")
-
-    #     Utils.validate(type, id_, topic_name, partition) # 필수 옵션 검증
-    #     if (cursor is None):
-    #         cursor = -1
-
-    #     # I(magic) Q(total lenth) B(type) I(id length) {}s(id) I(topic name length) {}s(topic name)
-    #     # i(partition) q(cursor, signed long long) i(payload length, unsigned int)
-    #     assert id_ is not None and isinstance(id_, str)
-    #     assert topic_name is not None and isinstance(topic_name, str)
-    #     fmt = f">I Q B I{len(id_)}s I{len(topic_name)}s i q i"
-
-    #     options = [
-    #         type, 
-    #         len(id_), id_.encode('utf-8'),
-    #         len(topic_name), topic_name.encode('utf-8'),
-    #         partition,
-    #         cursor,
-    #         len(payload) if payload is not None else -1
-    #     ]
-
-    #     if (payload is not None):
-    #         fmt += f"{len(payload)}s"
-    #         options.append(payload)
-
-    #     total_length = struct.calcsize(fmt) - 12 # I(magic) Q(total length) 제외
-    #     options = [Utils.MAGIC, total_length] + options
-    #     packed = struct.pack(fmt, *options)
-
-    #     return packed
