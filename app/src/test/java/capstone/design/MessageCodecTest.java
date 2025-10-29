@@ -2,6 +2,7 @@ package capstone.design;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +40,7 @@ public class MessageCodecTest {
             "offset", 34L,
             "remaining_count", 100L,
             "invalid_option", "hello world",
-            "success", true,
+            "success", 1,
             "payload", "hello world".getBytes()
         ));
         msg.addOption("request_id", 12345);
@@ -91,8 +92,8 @@ public class MessageCodecTest {
         assertInstanceOf(Long.class, decoded.option("remaining_count"));
         assertEquals(100L, decoded.option("remaining_count"));
 
-        assertInstanceOf(Boolean.class, decoded.option("success"));
-        assertEquals(true, decoded.option("success"));
+        assertInstanceOf(Byte.class, decoded.option("success"));
+        assertTrue((byte) decoded.option("success") != 0);
 
         assertInstanceOf(ByteBuf.class, decoded.option("payload"));
         assertEquals("hello world", decoded.option("payload", ByteBuf.class).readString("hello world".length(), StandardCharsets.UTF_8));

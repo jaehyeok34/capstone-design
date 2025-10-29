@@ -59,7 +59,7 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
                 continue;
             }
 
-            mappingAndWriteOption(options, mappedKey, option);
+            writeOption(options, mappedKey, option);
         }
 
         int weight = 0;
@@ -93,25 +93,10 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
         return out;
     }
 
-    private void mappingAndWriteOption(ByteBuf in, String key, Object option) {
-        in.writeByte(Byte.parseByte(key)); // type
-
-        switch (key) {
-            // message_type(byte)
-            case "0" -> in.writeByte((byte) option);
-
-            // success(byte)
-            case "8" -> in.writeByte((boolean) option ? 1 : 0);
-
-            // int, long, String, ... 
-            default -> writeObject(in, option);
-        } 
-    }
-
-    private void writeObject(ByteBuf in, Object option) {
+    private void writeOption(ByteBuf in, String key, Object option) {
         byte[] buf = option.toString().getBytes(StandardCharsets.UTF_8);
-
-        in.writeInt(buf.length) // length
+        in.writeByte(Byte.parseByte(key)) // type
+            .writeInt(buf.length) // length
             .writeBytes(buf); // value
     }
 }

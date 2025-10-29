@@ -114,23 +114,11 @@ public class MessageDecoder extends ByteToMessageDecoder {
             String key = props.getProperty(String.valueOf(optionType));
 
             switch (optionType) {
-                case 0 -> { // message type
-                    byte messageType = in.readByte();
-                    message.addOption(key, messageType);
-                    offset += 1;
-                }
-
                 case 5 -> { // payload
                     int len = in.readInt();
                     ByteBuf data = in.readBytes(len);
                     message.addOption(key, data);
                     offset += Integer.BYTES + len;
-                }
-
-                case 8 -> { // success
-                    boolean success = in.readBoolean();
-                    message.addOption(key, success);
-                    offset += 1;
                 }
 
                 default -> {
@@ -160,6 +148,11 @@ public class MessageDecoder extends ByteToMessageDecoder {
 
     private void castAdd(byte optionType, Message message, String key, String data) {
         switch (optionType) {
+            case 0, 8 -> { // message_type, success(byte)
+                byte value = Byte.parseByte(data);
+                message.addOption(key, value);
+            }
+
             case 1, 2 -> { // client_id, topic_name(String)
                 message.addOption(key, data);
             }
