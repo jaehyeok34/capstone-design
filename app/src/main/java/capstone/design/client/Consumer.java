@@ -36,7 +36,7 @@ public class Consumer implements AutoCloseable {
             MessageOption.PARTITION, partition
         ));
 
-        if (cursor != null) {
+        if (cursor != null && cursor >= 0) {
             message.addOption(MessageOption.CURSOR, cursor);
         }
 
