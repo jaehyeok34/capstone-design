@@ -63,9 +63,11 @@ function Home() {
         
         console.log('[debug] /api/convert 호출')
         const res = await axios.post('http://localhost:8000/api/convert', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 300000, // 5분 타임아웃으로 증가
+          headers: { 'Content-Type': 'multipart/form-data; charset=utf-8' },
+          timeout: 100000, // 5분 타임아웃으로 증가
         });
+
+        console.log('[debug] 변환된 마크다운:', res.data.markdown);
         
         markdownResults.push({
           fileName: file.name,
