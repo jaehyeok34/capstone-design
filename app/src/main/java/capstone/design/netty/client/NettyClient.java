@@ -120,7 +120,7 @@ public class NettyClient {
         Utils.validate(topicName, clientId, out);
 
         Message subscribeMsg = new Message().addOptions(Map.of(
-            MessageOption.TYPE, MessageType.REQ_SUBSCRIBE.getByte(),
+            MessageOption.MESSAGE_TYPE, MessageType.REQ_SUBSCRIBE.getByte(),
             MessageOption.CLIENT_ID, clientId,
             MessageOption.TOPIC_NAME, topicName,
             MessageOption.PARTITION, partition
@@ -128,7 +128,7 @@ public class NettyClient {
 
         // 구독 요청
         Message subscribeResponse = request(subscribeMsg).join(); // 구독 요청 대기
-        byte responseType = subscribeResponse.option(MessageOption.TYPE, Byte.class);
+        byte responseType = subscribeResponse.option(MessageOption.MESSAGE_TYPE, Byte.class);
         
         // 구독 성공 시
         if (responseType == MessageType.RES_SUBSCRIBE.getByte()) {
@@ -180,7 +180,7 @@ public class NettyClient {
         Utils.validate(topicName, id);
 
         Message unsubscribeMsg = new Message().addOptions(Map.of(
-            MessageOption.TYPE, MessageType.REQ_UNSUBSCRIBE.getByte(),
+            MessageOption.MESSAGE_TYPE, MessageType.REQ_UNSUBSCRIBE.getByte(),
             MessageOption.CLIENT_ID, id,
             MessageOption.TOPIC_NAME, topicName,
             MessageOption.PARTITION, partition

@@ -37,8 +37,8 @@ public class TopicManager implements MessageProcessor {
     @Override
     public void process(ChannelHandlerContext context, Message message) {
         Utils.validate(context, message);
-        
-        Byte type = message.option(MessageOption.TYPE, Byte.class);
+
+        Byte type = message.option(MessageOption.MESSAGE_TYPE, Byte.class);
         Utils.validate(type);
 
         switch (MessageType.values()[type]) {
@@ -70,7 +70,7 @@ public class TopicManager implements MessageProcessor {
         }
 
         // RES_PUSH 응답
-        message.addOption(MessageOption.TYPE, MessageType.RES_PUSH.getByte()) // type 변경
+        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_PUSH.getByte()) // type 변경
             .removeOption(MessageOption.PAYLOAD); // payload 제거
 
         context.channel().writeAndFlush(message); // message encoder로 전달
@@ -85,7 +85,7 @@ public class TopicManager implements MessageProcessor {
         
         Utils.validate(id, topicName, partition);
 
-        message.addOption(MessageOption.TYPE, MessageType.RES_PULL.getByte()) // type 변경
+        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_PULL.getByte()) // type 변경
             .removeOption(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
 
         Topic topic = topicTable.get(topicName);
@@ -121,7 +121,7 @@ public class TopicManager implements MessageProcessor {
             ));
         }
 
-        message.addOption(MessageOption.TYPE, MessageType.RES_SUBSCRIBE.getByte());
+        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_SUBSCRIBE.getByte());
         context.channel().writeAndFlush(message);
     }
 
@@ -137,7 +137,7 @@ public class TopicManager implements MessageProcessor {
             topic.unsubscribe(partition, id);
         }
 
-        message.addOption(MessageOption.TYPE, MessageType.RES_UNSUBSCRIBE.getByte());
+        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_UNSUBSCRIBE.getByte());
         context.channel().writeAndFlush(message);
     }
 }

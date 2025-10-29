@@ -2,7 +2,7 @@ package capstone.design.message;
 
 public class MessageOption {
     
-    public static final String TYPE = "message_type";
+    public static final String MESSAGE_TYPE = "message_type";
     public static final String CLIENT_ID = "client_id";
     public static final String TOPIC_NAME = "topic_name";
     public static final String PARTITION = "partition";

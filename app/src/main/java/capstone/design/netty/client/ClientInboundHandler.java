@@ -31,7 +31,7 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
         System.out.println("[debug] 서버 응답 수신");
 
         if (msg instanceof Message message) {
-            Byte type = message.option(MessageOption.TYPE, Byte.class);
+            Byte type = message.option(MessageOption.MESSAGE_TYPE, Byte.class);
             
             Utils.validate(type);
 

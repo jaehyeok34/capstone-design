@@ -24,7 +24,7 @@ public class Producer implements AutoCloseable {
         Utils.validate(topicName, payload);
 
         return new Message().addOptions(Map.of(
-            MessageOption.TYPE, MessageType.REQ_PUSH.getByte(),
+            MessageOption.MESSAGE_TYPE, MessageType.REQ_PUSH.getByte(),
             MessageOption.CLIENT_ID, client_id,
             MessageOption.TOPIC_NAME, topicName,
             MessageOption.PARTITION, partition,

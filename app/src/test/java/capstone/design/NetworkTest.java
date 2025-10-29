@@ -193,7 +193,7 @@ public class NetworkTest {
             assertEquals(0, out.size()); // 앞에서 하나 꺼냈기 때문에 비어 있어야함
 
             // payload 검증
-            Byte type = response.option(MessageOption.TYPE, Byte.class);
+            Byte type = response.option(MessageOption.MESSAGE_TYPE, Byte.class);
             String id = response.option(MessageOption.CLIENT_ID, String.class);
             String tn = response.option(MessageOption.TOPIC_NAME, String.class);
             Integer p = response.option(MessageOption.PARTITION, Integer.class);

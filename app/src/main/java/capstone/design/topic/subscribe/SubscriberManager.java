@@ -52,7 +52,7 @@ public class SubscriberManager {
             ChannelHandlerContext context = subscriber.context();
         
             Message message = new Message().addOptions(Map.of(
-                MessageOption.TYPE, MessageType.TOPIC_UPDATED.getByte(),
+                MessageOption.MESSAGE_TYPE, MessageType.TOPIC_UPDATED.getByte(),
                 MessageOption.CLIENT_ID, subscriber.clientId(),
                 MessageOption.TOPIC_NAME, name,
                 MessageOption.PARTITION, partition

@@ -18,6 +18,7 @@ import capstone.design.message.MessageEncoder;
 import capstone.design.message.MessageType;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufUtil;
 
 public class MessageCodecTest {
     
@@ -67,6 +68,7 @@ public class MessageCodecTest {
     @Test
     void decodeTest() throws Exception {
         ByteBuf encoded = (ByteBuf) encoder.encode(ByteBufAllocator.DEFAULT, msg).get(0);
+        System.out.println(ByteBufUtil.hexDump(encoded));
         Message decoded = decoder.decode(encoded);
 
         // 디코딩된 메시지의 옵션 개수는 invalid_option 제외 9개여야 함

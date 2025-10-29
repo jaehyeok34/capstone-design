@@ -1,8 +1,11 @@
 package capstone.design;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
+import capstone.design.message.Message;
+import capstone.design.message.MessageOption;
 import io.netty.buffer.ByteBuf;
 
 public class Utils {
@@ -33,5 +36,41 @@ public class Utils {
                 throw new IllegalStateException("empty iterable");
             }
          }
+    }
+
+    public static void castAdd(Message message, String key, byte[] bytes) {
+        castAdd(message, key, new String(bytes, StandardCharsets.UTF_8));
+    }
+
+    public static void castAdd(Message message, String key, String bytes) {
+        switch (key) {
+            case MessageOption.MESSAGE_TYPE, 
+                MessageOption.SUCCESS -> {
+                byte value = Byte.parseByte(bytes);
+                message.addOption(key, value);
+            }
+
+            case MessageOption.CLIENT_ID, 
+                MessageOption.TOPIC_NAME -> {
+                message.addOption(key, bytes);
+            }
+
+            case MessageOption.PARTITION, 
+                MessageOption.REQUEST_ID -> {
+                try {
+                    int value = Integer.parseInt(bytes);
+                    message.addOption(key, value);
+                } catch (NumberFormatException ignored) {}
+            }
+
+            case MessageOption.CURSOR, 
+                MessageOption.OFFSET, 
+                MessageOption.REMAINING_COUNT -> {
+                try {
+                    long value = Long.parseLong(bytes);
+                    message.addOption(key, value);
+                } catch (NumberFormatException ignored) {}
+            } 
+        }
     }
 }

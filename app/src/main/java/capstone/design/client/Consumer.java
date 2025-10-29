@@ -30,7 +30,7 @@ public class Consumer implements AutoCloseable {
     @Nullable
     public Message consume(String topicName, int partition, Long cursor) {
         Message message = new Message().addOptions(Map.of(
-            MessageOption.TYPE, MessageType.REQ_PULL.getByte(),
+            MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL.getByte(),
             MessageOption.CLIENT_ID, clientId,
             MessageOption.TOPIC_NAME, topicName,
             MessageOption.PARTITION, partition

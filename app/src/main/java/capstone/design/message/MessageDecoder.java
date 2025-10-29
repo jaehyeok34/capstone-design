@@ -1,7 +1,6 @@
 package capstone.design.message;
 
 import java.io.FileReader;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
@@ -112,23 +111,22 @@ public class MessageDecoder extends ByteToMessageDecoder {
              * key가 없는 경우는 고려하지 않음
              */
             String key = props.getProperty(String.valueOf(optionType));
+            int len = in.readInt();
 
-            switch (optionType) {
-                case 5 -> { // payload
-                    int len = in.readInt();
-                    ByteBuf data = in.readBytes(len);
-                    message.addOption(key, data);
-                    offset += Integer.BYTES + len;
+            switch (key) {
+                case MessageOption.PAYLOAD -> {
+                    ByteBuf buf = in.readBytes(len);
+                    message.addOption(key, buf);
                 }
-
+                
                 default -> {
-                    int len = in.readInt();
-                    byte[] data = new byte[len];
-                    in.readBytes(data);
-                    castAdd(optionType, message, key, new String(data, StandardCharsets.UTF_8));
-                    offset += Integer.BYTES + len;
+                    byte[] buf = new byte[len];
+                    in.readBytes(buf);
+                    Utils.castAdd(message, key, buf);
                 }
             }
+
+            offset += Integer.BYTES + len;
         }
 
         out.add(message);
@@ -144,33 +142,6 @@ public class MessageDecoder extends ByteToMessageDecoder {
         }
 
         return inverted;
-    }
-
-    private void castAdd(byte optionType, Message message, String key, String data) {
-        switch (optionType) {
-            case 0, 8 -> { // message_type, success(byte)
-                byte value = Byte.parseByte(data);
-                message.addOption(key, value);
-            }
-
-            case 1, 2 -> { // client_id, topic_name(String)
-                message.addOption(key, data);
-            }
-
-            case 3, 9 -> { // partition, request_id(int)
-                try {
-                    int value = Integer.parseInt(data);
-                    message.addOption(key, value);
-                } catch (NumberFormatException ignored) {}
-            }
-
-            case 4, 6, 7 -> { // cursor, offset, remaining_count(long)
-                try {
-                    long value = Long.parseLong(data);
-                    message.addOption(key, value);
-                } catch (NumberFormatException ignored) {}
-            } 
-        }
     }
 
     private enum State { READ_MAGIC, READ_LENGTH, READ_MESSAGE }
