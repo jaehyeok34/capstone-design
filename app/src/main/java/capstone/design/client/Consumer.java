@@ -70,6 +70,12 @@ public class Consumer implements AutoCloseable {
             while (true) {
                 try {
                     Message notified = notifiedQueue.take(); // blocking... 해제 시 push 됐다는 뜻
+
+                    /*
+                     * TOPIC_UPDATED 알림 메시지에 데이터를 활용하기 위해
+                     * 메시지 타입만 변경하여 재활용
+                     */
+                    notified.addOption(MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL.getByte());
                     
                     Long cursor = notified.option(MessageOption.CURSOR, Long.class);
                     Long remainingCount = notified.option(MessageOption.REMAINING_COUNT, Long.class);
@@ -87,12 +93,6 @@ public class Consumer implements AutoCloseable {
                             cursor != null && cursor < remainingCount
                         ) {
                             /*
-                             * TOPIC_UPDATED 알림 메시지에 데이터를 활용하기 위해
-                             * 메시지 타입만 변경하여 재활용
-                             */
-                            notified.addOption(MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL.getByte());
-
-                            /*
                              * consume()을 통해 획득한 메시지에서 정보를 추출하여
                              * 더 읽을 메시지가 있다면, 계속 읽기 위해 cursor, remainingCount 갱신
                              */
@@ -102,7 +102,7 @@ public class Consumer implements AutoCloseable {
                             
                             out.add(consumed);
                         }
-                    } else { out.add(consume(topicName, partition, cursor)); }
+                    } else { out.add(consume(notified)); }
                 } catch (Exception e) {
                     System.err.println("NettyClient.subscribeAndConsume.executor 종료: " + e);
                     break;
