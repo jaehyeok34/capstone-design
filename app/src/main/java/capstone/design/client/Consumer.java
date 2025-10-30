@@ -47,6 +47,10 @@ public class Consumer implements AutoCloseable {
         return consume(topicName, partition, null);
     }
 
+    public ExecutorService subscribe(String topicName, int partition, Queue<Message> out) {
+        return client.subscribe(topicName, partition, clientId, out);
+    }
+
     /**
      * 특정 토픽/파티션을 구독하고, 새로운 메시지가 도착할 때마다 브로커에 요청하고, 그 결과를 out 큐에 추가
      * @param isAllConsume 구독한 토픽/파티션에 메시지가 존재하는 한 계속해서 consume 할지 여부
