@@ -40,6 +40,15 @@ class Message:
 
         return self
     
+    def remove_options(self, *keys: str):
+        Utils.validate(keys)
+
+        for key in keys:
+            if key in self.options:
+                del self.options[key]
+
+        return self
+    
     def count(self) -> int:
         return len(self.options)
     
@@ -47,3 +56,6 @@ class Message:
         self.options.clear()
 
         return self
+    
+    def copy(self):
+        return Message().add_options(self.options)

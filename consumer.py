@@ -23,6 +23,9 @@ class Consumer:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.client.sock.close()
         return False
+    
+    def consume_(self, message: Message):
+        return self.client.request(message).result()
         
     def consume(self, topic_name: str, partition, cursor: int | None = -1):
         Utils.validate(topic_name)
@@ -37,13 +40,17 @@ class Consumer:
         if (cursor is not None) and cursor >= 0:
             message.add_option(MessageOption.CURSOR, cursor)
 
-        # return self.client.request(message).get()
-        return self.client.request(message).result()
+        return self.consume_(message)
+    
+    def subscribe(self, topic_name: str, partition: int, event: Event, out: Queue[Message]):
+        return self.client.subscribe(topic_name, partition, self.consumer_id, event, out)
     
     def subscribeAndConsume(self, isAllConsume: bool, topic_name: str, partition: int, event: Event, out: Queue[Message]):
         notified_queue = Queue()
         event = Event()
         notifier = self.client.subscribe(topic_name, partition, self.consumer_id, event, notified_queue)
+        if notifier is None:
+            return None
 
         Utils.validate(notifier) # 구독 실패 시 notifier_thread는 None
     
