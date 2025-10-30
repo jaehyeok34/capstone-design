@@ -19,7 +19,9 @@ public class ServerInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (msg instanceof Message message) {
+            System.out.println("서버 수신: " + message);
             processor.process(ctx, message);
+            System.out.println("서버 처리 완료: " + message);
         }
     }
 }

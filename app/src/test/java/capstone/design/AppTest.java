@@ -1,6 +1,8 @@
 package capstone.design;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,6 +30,9 @@ class AppTest {
     void optionalTest() {
         Optional<Object> o1 = Optional.ofNullable(null);
         assertThrows(NoSuchElementException.class, () -> o1.get());
+
+        assertDoesNotThrow(() -> {"string".equals(null);});
+        assertFalse("string".equals(null));
     }
 
     @Test

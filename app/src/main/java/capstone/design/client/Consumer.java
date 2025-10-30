@@ -86,7 +86,17 @@ public class Consumer implements AutoCloseable {
                             remainingCount != null && remainingCount > 0 &&
                             cursor != null && cursor < remainingCount
                         ) {
-                            Message consumed = consume(topicName, partition); // 항상 최신 메시지 읽기
+                            /*
+                             * TOPIC_UPDATED 알림 메시지에 데이터를 활용하기 위해
+                             * 메시지 타입만 변경하여 재활용
+                             */
+                            notified.addOption(MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL.getByte());
+
+                            /*
+                             * consume()을 통해 획득한 메시지에서 정보를 추출하여
+                             * 더 읽을 메시지가 있다면, 계속 읽기 위해 cursor, remainingCount 갱신
+                             */
+                            Message consumed = consume(notified);
                             cursor = consumed.option(MessageOption.CURSOR, Long.class);
                             remainingCount = consumed.option(MessageOption.REMAINING_COUNT, Long.class);
                             
