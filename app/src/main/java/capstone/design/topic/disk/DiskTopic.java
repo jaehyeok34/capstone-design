@@ -12,6 +12,7 @@ import capstone.design.topic.TopicRecord;
 import capstone.design.topic.subscribe.SubscriberManager;
 import org.jspecify.annotations.Nullable;
 import capstone.design.Utils;
+import capstone.design.message.Message;
 import capstone.design.topic.Topic;
 
 import io.netty.buffer.ByteBuf;
@@ -37,7 +38,7 @@ public class DiskTopic implements Topic {
      * @param clientId MemoryTopic과 동일한 메서드 시그니처를 유지하기 위한 값으로 실제로는 사용하지 않음
      */
     @Override
-    public void push(int partition, String clientId, ByteBuf buf) {
+    public boolean push(int partition, String clientId, ByteBuf buf) {
         Utils.validate(buf);
 
         // 파티션 디렉토리 생성(이미 존재한다면 무시)
@@ -45,8 +46,10 @@ public class DiskTopic implements Topic {
         try {
             path = Files.createDirectories(root.resolve(String.valueOf(partition)));
         } catch (IOException e) {
+            System.err.println("[debug] DiskTopic.push() - 파티션 디렉토리 생성 실패");
             e.printStackTrace();
-            return;
+
+            return false;
         }
 
         // 메시지 기록
@@ -60,14 +63,21 @@ public class DiskTopic implements Topic {
             long offset = writeLog(buf, logFileChannel);
             writeOffset(offset, offsetFileChannel);
         } catch (IOException e) {
+            System.err.println("[debug] DiskTopic.push() - 메시지 기록 실패");
             e.printStackTrace();
+
+            return false;
         } finally {
             buf.release(buf.refCnt());
-            manager.notify(partition, cursor(partition), offset(partition), remainingCount(partition));
         }
+
+        return true;
     }
     public void push(int partition, ByteBuf buf) { push(partition, null, buf); }
     
+    /**
+     * @param clientId 메서드 시그니처를 유지하기 위한 값으로 실제로는 사용하지 않음
+     */
     @Override
     public TopicRecord pull(int partition, String clientId, long cursor) {
         FileGroup fileGroup = fileGroup(partition);
@@ -80,13 +90,21 @@ public class DiskTopic implements Topic {
             RandomAccessFile offsetFile = new RandomAccessFile(fileGroup.offset().toFile(), "r");
         ) {
             // cursor 획득
-            if (cursor < 0) {
-                cursor = readCursor(fileGroup);
+            cursor = (cursor < 0) ? readCursor(fileGroup) : cursor;
+            if (cursor > length(partition) - 1) {
+                /*
+                 * cursor는 0부터 시작하므로, length - 1보다 크면 읽을 수 있는 메시지 없음
+                 * ex) length = 1이면, cursor는 0까지만 유효
+                 */
+                throw new IllegalStateException("cursor 읽을 수 있는 메시지 범위 초과");
             }
             
             // offset 획득
             offsetFile.seek(cursor * Long.BYTES);
-            Long offset = offsetFile.readLong();
+            long offset = offsetFile.readLong();
+            if (offset < 0) {
+                throw new IllegalStateException("범위 초과");
+            }
 
             // message 획득
             FileChannel logFile = FileChannel.open(fileGroup.log(), StandardOpenOption.READ);
@@ -112,6 +130,11 @@ public class DiskTopic implements Topic {
     }
     public TopicRecord pull(int partition, long cursor) { return pull(partition, null, cursor); }
     public TopicRecord pull(int partition) { return pull(partition, -1); }
+
+    @Override
+    public boolean notify(int partition, Message message) {
+        return manager.notify(partition, message);
+    }
         
     @Override
     public void subscribe(ChannelHandlerContext context, int partition, String clientId) {
@@ -178,27 +201,27 @@ public class DiskTopic implements Topic {
         return new FileGroup(path, name);
     }
 
-    private long writeLog(ByteBuf buf, FileChannel channel) throws IOException {
+    private long writeLog(ByteBuf buf, FileChannel file) throws IOException {
         // 메시지 offset 획득
-        long offset = channel.position();
+        long offset = file.position();
 
         // 메시지 길이 기록
         ByteBuffer lengthBuf = ByteBuffer.allocate(Integer.BYTES);
         lengthBuf.putInt(buf.readableBytes());
         lengthBuf.flip();
-        channel.write(lengthBuf);
+        file.write(lengthBuf);
 
         // 메시지 내용 기록
-        channel.write(buf.nioBuffer());
+        file.write(buf.nioBuffer());
 
         return offset;
     }
 
-    private void writeOffset(long offset, FileChannel channel) throws IOException {
+    private void writeOffset(long offset, FileChannel file) throws IOException {
         ByteBuffer offsetBuf = ByteBuffer.allocate(Long.BYTES);
         offsetBuf.putLong(offset);
         offsetBuf.flip();
-        channel.write(offsetBuf);
+        file.write(offsetBuf);
     }
 
     private long readCursor(FileGroup fileGroup) {
@@ -214,8 +237,9 @@ public class DiskTopic implements Topic {
 
             buffer.flip();
             return buffer.getLong();
-        } catch (IOException ignored) {
-            System.err.println("[debug] DiskTopic.readCursor() - IOException");
+        } catch (IOException e) {
+            System.err.println("[debug] DiskTopic.readCursor()");
+            e.printStackTrace();
             return 0;
         }
     }
@@ -230,7 +254,7 @@ public class DiskTopic implements Topic {
             cursorBuf.flip();
             cursorFileChannel.write(cursorBuf);
         } catch (IOException e) {
-            System.err.println("[debug] DiskTopic.updateCursor() - IOException");
+            System.err.println("[debug] DiskTopic.updateCursor()");
             e.printStackTrace();
         }
     }

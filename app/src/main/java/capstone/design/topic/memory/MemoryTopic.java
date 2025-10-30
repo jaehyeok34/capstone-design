@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import capstone.design.topic.TopicRecord;
 import capstone.design.topic.subscribe.SubscriberManager;
 import capstone.design.Utils;
+import capstone.design.message.Message;
 import capstone.design.topic.Topic;
 
 import io.netty.buffer.ByteBuf;
@@ -31,7 +32,7 @@ public class MemoryTopic implements Topic {
      * 내부적으로 buf의 참조 카운트를 1 감소시키기 때문.(최소 1은 유지해야 함)
      */
     @Override
-    public void push(int partition, String clientId, ByteBuf buf) {
+    public boolean push(int partition, String clientId, ByteBuf buf) {
         Utils.validate(clientId, buf);
 
         Map<String, Queue<MemoryRecord>> partitionMap = storage.computeIfAbsent(
@@ -46,16 +47,14 @@ public class MemoryTopic implements Topic {
         for (Queue<MemoryRecord> queue : partitionMap.values()) {
             queue.add(MemoryRecord.of(buf));
         }
-
         buf.release();
+        
+        return true;    
+    }
 
-        // partition의 모든 구독자들에게 알림
-        manager.notify(
-            partition,
-            cursor(partition, clientId),
-            offset(partition, clientId),
-            remainingCount(partition, clientId)
-        );
+    @Override
+    public boolean notify(int partition, Message message) {
+        return manager.notify(partition, message);
     }
     
     /**

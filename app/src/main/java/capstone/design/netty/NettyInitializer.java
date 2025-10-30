@@ -7,29 +7,52 @@ import java.util.function.Supplier;
 import capstone.design.Utils;
 
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 
 public class NettyInitializer extends ChannelInitializer<Channel> {
 
     private final List<Supplier<ChannelHandler>> handlerConstructors;
+    private final ChannelDuplexHandler exceptionHandler;
 
     private NettyInitializer(Builder builder) {
         this.handlerConstructors = builder.handlerConstructors;
+        this.exceptionHandler = builder.exceptionHandler;
     }
 
     @Override
     protected void initChannel(Channel ch) throws Exception {
-        handlerConstructors.forEach(constructor -> ch.pipeline().addLast(constructor.get()));
+        ChannelPipeline pipeline = ch.pipeline();
+        handlerConstructors.forEach(constructor -> pipeline.addLast(constructor.get()));
+
+        if (exceptionHandler == null) {
+            pipeline.addLast(new ChannelDuplexHandler() {
+
+                @Override
+                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                    System.err.println("채널(" + ctx.channel().remoteAddress() + ") 예외 발생: " + cause);
+                    cause.printStackTrace();
+
+                    // super.exceptionCaught(ctx, cause); // 예외 전파 안함
+                }
+            });
+        }
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() { return new Builder(null); }
+    public static Builder builder(ChannelDuplexHandler exceptionHandler) { return new Builder(exceptionHandler); }
 
     public static class Builder {
 
         private final List<Supplier<ChannelHandler>> handlerConstructors = new ArrayList<>();
+        private final ChannelDuplexHandler exceptionHandler;
 
-        private Builder() {}
+        private Builder(ChannelDuplexHandler exceptionHandler) {
+            this.exceptionHandler = exceptionHandler;
+        }
 
         public Builder addHandler(Class<? extends ChannelHandler> handlerClass) {
             handlerConstructors.add(() -> {

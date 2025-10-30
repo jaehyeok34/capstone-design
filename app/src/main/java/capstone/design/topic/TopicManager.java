@@ -60,20 +60,25 @@ public class TopicManager implements MessageProcessor {
 
         Topic topic = topicTable.get(topicName);
         if (topic != null) {
-            topic.push(partition, clientId, payload.retain());
+            boolean ok = topic.push(partition, clientId, payload.retain());
+            if (ok) {
+                message.addOptions(Map.of(
+                    MessageOption.CURSOR, topic.cursor(partition, clientId),
+                    MessageOption.OFFSET, topic.offset(partition, clientId),
+                    MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
+                ));
+                    
+                topic.notify(partition, message); // 구독자들에게 알림
+            }
 
-            message.addOptions(Map.of(
-                MessageOption.CURSOR, topic.cursor(partition, clientId),
-                MessageOption.OFFSET, topic.offset(partition, clientId),
-                MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
-            ));
+            message.addOption(MessageOption.SUCCESS, ok);
         }
 
         // RES_PUSH 응답
         message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_PUSH.getByte()) // type 변경
             .removeOption(MessageOption.PAYLOAD); // payload 제거
 
-        context.channel().writeAndFlush(message); // message encoder로 전달
+        context.channel().writeAndFlush(message);
     }
 
     private void pull(ChannelHandlerContext context, Message message) {

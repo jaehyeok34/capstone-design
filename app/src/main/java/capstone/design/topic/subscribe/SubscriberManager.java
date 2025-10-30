@@ -39,31 +39,38 @@ public class SubscriberManager {
         subscribers.removeIf(subscriber -> subscriber.clientId().equals(clientId));
     }
 
-    public void notify(int partition) { notify(partition, -1, -1, -1); }
-    public void notify(int partition, long cursor) { notify(partition, cursor, -1, -1); }
-    public void notify(int partition, long cursor, long offset) { notify(partition, cursor, offset, -1); }
-    public void notify(int partition, long cursor, long offset, long remaining_count) {
+    public boolean notify(int partition) { return notify(partition, -1, -1, -1); }
+    public boolean notify(int partition, long cursor) { return notify(partition, cursor, -1, -1); }
+    public boolean notify(int partition, long cursor, long offset) { return notify(partition, cursor, offset, -1); }
+    public boolean notify(int partition, long cursor, long offset, long remaining_count) {
+        Message message = new Message().addOption(MessageOption.PARTITION, partition);
+
+        if (cursor >= 0) message.addOption(MessageOption.CURSOR, cursor);
+        if (offset >= 0) message.addOption(MessageOption.OFFSET, offset);
+        if (remaining_count >= 0) message.addOption(MessageOption.REMAINING_COUNT, remaining_count);
+        
+        return notify(partition, message);
+    }
+
+    public boolean notify(int partition, Message message) {
         List<Subscriber> subscribers = subscriberTable.get(partition);
         if (subscribers == null) {
-            return;
+            return false;
         }
 
         for (Subscriber subscriber : subscribers) {
             ChannelHandlerContext context = subscriber.context();
         
-            Message message = new Message().addOptions(Map.of(
+            message.addOptions(Map.of(
                 MessageOption.MESSAGE_TYPE, MessageType.TOPIC_UPDATED.getByte(),
                 MessageOption.CLIENT_ID, subscriber.clientId(),
-                MessageOption.TOPIC_NAME, name,
-                MessageOption.PARTITION, partition
-            ));
-            
-            if (cursor >= 0) message.addOption(MessageOption.CURSOR, cursor);
-            if (offset >= 0) message.addOption(MessageOption.OFFSET, offset);
-            if (remaining_count >= 0) message.addOption(MessageOption.REMAINING_COUNT, remaining_count);
+                MessageOption.TOPIC_NAME, name
+            )).removeOption(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
             
             context.channel().writeAndFlush(message);
         }
+
+        return true;
     }
 
     public int count(int partition) {

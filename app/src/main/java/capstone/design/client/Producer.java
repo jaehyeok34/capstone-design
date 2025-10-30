@@ -52,13 +52,13 @@ public class Producer implements AutoCloseable {
     /**
      * 서버에 REQ_PUSH 메시지 보내고, 서버에서 응답이 올 때까지 대기
      */
-    public void syncProduce(Message message) {
+    public Message syncProduce(Message message) {
         Utils.validate(message);
 
-        client.request(message).join();
+        return client.request(message).join();
     }
-    
-    public void syncProduce(String topicName, int partition, byte[] payload) {
+
+    public Message syncProduce(String topicName, int partition, byte[] payload) {
         Message message = createMessage(topicName, partition, payload);
 
         /*
@@ -66,12 +66,12 @@ public class Producer implements AutoCloseable {
          * 현재는 응답 메시지를 해석조차 하지 않음. 즉,
          * 서버에서 RES_PUSH 메시지 이외의 메시지가 오더라도 일단은 RES_PUSH 메시지가 왔다고 간주함
          */
-        syncProduce(message);
+        return syncProduce(message);
     }
 
-    public void syncProduce(String topicName, int partition, String payload) {
+    public Message syncProduce(String topicName, int partition, String payload) {
         Utils.validate(payload);
-        syncProduce(topicName, partition, payload.getBytes(StandardCharsets.UTF_8));
+        return syncProduce(topicName, partition, payload.getBytes(StandardCharsets.UTF_8));
     }
 
     @Override

@@ -103,19 +103,4 @@ public class MemoryTopicTest {
         topic.unsubscribe(partition, "s1");
         assertEquals(0, topic.subscriberManager().count(partition));
     }
-
-    @Test
-    void subscribeAndPushTest() {
-        SpyContext context = new SpyContext();
-        topic.subscribe(context, partition, id);
-        topic.subscribe(context, partition, id + 0);
-
-        addData();
-
-        /*
-         * 같은 context 객체이기 때문에, 같은 곳에 TOPIC_UPDATE에 대한 메시지가 쌓임
-         * 따라서, 2개의 구독자가 있으므로 2개씩 메시지가 쌓여야함(addData()가 2개의 메시지를 push하므로 총 4개)
-         */
-        assertEquals(4, context.channel.queue.size());
-    }
 }

@@ -132,15 +132,6 @@ public class NettyClient {
         
         // 구독 성공 시
         if (responseType == MessageType.RES_SUBSCRIBE.getByte()) {
-            /*
-             * 구독 성공 메시지이지만, 이 안에 cursur, remaining count 값이 있음.
-             * 따라서, 외부로 전달하면, 다음 읽을 위치 및 남은 메시지 개수를 통해
-             * 먼저 한 번, consume 할 수 있음.
-             * 이를 전달하지 않게 되면, 이미 메시지가 토픽/파티션에 차 있더라도 새로운 메시지가
-             * 들어오기 전까지는 무한 대기하고 있음.
-             */
-            out.add(subscribeResponse);
-
             Map<Integer, BlockingQueue<Message>> partitionMap = subscriptions.computeIfAbsent(
                 topicName, 
                 ignored -> new ConcurrentHashMap<>()

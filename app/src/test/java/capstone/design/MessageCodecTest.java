@@ -71,8 +71,7 @@ public class MessageCodecTest {
         System.out.println(ByteBufUtil.hexDump(encoded));
         Message decoded = decoder.decode(encoded);
 
-        // 디코딩된 메시지의 옵션 개수는 invalid_option 제외 9개여야 함
-        assertEquals(10, decoded.options().size());
+        assertEquals(11, decoded.options().size());
 
         assertEquals(MessageType.REQ_PULL.getByte(), decoded.option("message_type"));
 
