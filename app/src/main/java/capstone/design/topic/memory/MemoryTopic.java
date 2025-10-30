@@ -1,10 +1,10 @@
 package capstone.design.topic.memory;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 import capstone.design.topic.TopicRecord;
 import capstone.design.topic.subscribe.SubscriberManager;
 import capstone.design.Utils;
@@ -17,7 +17,7 @@ import io.netty.channel.ChannelHandlerContext;
 public class MemoryTopic implements Topic {
 
     private final SubscriberManager manager;
-    private final Map<Integer, Map<String, Queue<MemoryRecord>>> storage = new ConcurrentHashMap<>();
+    private final Map<Integer, Map<String, List<MemoryRecord>>> topic = new ConcurrentHashMap<>();
 
     public MemoryTopic(String name) {
         Utils.validate(name);
@@ -35,69 +35,54 @@ public class MemoryTopic implements Topic {
     public boolean push(int partition, String clientId, ByteBuf buf) {
         Utils.validate(clientId, buf);
 
-        Map<String, Queue<MemoryRecord>> partitionMap = storage.computeIfAbsent(
+        Map<String, List<MemoryRecord>> partitionMap = topic.computeIfAbsent(
             partition, 
             ignored -> new ConcurrentHashMap<>()
         );
 
         // partition에 id에 해당하는 큐가 없다면 새롭게 생성
-        partitionMap.computeIfAbsent(clientId, ignored -> new ConcurrentLinkedQueue<>());
-    
+        partitionMap.computeIfAbsent(
+            clientId, 
+            ignored -> Collections.synchronizedList(new ArrayList<>())
+        );
+
         // partition의 모든 구독자에게 레코드 추가
-        for (Queue<MemoryRecord> queue : partitionMap.values()) {
-            queue.add(MemoryRecord.of(buf));
+        for (List<MemoryRecord> storage : partitionMap.values()) {
+            storage.add(MemoryRecord.of(buf));
         }
         buf.release();
         
         return true;    
     }
+    
+    @Override
+    public TopicRecord pull(int partition, String clientId, long cursor) {
+        Utils.validate(clientId);
+
+        List<MemoryRecord> storage = storage(partition, clientId);
+        if (storage == null || storage.isEmpty()) {
+            return null;
+        }
+
+        /*
+         * cursor가 long 타입이긴 하나, 내부적으로는 int 범위 내에서만 동작함
+         * int 범위를 넘어가는 경우를 고려하지 않음
+         */
+        cursor = (cursor < 0) ? 0 : cursor;
+        return storage.remove((int) cursor);
+    }
+    public TopicRecord pull(int partition, String clientId) { return pull(partition, clientId, -1); }
 
     @Override
     public boolean notify(int partition, Message message) {
         return manager.notify(partition, message);
     }
-    
-    /**
-     * @param cursor disk topic과 동일한 메서드 시그니처를 유지하기 위해 존재(사용하지 않음)
-     */
-    @Override
-    public TopicRecord pull(int partition, String clientId, long cursor) {
-        Utils.validate(clientId);
-
-        Map<String, Queue<MemoryRecord>> partitionMap = storage.get(partition);
-        if (partitionMap == null) {
-            return null;
-        }
-
-        Queue<MemoryRecord> queue = partitionMap.get(clientId);
-        if (queue == null) {
-            return null;
-        }
-
-        return queue.poll();
-    }
-    public TopicRecord pull(int partition, String id) { return pull(partition, id, -1); }
-
-    @Override
-    public long length(int partition, String clientId) {
-        Map<String, Queue<MemoryRecord>> partitionMap = storage.get(partition);
-        if (partitionMap == null) {
-            return 0;
-        }
-
-        Queue<MemoryRecord> queue = partitionMap.get(clientId);
-        if (queue == null) {
-            return 0;
-        }
-
-        return queue.size();
-    }
 
     @Override
     public void subscribe(ChannelHandlerContext context, int partition, String clientId) {
         // 구독하려는 partition/id에 해당하는 큐가 없다면 새롭게 생성
-        storage.computeIfAbsent(partition, ignored -> new ConcurrentHashMap<>())
-            .computeIfAbsent(clientId, ignored -> new ConcurrentLinkedQueue<>());
+        topic.computeIfAbsent(partition, ignored -> new ConcurrentHashMap<>())
+            .computeIfAbsent(clientId, ignored -> Collections.synchronizedList(new ArrayList<>()));
 
         manager.subscribe(context, partition, clientId);
     }
@@ -105,7 +90,7 @@ public class MemoryTopic implements Topic {
     @Override
     public void unsubscribe(int partition, String clientId) {
         // partition/id에 해당하는 큐 삭제
-        Map<String, Queue<MemoryRecord>> partitionMap = storage.get(partition);
+        Map<String, List<MemoryRecord>> partitionMap = topic.get(partition);
         if (partitionMap != null) {
             partitionMap.remove(clientId);
         }
@@ -113,21 +98,45 @@ public class MemoryTopic implements Topic {
         manager.unsubscribe(partition, clientId);
     }
 
+    @Override
+    public long length(int partition, String clientId) {
+        List<MemoryRecord> storage = storage(partition, clientId);
+        if (storage == null) {
+            return 0;
+        }
+
+        return storage.size();
+    }
+
     /**
-     * memory topic에서는 cursor(읽기 위치)가 length와 동일함
+     * 다음 읽을 위치 반환.
+     * 기본적으로 저장소가 List라 하더라도 FIFO 방식으로 동작하기 때문에 항상 0을 반환
      */
     @Override
     public long cursor(int partition, String clientId) {
-        return length(partition, clientId);
+        return 0;
     }
 
+    /**
+     * 다음 저장 위치 반환.
+     * 리스트 기반(인덱스 0 시작)이기 때문에 다음 저장 위치 = 길이
+     */
     @Override
     public long offset(int partition, String clientId) {
         return length(partition, clientId);
     }
-
+    
     @Override
     public long remainingCount(int partition, String clientId) {
         return length(partition, clientId);
+    }
+
+    private List<MemoryRecord> storage(int partition, String clientId) {
+        Map<String, List<MemoryRecord>> partitionMap = topic.get(partition);
+        if (partitionMap == null) {
+            return null;
+        }
+
+        return partitionMap.get(clientId);
     }
 }

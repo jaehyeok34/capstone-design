@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import capstone.design.spy.SpyContext;
-import capstone.design.topic.memory.MemoryRecord;
 import capstone.design.topic.memory.MemoryTopic;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,15 +19,16 @@ public class MemoryTopicTest {
 
     private MemoryTopic topic;
     private final int partition = 0;
-    private final String id = "user";
+    private final String clientId = "user";
     private final String message = "message";
+    private final int messageLength = message.length();
     private final String topicName = "mem_topic";
     private final List<ByteBuf> bufs = new ArrayList<>();
 
     void addData() {
         for (int i = 0; i < 2; i++) {
-            ByteBuf buf = Unpooled.copiedBuffer(message.getBytes());
-            topic.push(partition, id + i, buf.retain());
+            ByteBuf buf = Unpooled.copiedBuffer((message + i).getBytes());
+            topic.push(partition, clientId + i, buf.retain());
 
             bufs.add(buf);
         }
@@ -54,34 +54,31 @@ public class MemoryTopicTest {
          * partition에 대하여 push하게 되면, partition에 있는 id 전체에게 메시지가 쌓이기 때문에
          * 첫 번째 id는 2회 push(자신 + 다음), 두 번째 id는 1회 push(자신)이기 때문
          */
-        assertEquals(2, topic.length(partition, id + 0));
-        assertEquals(1, topic.length(partition, id + 1));
+        assertEquals(2, topic.length(partition, clientId + 0));
+        assertEquals(1, topic.length(partition, clientId + 1));
 
         // 없는 partition에 대해서 length 확인
-        assertEquals(0, topic.length(partition + 1, id + 0));
+        assertEquals(0, topic.length(partition + 1, clientId + 0));
 
         // 없는 id에 대해서 length 확인
-        assertEquals(0, topic.length(partition, id + 2));
+        assertEquals(0, topic.length(partition, clientId + 2));
     }
 
     @Test
     void pullTest() {
         addData();
 
-        // partition, id에 대해서 pull 확인
-        if (topic.pull(partition, id + 0) instanceof MemoryRecord record) {
-            // length 감소 확인
-            assertEquals(1, topic.length(partition, id + 0));
-
-            // 값 확인
-            if (record.value() instanceof ByteBuf buf) {
-                String msg = buf.readString(message.length(), StandardCharsets.UTF_8);
-                assertEquals(message, msg);
-            }
-        }
-
-        // 꺼낸 id 외의 다른 id는 값이 잘 남아있는지 확인
-        assertEquals(1, topic.length(partition, id + 1));
+        /*
+         * 커서 지정 시, 해당 커서 메시지 반환
+         * 커서 미지정 시, FIFO로 동작
+         */
+        assertEquals(message + 1, ((ByteBuf) topic.pull(partition, clientId + 0, 1).value()).readString(messageLength + 1, StandardCharsets.UTF_8));
+        assertEquals(message + 0, ((ByteBuf) topic.pull(partition, clientId + 0).value()).readString(messageLength + 1, StandardCharsets.UTF_8));
+        
+        /*
+         * 동일 partition의 다른 id에는 pull 영향 없어야 하므로 1개 그대로 있어 함
+         */
+        assertEquals(1, topic.length(partition, clientId + 1));
     }
 
     @Test
