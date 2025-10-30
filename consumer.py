@@ -59,24 +59,26 @@ class Consumer:
                 try:
                     notified: Message = notified_queue.get() # blocking
 
+                    # 메시지 재활용
+                    notified.add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL)
+
                     cursor = notified.option(MessageOption.CURSOR)
                     remaining_count = notified.option(MessageOption.REMAINING_COUNT)
 
                     if isAllConsume:
                         while (
-                            (remaining_count is not None) and
-                            (remaining_count > 0) and 
-                            (cursor is not None) and
-                            (cursor < remaining_count)
+                            (remaining_count is not None) and (remaining_count > 0) and 
+                            (cursor is not None) and (cursor < remaining_count)
                         ):
-                            consumed = self.consume(topic_name, partition) # 항상 최신 데이터 읽기
+
+                            consumed = self.consume_(notified)
                             cursor = consumed.option(MessageOption.CURSOR)
                             remaining_count = consumed.option(MessageOption.REMAINING_COUNT)
 
                             out.put(consumed)
 
                     else:
-                        out.put(self.consume(topic_name, partition, cursor))
+                        out.put(self.consume_(notified))
 
                 except Exception:
                     break
