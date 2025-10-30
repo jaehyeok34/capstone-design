@@ -73,7 +73,7 @@ public class DiskTopic implements Topic {
 
         return true;
     }
-    public void push(int partition, ByteBuf buf) { push(partition, null, buf); }
+    public boolean push(int partition, ByteBuf buf) { return push(partition, null, buf); }
     
     /**
      * @param clientId 메서드 시그니처를 유지하기 위한 값으로 실제로는 사용하지 않음
@@ -238,8 +238,7 @@ public class DiskTopic implements Topic {
             buffer.flip();
             return buffer.getLong();
         } catch (IOException e) {
-            System.err.println("[debug] DiskTopic.readCursor()");
-            e.printStackTrace();
+            System.err.println("[debug] DiskTopic.readCursor(): " + e);
             return 0;
         }
     }

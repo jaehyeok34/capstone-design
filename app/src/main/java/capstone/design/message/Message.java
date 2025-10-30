@@ -22,10 +22,11 @@ public class Message {
         return this;
     }
 
-    public Message removeOption(String key) {
-        Utils.validate(key);
+    public Message removeOptions(String... keys) {
+        for (String key : keys) {
+            options.remove(key);
+        }
 
-        options.remove(key);
         return this;
     }
 
@@ -48,7 +49,23 @@ public class Message {
         return options;
     }
 
-    public void clearOptions() {
+    public Message clear() {
         options.clear();
+        
+        return this;
+    }
+
+    public Message copy() {
+        return new Message().addOptions(this.options);
+    }
+
+    @Override
+    public String toString() {
+        String str = "";
+        for (Map.Entry<String, Object> entry : options.entrySet()) {
+            str += entry.getKey() + ": " + entry.getValue() + ", ";
+        }
+
+        return "Message{" + str + "}";
     }
 }

@@ -184,7 +184,7 @@ public class NetworkTest {
             // 데이터 추가
             ByteBuf buf = Unpooled.buffer().writeBytes(payload.getBytes(StandardCharsets.UTF_8));
             bufs.add(buf);
-            broker.topic(t1).push(partition, consumer.id(), buf.retain()); // user1에만 데이터 추가
+            broker.topic(t1).push(partition, consumer.clientId(), buf.retain()); // user1에만 데이터 추가
 
             assertEquals(1, q.size());
 
@@ -201,7 +201,7 @@ public class NetworkTest {
             ByteBuf pb = response.option(MessageOption.PAYLOAD, ByteBuf.class);
 
             assertEquals(MessageType.RES_PULL.getByte(), type);
-            assertEquals(consumer.id(), id);
+            assertEquals(consumer.clientId(), id);
             assertEquals(t1, tn);
             assertEquals(partition, p);
             assertEquals(-1, c); 
@@ -221,9 +221,9 @@ public class NetworkTest {
             ByteBuf buf2 = Unpooled.buffer().writeBytes(payload.getBytes(StandardCharsets.UTF_8));
             bufs.add(buf1);
             bufs.add(buf2);
-            broker.topic(t2).push(partition, consumer.id(), buf1.retain());
-            broker.topic(t2).push(partition, consumer.id(), buf2.retain());
-            assertEquals(2, ((DiskTopic) broker.topic(t2)).length(partition, consumer.id()));
+            broker.topic(t2).push(partition, consumer.clientId(), buf1.retain());
+            broker.topic(t2).push(partition, consumer.clientId(), buf2.retain());
+            assertEquals(2, ((DiskTopic) broker.topic(t2)).length(partition, consumer.clientId()));
 
             // memory topic과 동일하게 구독 과정에서는 실패하지 않아야 함
             boolean isAllConsume = true;

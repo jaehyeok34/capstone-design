@@ -57,6 +57,9 @@ public class TopicManager implements MessageProcessor {
         ByteBuf payload = message.option(MessageOption.PAYLOAD, ByteBuf.class);
 
         Utils.validate(clientId, topicName, partition, payload);
+        
+        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_PUSH.getByte()) // type 변경
+            .removeOptions(MessageOption.PAYLOAD); // payload 받았으니까 다음 전송을 위해 제거
 
         Topic topic = topicTable.get(topicName);
         if (topic != null) {
@@ -68,40 +71,34 @@ public class TopicManager implements MessageProcessor {
                     MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
                 ));
                     
-                topic.notify(partition, message); // 구독자들에게 알림
+                topic.notify(partition, message.copy()); // 구독자들에게 알림
             }
-
-            message.addOption(MessageOption.SUCCESS, ok);
         }
-
-        // RES_PUSH 응답
-        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_PUSH.getByte()) // type 변경
-            .removeOption(MessageOption.PAYLOAD); // payload 제거
 
         context.channel().writeAndFlush(message);
     }
 
     private void pull(ChannelHandlerContext context, Message message) {
-        String id = message.option(MessageOption.CLIENT_ID, String.class);
+        String clientId = message.option(MessageOption.CLIENT_ID, String.class);
         String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
         Integer partition = message.option(MessageOption.PARTITION, Integer.class);
         Long cursor = message.option(MessageOption.CURSOR, Long.class);
         cursor = (cursor != null) ? cursor : -1L;
         
-        Utils.validate(id, topicName, partition);
+        Utils.validate(clientId, topicName, partition);
 
         message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_PULL.getByte()) // type 변경
-            .removeOption(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
+            .removeOptions(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
 
         Topic topic = topicTable.get(topicName);
         if (topic != null) {
-            TopicRecord record = topic.pull(partition, id, cursor);
+            TopicRecord record = topic.pull(partition, clientId, cursor);
             if (record != null) {
                 message.addOptions(Map.of(
                     MessageOption.PAYLOAD, record,
-                    MessageOption.CURSOR, topic.cursor(partition, id),
-                    MessageOption.OFFSET, topic.offset(partition, id),
-                    MessageOption.REMAINING_COUNT, topic.remainingCount(partition, id)
+                    MessageOption.CURSOR, topic.cursor(partition, clientId),
+                    MessageOption.OFFSET, topic.offset(partition, clientId),
+                    MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
                 ));
             }
         }
@@ -110,19 +107,19 @@ public class TopicManager implements MessageProcessor {
     }
 
     private void subscribe(ChannelHandlerContext context, Message message) {
-        String id = message.option(MessageOption.CLIENT_ID, String.class);
+        String clientId = message.option(MessageOption.CLIENT_ID, String.class);
         String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
         Integer partition = message.option(MessageOption.PARTITION, Integer.class);
 
-        Utils.validate(id, topicName, partition);
+        Utils.validate(clientId, topicName, partition);
 
         Topic topic = topicTable.get(topicName);
         if (topic != null) {
-            topic.subscribe(context, partition, id);
+            topic.subscribe(context, partition, clientId);
             message.addOptions(Map.of(
-                MessageOption.CURSOR, topic.cursor(partition, id),
-                MessageOption.OFFSET, topic.offset(partition, id),
-                MessageOption.REMAINING_COUNT, topic.remainingCount(partition, id)
+                MessageOption.CURSOR, topic.cursor(partition, clientId),
+                MessageOption.OFFSET, topic.offset(partition, clientId),
+                MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
             ));
         }
 

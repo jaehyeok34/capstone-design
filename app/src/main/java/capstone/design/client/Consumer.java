@@ -26,8 +26,12 @@ public class Consumer implements AutoCloseable {
     }
     public Consumer(String host, int port, String clientId) throws Exception { this(host, port, clientId, null); }
     public Consumer(String host, int port) throws Exception { this(host, port, null, null); }
-    
+
     @Nullable
+    public Message consume(Message message) {
+        return client.request(message).join();
+    }
+
     public Message consume(String topicName, int partition, Long cursor) {
         Message message = new Message().addOptions(Map.of(
             MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL.getByte(),
@@ -40,7 +44,7 @@ public class Consumer implements AutoCloseable {
             message.addOption(MessageOption.CURSOR, cursor);
         }
 
-        return client.request(message).join();
+        return consume(message);
     }
 
     public Message consume(String topicName, int partition) {
@@ -88,24 +92,20 @@ public class Consumer implements AutoCloseable {
                             
                             out.add(consumed);
                         }
-                    } else {
-                        out.add(consume(topicName, partition, cursor));
-                    }
-                    
+                    } else { out.add(consume(topicName, partition, cursor)); }
                 } catch (Exception e) {
-                    System.out.println("[debug] consume 중 예외 발생");
-                    e.printStackTrace();
+                    System.err.println("NettyClient.subscribeAndConsume.executor 종료: " + e);
                     break;
                 }
             }
 
-            notifier.shutdown(); // 구독 알림 종료
+            notifier.shutdownNow(); // 구독 알림 종료 shutdown()했을 시 내부 InterruptedException 발생 안해서 종료 안됨
         });
 
         return executor;
     }
 
-    public String id() { return clientId; }
+    public String clientId() { return clientId; }
 
     @Override
     public void close() throws Exception { 

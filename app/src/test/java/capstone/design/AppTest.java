@@ -2,13 +2,15 @@ package capstone.design;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import capstone.design.netty.NettyInitializer;
 import org.junit.jupiter.api.Test;
 
@@ -37,5 +39,40 @@ class AppTest {
 
         assertEquals(1, list.remove(0));
         assertEquals(3, list.remove(list.size() - 1));
+
+        Map<String, Integer> map = new HashMap<>();
+        map.put("a", 1);
+        map.put("b", 2);
+        map.put("c", 3);
+        String[] arr = new String[] {"a", "b", null};
+        for (String s : arr) {
+            map.remove(s);
+        }
+
+        assertEquals(1, map.size());
+    }
+
+    @Test
+    void interruptedTest() throws InterruptedException {
+        ExecutorService exec = Executors.newSingleThreadExecutor();
+        exec.submit(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(100);
+                } catch (Exception e) {
+                    System.out.println("여기서 터짐");
+                    break;
+                }
+            }
+            System.out.println("빠져 나옴");
+        });
+
+        Thread.sleep(500);
+        exec.shutdownNow();
+        while(!exec.isTerminated()) {
+            System.out.println("대기 중...");
+            Thread.sleep(10);
+        }
+        System.out.println("종료됨");
     }
 }

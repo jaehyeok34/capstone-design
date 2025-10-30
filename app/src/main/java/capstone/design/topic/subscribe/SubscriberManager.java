@@ -1,9 +1,10 @@
 package capstone.design.topic.subscribe;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageOption;
@@ -12,7 +13,7 @@ import io.netty.channel.ChannelHandlerContext;
 
 public class SubscriberManager {
 
-    private final Map<Integer, List<Subscriber>> subscriberTable = new HashMap<>();
+    private final Map<Integer, List<Subscriber>> subscriberTable = new ConcurrentHashMap<>();
     private final String name;
 
     public SubscriberManager(String name) {
@@ -63,9 +64,12 @@ public class SubscriberManager {
         
             message.addOptions(Map.of(
                 MessageOption.MESSAGE_TYPE, MessageType.TOPIC_UPDATED.getByte(),
-                MessageOption.CLIENT_ID, subscriber.clientId(),
-                MessageOption.TOPIC_NAME, name
-            )).removeOption(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
+                MessageOption.TOPIC_NAME, name,
+                MessageOption.CLIENT_ID, subscriber.clientId()
+            )).removeOptions(
+                MessageOption.PAYLOAD,
+                MessageOption.REQUEST_ID
+            ); // payload 제거(당연히 없겠지만 안전하게)
             
             context.channel().writeAndFlush(message);
         }

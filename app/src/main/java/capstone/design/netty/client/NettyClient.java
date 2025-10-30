@@ -152,9 +152,10 @@ public class NettyClient {
                     try {
                         Message updateMsg = queue.take(); // blocking
                         out.add(updateMsg);
-                    } catch (Exception ignored) {}
-    
-                    break;
+                    } catch (Exception e) {
+                        System.err.println("NettyClient.subcribe().executor 종료" + e);
+                        break;
+                    }
                 }
 
                 partitionMap.remove(partition); // 모니터링 종료 후 파티션 맵에서 제거

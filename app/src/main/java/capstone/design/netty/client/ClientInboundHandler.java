@@ -64,7 +64,12 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
                     if (future == null) {
                         return;
                     }
-
+                    
+                    /*
+                     * client.request()에서 request id를 추가했고, 그러면서 future를 생성했는데
+                     * 여기서 해당하는 future를 찾아서 완료 시켰으니까 request id의 쓸모를 다함
+                     */
+                    message.removeOptions(MessageOption.REQUEST_ID); // 요청 ID 제거
                     future.complete(message);
                 }
             }
