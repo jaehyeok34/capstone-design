@@ -42,7 +42,8 @@ class Consumer:
     
     def subscribeAndConsume(self, isAllConsume: bool, topic_name: str, partition: int, event: Event, out: Queue[Message]):
         notified_queue = Queue()
-        notifier = self.client.subscribe(topic_name, partition, self.consumer_id, notified_queue)
+        event = Event()
+        notifier = self.client.subscribe(topic_name, partition, self.consumer_id, event, notified_queue)
 
         Utils.validate(notifier) # 구독 실패 시 notifier_thread는 None
     
@@ -72,6 +73,12 @@ class Consumer:
 
                 except Exception:
                     break
+
+            print("구독 종료")
+            event.set()
+
+            assert notifier is not None
+            notifier.join()
 
         from threading import Thread
         thread = Thread(target=worker_consume, daemon=True)

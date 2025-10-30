@@ -1,4 +1,5 @@
 from py_client.utils import Utils
+from py_client.message.message import Message
 
 class Producer:
 
@@ -18,7 +19,6 @@ class Producer:
         return False
 
     def __createMessage(self, topic_name: str, partition: int, payload: bytes):
-        from py_client.message.message import Message
         from py_client.message.message_option import MessageOption    
         from py_client.message.message_type import MessageType
 
@@ -30,19 +30,27 @@ class Producer:
             MessageOption.PAYLOAD: payload
         })
     
+    def asyncProduce_(self, message: Message):
+        Utils.validate(message)
+
+        self.client.command(message)
+    
     def asyncProduce(self, topic_name: str, partition: int, payload: bytes):
         Utils.validate(topic_name, partition, payload)
 
         message = self.__createMessage(topic_name, partition, payload)
-        self.client.command(message)
+        self.asyncProduce_(message)
 
+    def syncProduce_(self, message: Message):
+        Utils.validate(message)
+
+        return self.client.request(message).result()
+    
     def syncProduce(self, topic_name: str, partition: int, payload: bytes):
         Utils.validate(topic_name, partition, payload)
 
         message = self.__createMessage(topic_name, partition, payload)
-        response = self.client.request(message).result()
-
-        return response
+        return self.syncProduce_(message)
     
 if __name__ == "__main__":
     with Producer("localhost", 3401, "user") as producer:

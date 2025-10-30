@@ -1,7 +1,7 @@
 from concurrent.futures import Future
 from queue import Queue
 import socket
-import threading
+from threading import Event, Thread, Lock
 from typing import Dict
 
 from py_client.message.message import Message
@@ -22,12 +22,11 @@ class Client:
         self.sock.connect((host, port))
 
         self.requests: Dict[int, Future[Message]] = {} # RES_XXX 처리 용
-        # self.requests: Dict[int, Queue[Message]] = {} # RES_XXX 처리 용
-        self.lock = threading.Lock()
+        self.lock = Lock()
         self.subscriptions: Dict[str, Dict[int, Queue[Message]]] = {} # TOPIC_UPDATE 알림
 
-        self.stop_event = threading.Event()
-        self.thread = threading.Thread(target=self.__receive, daemon=True)
+        self.stop_event = Event()
+        self.thread = Thread(target=self.__receive, daemon=True)
         self.thread.start()
 
     def __del__(self):
@@ -98,10 +97,9 @@ class Client:
         self.request_id_counter += 1
         message.add_option(MessageOption.REQUEST_ID, request_id)
 
-        future = Future()
+        future: Future[Message] = Future()
         # queue: Queue[Message] = Queue()
         with self.lock:
-            # self.requests[request_id] = queue
             self.requests[request_id] = future
 
         from py_client.message.message_encoder import MessageEncoder
@@ -110,7 +108,7 @@ class Client:
         # return queue
         return future
     
-    def subscribe(self, topic_name: str, partition: int, client_id: str, out: Queue):
+    def subscribe(self, topic_name: str, partition: int, client_id: str, event: Event, out: Queue):
         Utils.validate(out)
 
         subscribe_message = Message().add_options({
@@ -122,13 +120,10 @@ class Client:
 
         # 구독 요청
         subscribe_response: Message = self.request(subscribe_message).result()
-        # subscribe_response: Message = self.request(subscribe_message).get()
         response_type = subscribe_response.option(MessageOption.MESSAGE_TYPE)
 
         # 구독 성공 시
         if response_type == MessageType.RES_SUBSCRIBE.value:
-            out.put(subscribe_response) # 구독 성공 메시지 전달(cursor, remainig_count 등이 있음)
-
             partition_map: Dict[int, Queue] = self.subscriptions.get(topic_name, {})
             queue = partition_map.get(partition, Queue())
 
@@ -136,7 +131,7 @@ class Client:
             self.subscriptions[topic_name] = partition_map
 
             def worker_subscribe():
-                while True:
+                while not event.is_set():
                     try:
                         message = queue.get() # blocking
                         out.put(message)
@@ -146,7 +141,7 @@ class Client:
                 del partition_map[partition]
                 self.unsubscribe(topic_name, partition, client_id)
             
-            thread = threading.Thread(target=worker_subscribe, daemon=True)
+            thread = Thread(target=worker_subscribe, daemon=True)
             thread.start()
 
             return thread
