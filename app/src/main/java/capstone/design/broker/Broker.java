@@ -70,8 +70,9 @@ public class Broker implements AutoCloseable {
             topics.forEach((key, value) -> {
                 try {
                     addTopic(key, value);
-                } catch (IllegalArgumentException ignore) {
+                } catch (IllegalArgumentException e) {
                     System.err.println("[debug] 토픽 추가 거부: " + key + ", " + value);
+                    e.printStackTrace();
                 }
             });
 

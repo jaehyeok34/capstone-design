@@ -28,8 +28,6 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
     
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        System.out.println("[debug] 서버 응답 수신");
-
         if (msg instanceof Message message) {
             Byte type = message.option(MessageOption.MESSAGE_TYPE, Byte.class);
             
@@ -70,8 +68,6 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
                     future.complete(message);
                 }
             }
-
-            System.out.println("[debug] 서버 응답 처리 완료");
         }
     }
 }

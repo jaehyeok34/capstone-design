@@ -89,13 +89,13 @@ public class Consumer implements AutoCloseable {
                     }
                     
                 } catch (Exception e) {
-                    e.printStackTrace();
                     System.out.println("[debug] consume 중 예외 발생");
+                    e.printStackTrace();
                     break;
                 }
             }
 
-            System.out.println("[debug] blocking consume 종료");
+            notifier.shutdown(); // 구독 알림 종료
         });
 
         return executor;
