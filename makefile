@@ -1,5 +1,5 @@
-c:
-	./gradlew client
+r:
+	./gradlew run
 
 s:
 	./gradlew shadowJar

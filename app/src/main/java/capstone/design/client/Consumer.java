@@ -70,7 +70,7 @@ public class Consumer implements AutoCloseable {
             while (true) {
                 try {
                     Message notified = notifiedQueue.take(); // blocking... 해제 시 push 됐다는 뜻
-
+                    
                     /*
                      * TOPIC_UPDATED 알림 메시지에 데이터를 활용하기 위해
                      * 메시지 타입만 변경하여 재활용

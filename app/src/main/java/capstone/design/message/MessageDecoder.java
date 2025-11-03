@@ -28,13 +28,25 @@ public class MessageDecoder extends ByteToMessageDecoder {
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        while (true) {
-            switch (state) {
-                case READ_MAGIC -> { if (!readMagic(in)) return; }
-                case READ_LENGTH -> { if (!readLength(in)) return; }
-                case READ_MESSAGE -> { if (!readMessage(in, out)) return; }
-                default -> {}
+        try {
+            while (true) {
+                switch (state) {
+                    case READ_MAGIC -> { if (!readMagic(in)) return; }
+                    case READ_LENGTH -> { if (!readLength(in)) return; }
+                    case READ_MESSAGE -> { if (!readMessage(in, out)) return; }
+                    default -> {}
+                }
             }
+        } catch (Exception e) { 
+            System.err.println("MessageDecoder.decode 예외 발생: " + e); 
+
+            /*
+             * 디코딩 중 예외가 발생하면 지금까지 읽은 데이터 버리고 다음 메시지부터 다시 디코딩
+             */
+            length = 0;
+            state = State.READ_MAGIC;
+
+            System.out.println("[debug] MessageDecoder 에러 이후 채널 상태: " + ctx.channel().toString() + ", activce: " + ctx.channel().isActive());
         }
     }
 
