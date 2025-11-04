@@ -10,28 +10,38 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import org.jspecify.annotations.Nullable;
+
 import capstone.design.Utils;
+import capstone.design.topic.TopicRecord;
 import io.netty.buffer.ByteBuf;
 
 public class SegmentManager {
     private final Path dir;
     private final String name;
-    private final long segmentDuration; // ms
-    private final List<Segment> segments = new ArrayList<>();
-    private Properties segmentsMetadata;
-    private final File segmentsMetadataFile;
 
+    private final List<Segment> segments = new ArrayList<>();
+    private final long segmentDuration; // ms
+    private final Properties segmentsMetadata = new Properties();
+    private final File segmentsMetadataFile;
     private Segment currentSegment;
+
+    private final File offsetsFile;
+    private final Properties offsets = new Properties();
 
     public SegmentManager(Path dir, String name, long segmentDuration) {
         Utils.validate(dir, name);
 
         this.dir = dir;
         this.name = name;
-        this.segmentDuration = segmentDuration;
-        this.segmentsMetadataFile = new File(dir.resolve("segments.meta").toString());
 
-        loadSegments();
+        this.segmentDuration = segmentDuration;
+        this.segmentsMetadataFile = dir.resolve("segments.meta").toFile();
+
+        this.offsetsFile = dir.resolve(name + ".offset").toFile();
+
+        loadSegments(); // 기존 segment 로드
+        loadOffsets(); // 기존 (클라이언트 논리)오프셋 로드
     }
 
     public int segmentCount() { return segments.size(); }
@@ -43,6 +53,28 @@ public class SegmentManager {
         }
 
         return currentSegment.write(buf);
+    }
+
+    @Nullable
+    public TopicRecord read(String clientId, long offset) {
+        /*
+         * offset이 0 이상(유효값)이면 해당 오프셋을 사용하고,
+         * 음수(유효하지 않은 값이면) 클라이언트의 마지막 오프셋을 사용(없으면 0)
+         */
+        offset = (offset >= 0) ? offset : Long.parseLong(offsets.getProperty(clientId, "0"));
+
+        for (Segment segment : segments) {
+            if (offset >= segment.baseOffset() && offset < segment.nextOffset()) {
+                TopicRecord record = segment.read(offset - segment.baseOffset());
+                if (record != null) {
+                    updateOffsets(clientId, offset + 1);
+                }
+
+                return record;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -72,10 +104,14 @@ public class SegmentManager {
 
     public void clear() {
         try {
-            // 파일 삭제
+            // 세그먼트 파일 삭제
             for (Segment segment : segments) {
                 segment.clear();
             }
+
+            // 메타데이터, 오프셋 파일 삭제
+            Files.deleteIfExists(segmentsMetadataFile.toPath());
+            Files.deleteIfExists(offsetsFile.toPath());
 
             // 디렉토리 삭제
             Files.deleteIfExists(dir);
@@ -85,7 +121,7 @@ public class SegmentManager {
     }
 
     private void loadSegments() {
-        segmentsMetadata = new Properties();
+        // 파일에서 세그먼트 메타데이터 로드
         try (FileInputStream in = new FileInputStream(segmentsMetadataFile)) {
             segmentsMetadata.load(in);
         } catch (Exception e) {
@@ -93,6 +129,7 @@ public class SegmentManager {
             return;
         }
 
+        // 세그먼트 메타데이터 기반으로 세그먼트 객체 생성
         int segmentCount = Integer.parseInt(segmentsMetadata.getProperty("count", "0"));
         segments.clear();
 
@@ -124,17 +161,43 @@ public class SegmentManager {
             return;
         }
 
+        // 현재 세그먼트를 메타데이터에 저장
         int index = currentSegment.index();
-        Properties props = (segmentsMetadata != null) ? segmentsMetadata : new Properties();
-        props.setProperty("count", String.valueOf(segments.size()));
-        props.setProperty(index + ".baseOffset", String.valueOf(currentSegment.baseOffset()));
-        props.setProperty(index + ".nextOffset", String.valueOf(currentSegment.nextOffset()));
-        props.setProperty(index + ".createdTime", String.valueOf(currentSegment.createdTime()));
+        segmentsMetadata.setProperty("count", String.valueOf(segments.size()));
+        segmentsMetadata.setProperty(index + ".baseOffset", String.valueOf(currentSegment.baseOffset()));
+        segmentsMetadata.setProperty(index + ".nextOffset", String.valueOf(currentSegment.nextOffset()));
+        segmentsMetadata.setProperty(index + ".createdTime", String.valueOf(currentSegment.createdTime()));
 
         try (FileOutputStream out = new FileOutputStream(segmentsMetadataFile)) {
-            props.store(out, "Segments Metadata");
+            segmentsMetadata.store(out, "Segments Metadata");
         } catch (IOException e) {
             System.err.println("SegmentManager.updateSegmentsMetadata(): " + e);
+        }
+    }
+
+    private void updateOffsets(String clientId, long offset) {
+        offsets.setProperty(clientId, String.valueOf(offset));
+        updateOffsets();
+    }
+
+    private void updateOffsets() {
+        try (FileOutputStream out = new FileOutputStream(offsetsFile)) {
+            offsets.store(out, "offsets");
+        } catch (Exception e) {
+            System.err.println("SegmentManager.updateOffsets(): " + e);
+        }
+    }
+
+    public void removeOffsets(String clientId) {
+        offsets.remove(clientId);
+        updateOffsets();
+    }
+
+    private void loadOffsets() {
+        try (FileInputStream in = new FileInputStream(offsetsFile)) {
+            offsets.load(in);
+        } catch (Exception e) {
+            System.err.println("SegmentManager.loadOffsets(): " + e);
         }
     }
 

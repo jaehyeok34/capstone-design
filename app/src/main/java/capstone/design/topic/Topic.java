@@ -9,7 +9,7 @@ import io.netty.channel.ChannelHandlerContext;
 public interface Topic {
 
     boolean push(int partition, String clientId, ByteBuf buf);
-    @Nullable TopicRecord pull(int partition, String clientId, long cursor);
+    @Nullable TopicRecord pull(int partition, String clientId, long offset);
     boolean notify(int partition, Message message);
     void subscribe(ChannelHandlerContext context, int partition, String clientId);
     void unsubscribe(int partition, String clientId);

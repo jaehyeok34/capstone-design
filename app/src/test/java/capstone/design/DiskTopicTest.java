@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import capstone.design.topic.disk.DiskTopic;
+
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,12 +19,10 @@ import io.netty.buffer.Unpooled;
 public class DiskTopicTest {
 
     final String topicName = "test_topic";
-    final List<ByteBuf> bufs = new ArrayList<>();
     DiskTopic topic;
 
     void addData(int partition, String msg) {
         ByteBuf buf = Unpooled.copiedBuffer((msg).getBytes(StandardCharsets.UTF_8));
-        bufs.add(buf);
         topic.push(partition, null, buf);
     }
 
@@ -31,19 +31,15 @@ public class DiskTopicTest {
         topic = new DiskTopic(topicName, 0);
     }
 
-    @AfterEach
-    void afterEach() throws IOException {
+    @AfterAll
+    void afterAll() throws IOException {
         topic.clearAll();
-
-        // topics = null;
-        bufs.forEach(buf -> { if(buf.refCnt() > 0) buf.release(); });
     }
 
     @Test
     void pushTest() throws InterruptedException {
         addData(0, "msg");
-        Thread.sleep(1000);
-        addData(0, "msg");
+        addData(0, "msg1");
         topic.segmentManager(0).rollover(System.currentTimeMillis());
 
         /*
@@ -56,33 +52,6 @@ public class DiskTopicTest {
     }
 
 
-    // @Test
-    // void pullTest() throws Exception {
-    //     // 데이터 준비
-    //     DiskTopic topic = topics.getFirst();
-        
-    //     for (int i = 0; i < 3; i++) {
-    //         addData(topic, 0, String.valueOf(i));
-    //     }
-
-    //     // pull
-    //     for (int i = 0; i < 2; i++) { // 동일 조건으로 동일 커서 2회 검증
-    //         TopicRecord record = topic.pull(0, 0) instanceof TopicRecord r ? r : null;
-    //         if (record.value() instanceof FileRegion region) {
-    //             try (
-    //                 OutputStream out = new ByteArrayOutputStream();
-    //                 WritableByteChannel channel = Channels.newChannel(out);
-    //             ) {
-    //                 region.transferTo(channel, 0);
-    
-    //                 // cursor: 0을 읽었을 때 검증
-    //                 assertEquals(message + 0, out.toString());
-    //                 assertEquals(1, topic.cursor(0));
-    //             } catch (IOException ignore) {}
-    //         }
-    //     }
-
-    //     // 다음 cursor 읽기 검증
     //     TopicRecord record = topic.pull(0) instanceof TopicRecord r ? r : null;
     //     if (record.value() instanceof FileRegion region) {
     //         try (

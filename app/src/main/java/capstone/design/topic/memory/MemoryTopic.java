@@ -56,7 +56,7 @@ public class MemoryTopic implements Topic {
     }
     
     @Override
-    public TopicRecord pull(int partition, String clientId, long cursor) {
+    public TopicRecord pull(int partition, String clientId, long offset) {
         Utils.validate(clientId);
 
         List<MemoryRecord> storage = storage(partition, clientId);
@@ -65,11 +65,11 @@ public class MemoryTopic implements Topic {
         }
 
         /*
-         * cursor가 long 타입이긴 하나, 내부적으로는 int 범위 내에서만 동작함
+         * offset이 long 타입이긴 하나, 내부적으로는 int 범위 내에서만 동작함
          * int 범위를 넘어가는 경우를 고려하지 않음
          */
-        cursor = (cursor < 0) ? 0 : cursor;
-        return storage.remove((int) cursor);
+        offset = (offset < 0) ? 0 : offset;
+        return storage.remove((int) offset);
     }
     public TopicRecord pull(int partition, String clientId) { return pull(partition, clientId, -1); }
 

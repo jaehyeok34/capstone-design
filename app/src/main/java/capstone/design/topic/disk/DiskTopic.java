@@ -66,6 +66,7 @@ public class DiskTopic implements Topic {
     /**
      * partition 마다 별도의 segment manager가 존재.
      * segment manager는 여러개의 segment를 관리(segment 생성, 전환 등).
+     * buf는 push가 끝나면 모든 refCnt를 감소시킴
      */
     @Override
     public boolean push(int partition, String clientId, ByteBuf buf) {
@@ -82,15 +83,23 @@ public class DiskTopic implements Topic {
         SegmentManager segmentManager = this.partition.computeIfAbsent(
             partition, 
             ignored -> new SegmentManager(dir, this.name + "_" + partition, segmentDuration)
-        );
+        ); 
 
-        return segmentManager.write(buf);
+        boolean ok = segmentManager.write(buf);
+        buf.release(buf.refCnt());
+
+        return ok;
     }
 
+    @Nullable
     @Override
-    public @Nullable TopicRecord pull(int partition, String clientId, long cursor) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'pull'");
+    public TopicRecord pull(int partition, String clientId, long offset) {
+        SegmentManager segmentManager = this.partition.get(partition);
+        if (segmentManager == null) {
+            return null;
+        }
+
+        return segmentManager.read(clientId, offset);
     }
 
     @Override
@@ -162,49 +171,6 @@ public class DiskTopic implements Topic {
         segmentManager.clear();
     }
 
-    // /**
-    //  * ByteBuf buf는 push가 끝나면 모든 refCnt를 감소시킴
-    //  * 디스크에 이미 저장을 했기 때문에 메모리에는 남아있을 필요 없음
-    //  * @param clientId MemoryTopic과 동일한 메서드 시그니처를 유지하기 위한 값으로 실제로는 사용하지 않음
-    //  */
-    // @Override
-    // public boolean push(int partition, String clientId, ByteBuf buf) {
-    //     Utils.validate(buf);
-
-    //     // 파티션 디렉토리 생성(이미 존재한다면 무시)
-    //     Path path;
-    //     try {
-    //         path = Files.createDirectories(root.resolve(String.valueOf(partition)));
-    //     } catch (IOException e) {
-    //         System.err.println("[debug] DiskTopic.push() - 파티션 디렉토리 생성 실패");
-    //         e.printStackTrace();
-
-    //         return false;
-    //     }
-
-    //     // 메시지 기록
-    //     FileGroup fileGroup = new FileGroup(path, name);
-    //     try (
-    //         FileChannel logFileChannel = FileChannel.open(fileGroup.log(), 
-    //             StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND);
-    //         FileChannel offsetFileChannel = FileChannel.open(fileGroup.offset(),
-    //             StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND)
-    //     ) {
-    //         long offset = writeLog(buf, logFileChannel);
-    //         writeOffset(offset, offsetFileChannel);
-    //     } catch (IOException e) {
-    //         System.err.println("[debug] DiskTopic.push() - 메시지 기록 실패");
-    //         e.printStackTrace();
-
-    //         return false;
-    //     } finally {
-    //         buf.release(buf.refCnt());
-    //     }
-
-    //     return true;
-    // }
-    // public boolean push(int partition, ByteBuf buf) { return push(partition, null, buf); }
-    
     // /**
     //  * @param clientId 메서드 시그니처를 유지하기 위한 값으로 실제로는 사용하지 않음
     //  */

@@ -88,7 +88,7 @@ class AppTest {
     @Test
     void nullPathTest() {
         assertDoesNotThrow(() -> {
-            System.out.println(new File("??").length());
+            Long.parseLong(null);
         });
     }
 }

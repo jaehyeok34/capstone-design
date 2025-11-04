@@ -2,6 +2,7 @@ package capstone.design.topic.disk.segment;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -10,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 import capstone.design.Utils;
+import capstone.design.topic.disk.DiskRecord;
 import io.netty.buffer.ByteBuf;
 
 public class Segment {
@@ -62,8 +64,8 @@ public class Segment {
             FileChannel logFile = FileChannel.open(log, options);
             FileChannel idxFile = FileChannel.open(idx, options);
         ) {
-            long offset = writeLog(logFile, buf);
-            writeIndex(idxFile, offset);
+            long pos = writeLog(logFile, buf);
+            writeIdx(idxFile, pos);
             nextOffset++;
 
             return true;
@@ -73,8 +75,24 @@ public class Segment {
         }
     }
 
-    public void read() {
+    public DiskRecord read(long offset) {
+        try (RandomAccessFile idxFile = new RandomAccessFile(idx.toFile(), "r")) {
+            // idx 파일에서 메시지 실제 위치 획득
+            idxFile.seek(offset * Long.BYTES);
+            long position = idxFile.readLong();
 
+            // 실제 위치 기반 메시지 읽기(길이 먼저)
+            FileChannel logFile = FileChannel.open(idx, StandardOpenOption.READ);
+            ByteBuffer lengthBuf = ByteBuffer.allocate(Integer.BYTES);
+            logFile.read(lengthBuf, position);
+            lengthBuf.flip();
+            int length = lengthBuf.getInt();
+            
+            return DiskRecord.of(logFile, position + Integer.BYTES, length);
+        } catch (Exception e) {
+            System.err.println("Segment.read(): " + e);
+            return null;
+        }
     }
 
     public void clear() throws IOException {
@@ -84,7 +102,7 @@ public class Segment {
 
     private long writeLog(FileChannel file, ByteBuf buf) throws IOException {
         // 다음 쓰기 위치 획득
-        long offset = file.position();
+        long pos = file.position();
 
         // 메시지 길이 기록
         ByteBuffer lengthBuf = ByteBuffer.allocate(Integer.BYTES);
@@ -94,12 +112,12 @@ public class Segment {
         // 메시지 내용 기록
         file.write(buf.nioBuffer());
 
-        return offset;
+        return pos;
     }
 
-    private void writeIndex(FileChannel file, long offset) throws IOException {
+    private void writeIdx(FileChannel file, long position) throws IOException {
         ByteBuffer offsetBuf = ByteBuffer.allocate(Long.BYTES);
-        offsetBuf.putLong(offset).flip();
+        offsetBuf.putLong(position).flip();
         file.write(offsetBuf);
     }
 
