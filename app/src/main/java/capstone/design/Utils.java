@@ -20,11 +20,12 @@ public class Utils {
      * IllegalStateException 발생
      */
     public static void validate(Object... objects) {
-        for (Object object : objects) {
-            if (object == null) {
-                throw new IllegalStateException("null");
+        for (int i = 0; i < objects.length; i++) {
+            if (objects[i] == null) {
+                throw new IllegalStateException("argument " + i + " is null");
             }
 
+            Object object = objects[i];
             if (object instanceof String string && string.isEmpty()) {
                 throw new IllegalStateException("empty string");
             } else if (object instanceof ByteBuf buf && (buf.refCnt() <= 0 || buf.readableBytes() == 0)) {
@@ -36,7 +37,7 @@ public class Utils {
             } else if (object instanceof List<?> iterable && !iterable.iterator().hasNext()) {
                 throw new IllegalStateException("empty iterable");
             }
-         }
+        }
     }
 
     public static void castAdd(Message message, String key, byte[] bytes) {
