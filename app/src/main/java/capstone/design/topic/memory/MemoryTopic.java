@@ -99,7 +99,7 @@ public class MemoryTopic implements Topic {
     }
 
     @Override
-    public long length(int partition, String clientId) {
+    public long count(int partition, String clientId) {
         List<MemoryRecord> storage = storage(partition, clientId);
         if (storage == null) {
             return 0;
@@ -109,28 +109,14 @@ public class MemoryTopic implements Topic {
     }
 
     /**
-     * 다음 읽을 위치 반환.
-     * 기본적으로 저장소가 List라 하더라도 FIFO 방식으로 동작하기 때문에 항상 0을 반환
-     */
-    @Override
-    public long cursor(int partition, String clientId) {
-        return 0;
-    }
-
-    /**
      * 다음 저장 위치 반환.
      * 리스트 기반(인덱스 0 시작)이기 때문에 다음 저장 위치 = 길이
      */
     @Override
     public long offset(int partition, String clientId) {
-        return length(partition, clientId);
+        return count(partition, clientId);
     }
     
-    @Override
-    public long remainingCount(int partition, String clientId) {
-        return length(partition, clientId);
-    }
-
     private List<MemoryRecord> storage(int partition, String clientId) {
         Map<String, List<MemoryRecord>> partitionMap = topic.get(partition);
         if (partitionMap == null) {

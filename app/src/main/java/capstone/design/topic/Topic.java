@@ -13,10 +13,8 @@ public interface Topic {
     boolean notify(int partition, Message message);
     void subscribe(ChannelHandlerContext context, int partition, String clientId);
     void unsubscribe(int partition, String clientId);
-    long length(int partition, String clientId);
-    long cursor(int partition, String clientId);
+    long count(int partition, String clientId);
     long offset(int partition, String clientId);
-    long remainingCount(int partition, String clientId);
 
     public enum Type { MEMORY, DISK }
 }

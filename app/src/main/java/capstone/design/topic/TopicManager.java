@@ -27,7 +27,9 @@ public class TopicManager implements MessageProcessor {
                 Topic topic = (type == Topic.Type.MEMORY) ? 
                     new MemoryTopic(name) : new DiskTopic(name);
                 topicTable.put(name, topic);
-            } catch (Exception ignored) { return; }
+            } catch (Exception e) { 
+                System.err.println("TopicManager.<init>(): " + e);
+            }
         });
     }
 
@@ -66,9 +68,10 @@ public class TopicManager implements MessageProcessor {
             boolean ok = topic.push(partition, clientId, payload.retain());
             if (ok) {
                 message.addOptions(Map.of(
-                    MessageOption.CURSOR, topic.cursor(partition, clientId),
-                    MessageOption.OFFSET, topic.offset(partition, clientId),
-                    MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
+                    // TODO
+                    // MessageOption.CURSOR, topic.cursor(partition, clientId),
+                    // MessageOption.OFFSET, topic.offset(partition, clientId),
+                    // MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
                 ));
                     
                 topic.notify(partition, message.copy()); // 구독자들에게 알림
@@ -95,10 +98,11 @@ public class TopicManager implements MessageProcessor {
             TopicRecord record = topic.pull(partition, clientId, cursor);
             if (record != null) {
                 message.addOptions(Map.of(
-                    MessageOption.PAYLOAD, record,
-                    MessageOption.CURSOR, topic.cursor(partition, clientId),
-                    MessageOption.OFFSET, topic.offset(partition, clientId),
-                    MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
+                    // TODO: ??
+                    // MessageOption.PAYLOAD, record,
+                    // MessageOption.CURSOR, topic.cursor(partition, clientId),
+                    // MessageOption.OFFSET, topic.offset(partition, clientId),
+                    // MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
                 ));
             }
         }
@@ -117,9 +121,10 @@ public class TopicManager implements MessageProcessor {
         if (topic != null) {
             topic.subscribe(context, partition, clientId);
             message.addOptions(Map.of(
-                MessageOption.CURSOR, topic.cursor(partition, clientId),
-                MessageOption.OFFSET, topic.offset(partition, clientId),
-                MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
+                // TODO: ??
+                // MessageOption.CURSOR, topic.cursor(partition, clientId),
+                // MessageOption.OFFSET, topic.offset(partition, clientId),
+                // MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
             ));
         }
 

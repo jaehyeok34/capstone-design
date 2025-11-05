@@ -54,14 +54,14 @@ public class MemoryTopicTest {
          * partition에 대하여 push하게 되면, partition에 있는 id 전체에게 메시지가 쌓이기 때문에
          * 첫 번째 id는 2회 push(자신 + 다음), 두 번째 id는 1회 push(자신)이기 때문
          */
-        assertEquals(2, topic.length(partition, clientId + 0));
-        assertEquals(1, topic.length(partition, clientId + 1));
+        assertEquals(2, topic.count(partition, clientId + 0));
+        assertEquals(1, topic.count(partition, clientId + 1));
 
         // 없는 partition에 대해서 length 확인
-        assertEquals(0, topic.length(partition + 1, clientId + 0));
+        assertEquals(0, topic.count(partition + 1, clientId + 0));
 
         // 없는 id에 대해서 length 확인
-        assertEquals(0, topic.length(partition, clientId + 2));
+        assertEquals(0, topic.count(partition, clientId + 2));
     }
 
     @Test
@@ -78,7 +78,7 @@ public class MemoryTopicTest {
         /*
          * 동일 partition의 다른 id에는 pull 영향 없어야 하므로 1개 그대로 있어 함
          */
-        assertEquals(1, topic.length(partition, clientId + 1));
+        assertEquals(1, topic.count(partition, clientId + 1));
     }
 
     @Test

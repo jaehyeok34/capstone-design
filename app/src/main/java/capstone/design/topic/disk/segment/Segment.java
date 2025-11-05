@@ -22,8 +22,9 @@ public class Segment {
     private final int baseOffset;
     private int nextOffset;
     private final long createdTime;
+    private final long retention;
 
-    public Segment(int index, Path log, Path idx, int baseOffset, int nextOffset, long createdTime) {
+    public Segment(int index, Path log, Path idx, int baseOffset, int nextOffset, long createdTime, long retention) {
         Utils.validate(log, idx);
 
         this.index = index;
@@ -32,9 +33,10 @@ public class Segment {
         this.baseOffset = baseOffset;
         this.nextOffset = nextOffset;
         this.createdTime = createdTime;
+        this.retention = retention;
     }
 
-    public Segment(int index, Path log, Path idx, int baseOffset, long createdTime) {
+    public Segment(int index, Path log, Path idx, int baseOffset, long createdTime, long retention) {
         Utils.validate(log, idx);
 
         this.index = index;
@@ -43,6 +45,7 @@ public class Segment {
         this.baseOffset = baseOffset;
         this.nextOffset = getNextOffset();
         this.createdTime = createdTime;
+        this.retention = retention;
     }
 
     public int index() { return index; }
@@ -52,6 +55,7 @@ public class Segment {
     public int nextOffset() { return nextOffset; }
     public long createdTime() { return createdTime; }
     public int count() { return nextOffset - baseOffset; }
+    public boolean isExpired() { return System.currentTimeMillis() - createdTime > retention; }
 
     public boolean write(ByteBuf buf) {
         OpenOption[] options = new OpenOption[] {
@@ -82,7 +86,7 @@ public class Segment {
             long position = idxFile.readLong();
 
             // 실제 위치 기반 메시지 읽기(길이 먼저)
-            FileChannel logFile = FileChannel.open(idx, StandardOpenOption.READ);
+            FileChannel logFile = FileChannel.open(log, StandardOpenOption.READ);
             ByteBuffer lengthBuf = ByteBuffer.allocate(Integer.BYTES);
             logFile.read(lengthBuf, position);
             lengthBuf.flip();
