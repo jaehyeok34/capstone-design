@@ -50,6 +50,7 @@ class Consumer:
         event = Event()
         notifier = self.client.subscribe(topic_name, partition, self.consumer_id, event, notified_queue)
         if notifier is None:
+            event.set()
             return None
 
         Utils.validate(notifier) # 구독 실패 시 notifier_thread는 None
