@@ -23,14 +23,10 @@ public class NettyServer {
     private final ServerBootstrap bootstrap;
     private Channel channel;
 
-    public NettyServer(int port, MessageProcessor processor, String filePath) throws Exception {
+    public NettyServer(int port, MessageProcessor processor) throws Exception {
         Utils.validate(processor);
         if (port <= 0 || port > 65535) {
             throw new IllegalArgumentException("port: " + port);
-        }
-
-        if (filePath == null || filePath.isBlank()) {
-            filePath = Utils.DEFAULT_OPTION_MAPPING_TABLE_FILE_PATH;
         }
 
         this.port = port;
@@ -39,16 +35,12 @@ public class NettyServer {
             .channel(NioServerSocketChannel.class);
 
         NettyInitializer initializer = NettyInitializer.builder()
-            .addHandler(MessageDecoder.class, filePath)
+            .addHandler(MessageDecoder.class)
             .addHandler(ServerInboundHandler.class, new Class<?>[] { MessageProcessor.class }, processor)
-            .addHandler(MessageEncoder.class, filePath)
+            .addHandler(MessageEncoder.class)
             .build();
 
         bootstrap.childHandler(initializer);
-    }
-
-    public NettyServer(int port, MessageProcessor processor) throws Exception {
-        this(port, processor, Utils.DEFAULT_OPTION_MAPPING_TABLE_FILE_PATH);
     }
 
     public void start() throws InterruptedException {

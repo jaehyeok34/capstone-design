@@ -1,10 +1,8 @@
 package capstone.design.message;
 
-import java.io.FileReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -18,14 +16,6 @@ public class MessageDecoder extends ByteToMessageDecoder {
     private long length;
     private State state = State.READ_MAGIC;
 
-    private final String filePath;
-
-    public MessageDecoder(String filePath) {
-        Utils.validate(filePath);
-        
-        this.filePath = filePath;
-    }
-
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         try {
@@ -34,7 +24,6 @@ public class MessageDecoder extends ByteToMessageDecoder {
                     case READ_MAGIC -> { if (!readMagic(in)) return; }
                     case READ_LENGTH -> { if (!readLength(in)) return; }
                     case READ_MESSAGE -> { if (!readMessage(in, out)) return; }
-                    default -> {}
                 }
             }
         } catch (Exception e) { 
@@ -76,7 +65,7 @@ public class MessageDecoder extends ByteToMessageDecoder {
             int magic = in.readInt();
             if (magic != Utils.MAGIC) {
                 in.resetReaderIndex(); // readerIndex를 저장된 위치로 복원
-                in.readByte(); // 1byte 버림
+                in.skipBytes(1); // 1byte 버림
                 continue;
             }
 
@@ -92,89 +81,41 @@ public class MessageDecoder extends ByteToMessageDecoder {
             return false;
         }
 
-        this.length = in.readLong();
-        this.state = State.READ_MESSAGE;
+        length = in.readLong();
+        state = State.READ_MESSAGE;
         
         return true;
     }
 
-    public boolean readMessage(ByteBuf in, List<Object> out) throws Exception {
-        return readMessage(this.length, in, out);
+    private boolean readMessage(ByteBuf in, List<Object> out) throws Exception {
+        return readMessage(length, in, out);
     }
 
-    public boolean readMessage(long length, ByteBuf in, Collection<Object> out) throws Exception {
+    private boolean readMessage(long length, ByteBuf in, Collection<Object> out) throws Exception {
         if (in.readableBytes() < length) {
             return false;
         }
 
+        Message message = Message.of();
         long offset = 0;
-        Properties props = new Properties();
-        try (FileReader reader = new FileReader(filePath)) {
-            props.load(reader);
-        }
-        props = invertProperties(props);
 
-        Message message = new Message();
         while (offset < length) {
-            byte optionType = in.readByte();
-            offset += 1;
+            short keyLength = in.readShort();
+            String key = in.readString(keyLength, StandardCharsets.UTF_8);
+            offset += Short.BYTES + keyLength;
 
-            if (optionType == Byte.parseByte(Utils.UNKNOWN_OPTION_TYPE)) { // TLVLV 형식 처리
-                offset += addUnknownOption(message, in);
-                continue;
-            }
+            int optionLength = in.readInt();
+            byte[] option = new byte[optionLength];
+            in.readBytes(option);
+            offset += Integer.BYTES + optionLength;
 
-            /*
-             * encoder에서 option_mapping_table.properties에 없는 key는 unknown option으로 처리하므로
-             * key가 없는 경우는 고려하지 않음
-             */
-            String key = props.getProperty(String.valueOf(optionType));
-            int len = in.readInt();
-            switch (key) {
-                case MessageOption.PAYLOAD -> {
-                    ByteBuf buf = in.readBytes(len);
-                    message.addOption(key, buf);
-                }
-                
-                default -> {
-                    byte[] buf = new byte[len];
-                    in.readBytes(buf);
-                    Utils.castAdd(message, key, buf);
-                }
-            }
-
-            offset += Integer.BYTES + len;
+            message.addOption(key, option);
         }
 
         out.add(message);
-        this.state = State.READ_MAGIC;
+        state = State.READ_MAGIC;
+
         return true;
-    }
-
-    private long addUnknownOption(Message message, ByteBuf in) {
-        long offset = 0;
-        int keyLength = in.readInt();
-        String key = in.readString(keyLength, StandardCharsets.UTF_8);
-        offset += Integer.BYTES + keyLength;
-
-        int valueLength = in.readInt();
-        byte[] buf = new byte[valueLength];
-        in.readBytes(buf);
-        offset += Integer.BYTES + valueLength;
-
-        message.addOption(key, new String(buf, StandardCharsets.UTF_8));
-
-        return offset;
-    }
-
-    private Properties invertProperties(Properties props) {
-        Properties inverted = new Properties();
-        for (String key : props.stringPropertyNames()) {
-            String value = props.getProperty(key);
-            inverted.setProperty(value, key);
-        }
-
-        return inverted;
     }
 
     private enum State { READ_MAGIC, READ_LENGTH, READ_MESSAGE }

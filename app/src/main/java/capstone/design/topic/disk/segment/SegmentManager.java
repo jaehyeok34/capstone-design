@@ -7,14 +7,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import org.jspecify.annotations.Nullable;
 
 import capstone.design.Utils;
 import capstone.design.topic.TopicRecord;
-import io.netty.buffer.ByteBuf;
 
 public class SegmentManager {
 
@@ -49,9 +53,10 @@ public class SegmentManager {
     }
 
     public int segmentCount() { return segments.size(); }
-    public long offset(String clientId) { return Long.parseLong(offsets.getProperty(clientId, "0")); }
 
-    public boolean write(ByteBuf buf) {
+    public long offset(String clientId) { return Long.parseLong(offsets.getProperty(clientId, "-1")); }
+
+    public boolean write(byte[] buf) {
         long now = System.currentTimeMillis();
         if (currentSegment == null || (now - currentSegment.createdTime()) > duration) {
             rollover(now);
@@ -64,15 +69,28 @@ public class SegmentManager {
     public TopicRecord read(String clientId, long offset) {
         /*
          * offset이 0 이상(유효값)이면 해당 오프셋을 사용하고,
-         * 음수(유효하지 않은 값이면) 클라이언트의 마지막 오프셋을 사용(없으면 0)
+         * 음수(유효하지 않은 값이면) 클라이언트의 오프셋 사용,
+         * 그마저도 없으면 가장 오래된 세그먼트의 base offset 사용
          */
-        offset = (offset >= 0) ? offset : Long.parseLong(offsets.getProperty(clientId, "0"));
+        if (offset < 0) {
+            long clientOffset = offset(clientId);
+            offset = (clientOffset >= 0) ? clientOffset : segments.getFirst().baseOffset();
+        }
 
         for (Segment segment : segments) {
+            /*
+             * segment가 존재하더라도, 만료 됐다면(cleaner에 의해 삭제되지 않았다면)
+             * 유효하지 않은 값으로 간주하고 건너뜀
+             */
+            if (segment.isExpired()) {
+                System.err.println("SegmentManager.read(): 만료된 세그먼트: " + segment.index());
+                continue;
+            }
+
             if (offset >= segment.baseOffset() && offset < segment.nextOffset()) {
                 TopicRecord record = segment.read(offset - segment.baseOffset());
                 if (record != null) {
-                    updateOffsets(clientId, offset + 1);
+                    addOffset(clientId, offset + 1);
                 }
 
                 return record;
@@ -87,12 +105,18 @@ public class SegmentManager {
      * 외부에서 명시적으로 새로운 파일에 기록하고자 할 때도 호출 가능
      */
     public void rollover(long now) {
-        updateMetadata(); // 이전 세그먼트 메타데이터 저장
+        addMetadata(); // 이전 세그먼트 메타데이터 저장
 
-        int index = segments.size();
+        int index = 0;
+        int baseOffset = 0;
+
+        if (currentSegment != null) {
+            index = currentSegment.index() + 1;
+            baseOffset = currentSegment.nextOffset();
+        }
+
         Path log = dir.resolve(index + LOG_FILE_EXT);
         Path idx = dir.resolve(index + IDX_FILE_EXT);
-        int baseOffset = (currentSegment != null) ? currentSegment.nextOffset() : 0;
 
         currentSegment = new Segment(index, log, idx, baseOffset, now, retention);
         segments.add(currentSegment);
@@ -107,7 +131,27 @@ public class SegmentManager {
         return count;
     }
 
-    public void clear() {
+    /*
+     * segment 내 모든 메시지가 retention 기간을 초과했는지 검사하고,
+     * 초과한 segment를 삭제
+     * 현재 사용 중인 segment가 삭제 대상이 될 경우 currentSegment를 null로 설정
+     */
+    public void clean() {
+        Iterator<Segment> it = segments.iterator();
+        while (it.hasNext()) {
+            Segment segment = it.next();
+            if (segment != currentSegment && segment.isExpired()) {
+                segment.clear(); // log, idx 파일 삭제
+                removeMetadata(segment.index());
+
+                it.remove();
+            }
+        }
+
+        removeOffset(segments.getFirst().baseOffset());
+    }
+
+    public void clearAll() {
         try {
             // 세그먼트 파일 삭제
             for (Segment segment : segments) {
@@ -138,19 +182,42 @@ public class SegmentManager {
         int count = Integer.parseInt(metadata.getProperty("count", "0"));
         segments.clear();
 
-        for (int i = 0; i < count; i++) {
-            int baseOffset = Integer.parseInt(metadata.getProperty(i + ".baseOffset", "0"));
-            int nextOffset = Integer.parseInt(metadata.getProperty(i + ".nextOffset", "0"));
-            long createdTime = Long.parseLong(metadata.getProperty(i + ".createdTime", "0"));
-            Path log = dir.resolve(i + LOG_FILE_EXT);
-            Path idx = dir.resolve(i + IDX_FILE_EXT);
+        /*
+         * 로드된 metadata의 키를 순회하여 세그먼트 빌더에 반영
+         * 1. 인덱스 추출 후 실제 log, idx 파일이 존재하는지 확인
+         * 2. 존재하지 않는다면, 해당 인덱스는 건너뛰고 존재하면 segment builder에 반영
+         */
+        Map<Integer, Segment.Builder> builders = new HashMap<>();
+        while (count-- > 0) {
+            Iterator<Object> it = metadata.keySet().iterator();
+            while (it.hasNext()) {
+                String key = it.next().toString();
+                if (key.equals("count")) {
+                    continue;
+                }
+                
+                int index = Integer.parseInt(key.substring(0, key.indexOf('.')));
+                Path log = dir.resolve(index + LOG_FILE_EXT);
+                Path idx = dir.resolve(index + IDX_FILE_EXT);
+                if (!Files.exists(log) || !Files.exists(idx)) {
+                    System.err.println("SegmentManager.loadSegments(): 파일이 존재하지 않음: " + log + ", " + idx);
+                    continue;
+                }
 
-            if (!Files.exists(log) || !Files.exists(idx)) {
-                System.err.println("SegmentManager.loadSegments(): 파일이 존재하지 않음: " + log + ", " + idx);
-                continue;
+                Segment.Builder builder = builders.computeIfAbsent(index, ignored -> Segment.builder(index, log, idx));
+                builder.keyAndValue(key, metadata.getProperty(key));
             }
+        }
 
-            Segment segment = new Segment(i, log, idx, baseOffset, nextOffset, createdTime);
+        /*
+         * segment 생성
+         * 인덱스 순서대로 정렬하여 segments 리스트에 추가
+         */
+        Object[] keys = builders.keySet().toArray();
+        Arrays.sort(keys, Comparator.comparingInt(o -> (int) o));
+
+        for (Object key :  keys) {
+            Segment segment = builders.get(key).retention(retention).build();
             segments.add(segment);
             currentSegment = segment;
         }
@@ -160,7 +227,7 @@ public class SegmentManager {
      * 세그먼트 메타데이터 업데이트 시도.
      * 실패 하더라도, 저장하려는 세그먼트만 유실되고 프로그램은 계속 진행됨
      */
-    private void updateMetadata() {
+    private void addMetadata() {
         if (currentSegment == null) {
             return;
         }
@@ -172,6 +239,28 @@ public class SegmentManager {
         metadata.setProperty(index + ".nextOffset", String.valueOf(currentSegment.nextOffset()));
         metadata.setProperty(index + ".createdTime", String.valueOf(currentSegment.createdTime()));
 
+        updateMetadata();
+    }
+
+    private void removeMetadata(int index) {
+        boolean removed = false;
+        Iterator<Object> it = metadata.keySet().iterator();
+        while (it.hasNext()) {
+            if (it.next().toString().startsWith(index + ".")) {
+                it.remove();
+                removed = true;
+            }
+        }
+
+        if (removed) {
+            int count = Integer.parseInt(metadata.getProperty("count"));
+            metadata.setProperty("count", String.valueOf(count - 1));
+        }
+
+        updateMetadata();
+    }
+
+    private void updateMetadata() {
         try (FileOutputStream out = new FileOutputStream(metaFile)) {
             metadata.store(out, "Segments Metadata");
         } catch (IOException e) {
@@ -182,8 +271,23 @@ public class SegmentManager {
     /**
      * properties 객체에 우선 반영 후 파일에 저장
      */
-    private void updateOffsets(String clientId, long offset) {
+    private void addOffset(String clientId, long offset) {
         offsets.setProperty(clientId, String.valueOf(offset));
+        updateOffsets();
+    }
+
+    /**
+     * 모든 offset 정보 중에서 pivot보다 작은 offset을 갖는 항목 삭제
+     */
+    private void removeOffset(long pivot) {
+        Iterator<Object> it = offsets.keySet().iterator();
+        while (it.hasNext()) {
+            String clientId = it.next().toString();
+            long offset = Long.parseLong(offsets.getProperty(clientId));
+            if (offset < pivot) {
+                it.remove();
+            }
+        }
         updateOffsets();
     }
 

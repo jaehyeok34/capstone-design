@@ -2,6 +2,7 @@ package capstone.design.topic.memory;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,28 +12,32 @@ import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.topic.Topic;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 
 public class MemoryTopic implements Topic {
 
-    private final SubscriberManager manager;
+    private static final long DEFAULT_RETENTION = 30 * (60 * 1000); // 30분
+
+    private final SubscriberManager subscriberManager = new SubscriberManager();
     private final Map<Integer, Map<String, List<MemoryRecord>>> topic = new ConcurrentHashMap<>();
+    private final long retention;
 
-    public MemoryTopic(String name) {
-        Utils.validate(name);
-
-        this.manager = new SubscriberManager(name);
+    private MemoryTopic(long retention) {
+        this.retention = retention;
     }
 
-    public SubscriberManager subscriberManager() { return manager; }
+    public static MemoryTopic of() {
+        return new MemoryTopic(DEFAULT_RETENTION);
+    }
 
-    /**
-     * @param buf 전달 시 반드시 retain() 된 상태(refCnt() > 1) 이어야 함
-     * 내부적으로 buf의 참조 카운트를 1 감소시키기 때문.(최소 1은 유지해야 함)
-     */
+    public static MemoryTopic of(long retention) {
+        return new MemoryTopic(retention);
+    }
+
+    public SubscriberManager subscriberManager() { return subscriberManager; }
+
     @Override
-    public boolean push(int partition, String clientId, ByteBuf buf) {
+    public boolean push(int partition, String clientId, byte[] buf) {
         Utils.validate(clientId, buf);
 
         Map<String, List<MemoryRecord>> partitionMap = topic.computeIfAbsent(
@@ -48,11 +53,15 @@ public class MemoryTopic implements Topic {
 
         // partition의 모든 구독자에게 레코드 추가
         for (List<MemoryRecord> storage : partitionMap.values()) {
-            storage.add(MemoryRecord.of(buf));
+            storage.add(new MemoryRecord(buf));
         }
-        buf.release();
         
         return true;    
+    }
+
+    @Override
+    public TopicRecord pull(int partition, String clientId) {
+        return pull(partition, clientId, -1);
     }
     
     @Override
@@ -66,36 +75,36 @@ public class MemoryTopic implements Topic {
 
         /*
          * offset이 long 타입이긴 하나, 내부적으로는 int 범위 내에서만 동작함
-         * int 범위를 넘어가는 경우를 고려하지 않음
+         * offset이 음수이면, FIFO 형태로 동작하여 0
+         * 저장된 메시지 범위를 벗어나는 offset이면 null
          */
         offset = (offset < 0) ? 0 : offset;
-        return storage.remove((int) offset);
+        try {
+            // return storage.remove((int) offset);
+            MemoryRecord record = storage.get((int) offset);
+            if (record.isExpired(retention)) {
+                System.err.println("MemoryTopic.pull(): 만료된 레코드");
+                return null;
+            }
+
+            return record;
+        } catch (IndexOutOfBoundsException ignored) { return null; }
+
     }
-    public TopicRecord pull(int partition, String clientId) { return pull(partition, clientId, -1); }
 
     @Override
     public boolean notify(int partition, Message message) {
-        return manager.notify(partition, message);
+        return subscriberManager.notify(partition, message);
     }
 
     @Override
     public void subscribe(ChannelHandlerContext context, int partition, String clientId) {
-        // 구독하려는 partition/id에 해당하는 큐가 없다면 새롭게 생성
-        topic.computeIfAbsent(partition, ignored -> new ConcurrentHashMap<>())
-            .computeIfAbsent(clientId, ignored -> Collections.synchronizedList(new ArrayList<>()));
-
-        manager.subscribe(context, partition, clientId);
+        subscriberManager.subscribe(context, partition, clientId);
     }
 
     @Override
     public void unsubscribe(int partition, String clientId) {
-        // partition/id에 해당하는 큐 삭제
-        Map<String, List<MemoryRecord>> partitionMap = topic.get(partition);
-        if (partitionMap != null) {
-            partitionMap.remove(clientId);
-        }
-
-        manager.unsubscribe(partition, clientId);
+        subscriberManager.unsubscribe(partition, clientId);
     }
 
     @Override
@@ -108,13 +117,31 @@ public class MemoryTopic implements Topic {
         return storage.size();
     }
 
-    /**
-     * 다음 저장 위치 반환.
-     * 리스트 기반(인덱스 0 시작)이기 때문에 다음 저장 위치 = 길이
-     */
     @Override
     public long offset(int partition, String clientId) {
-        return count(partition, clientId);
+        /*
+         * 메시지가 저장된 적이 없는 partition/clientId 조합이라면 -1
+         * 그 외에는 0 반환(FIFO이므로 항상 다음에 읽을 offset은 0)
+         */
+        return (storage(partition, clientId) != null) ? 0 : -1;
+    }
+
+    @Override
+    public void clean() {
+        /*
+         * 모든 partition, 모든 storage(id에 따른 저장소)를 순회하며
+         * retention 시간을 초과한 레코드 삭제
+         */
+        for (Map<String, List<MemoryRecord>> partitionMap : topic.values()) {
+            for (List<MemoryRecord> storage : partitionMap.values()) {
+                Iterator<MemoryRecord> it = storage.iterator();
+                while (it.hasNext()) {
+                    if (it.next().isExpired(retention)) {
+                        it.remove();
+                    }
+                }
+            }
+        }
     }
     
     private List<MemoryRecord> storage(int partition, String clientId) {

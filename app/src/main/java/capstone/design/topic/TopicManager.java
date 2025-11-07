@@ -2,79 +2,93 @@ package capstone.design.topic;
 
 import capstone.design.Utils;
 import capstone.design.message.Message;
+import capstone.design.message.MessageCleaner;
 import capstone.design.message.MessageOption;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import capstone.design.message.MessageProcessor;
 import capstone.design.message.MessageType;
-import capstone.design.topic.disk.DiskTopic;
-import capstone.design.topic.memory.MemoryTopic;
 import org.jspecify.annotations.Nullable;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 
 public class TopicManager implements MessageProcessor {
 
-    private final Map<String, Topic> topicTable = new ConcurrentHashMap<>();
+    private static final long DEFAULT_CLEAN_INTERVAL = 5 * (60 * 1000); // 5분
 
-    public TopicManager(Map<String, Topic.Type> topicInfo) {
-        topicInfo.forEach((name, type) -> {
-            try {
-                Utils.validate(name, type);
+    private final Map<String, Topic> topicMap = new ConcurrentHashMap<>();
+    private final MessageCleaner cleaner;
 
-                Topic topic = (type == Topic.Type.MEMORY) ? 
-                    new MemoryTopic(name) : new DiskTopic(name);
-                topicTable.put(name, topic);
-            } catch (Exception e) { 
-                System.err.println("TopicManager.<init>(): " + e);
-            }
-        });
+    private TopicManager(Map<String, Topic> topics, long cleanInterval) {
+        try {
+            topicMap.putAll(topics);
+        } catch (Exception e) { System.err.println("TopicManager.<init>(): " + e); }
+
+        // 메시지 클리너 시작
+        cleaner = new MessageCleaner(topicMap.values(), cleanInterval);
+        cleaner.start();
+    }
+
+    public static TopicManager of(Map<String, Topic> topics) {
+        return new TopicManager(topics, DEFAULT_CLEAN_INTERVAL);
+    }
+
+    public static TopicManager of(Map<String, Topic> topics, long cleanInterval) {
+        if (cleanInterval < 0) {
+            cleanInterval = DEFAULT_CLEAN_INTERVAL;
+        }
+
+        return new TopicManager(topics, cleanInterval);
     }
 
     @Nullable
-    public Topic topic(String name) { return topicTable.get(name); }
+    public Topic topic(String name) { return topicMap.get(name); }
+
+    public void close() {
+        cleaner.shutdownNow();
+    }
 
     @Override
     public void process(ChannelHandlerContext context, Message message) {
         Utils.validate(context, message);
 
-        Byte type = message.option(MessageOption.MESSAGE_TYPE, Byte.class);
-        Utils.validate(type);
+        Byte type = message.optionAsByte(MessageOption.MESSAGE_TYPE);
+        if (type == null) {
+            return;
+        }
 
         switch (MessageType.values()[type]) {
             case REQ_PUSH -> push(context, message);
             case REQ_PULL -> pull(context, message);
             case REQ_SUBSCRIBE -> subscribe(context, message);
             case REQ_UNSUBSCRIBE -> unsubscribe(context, message);
-            default -> throw new IllegalStateException("알 수 없는 타입");
+            default -> {}
         }
     }
 
     private void push(ChannelHandlerContext context, Message message) {
-        String clientId = message.option(MessageOption.CLIENT_ID, String.class);
-        String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
-        Integer partition = message.option(MessageOption.PARTITION, Integer.class);
-        ByteBuf payload = message.option(MessageOption.PAYLOAD, ByteBuf.class);
+        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
+        Integer partition = message.optionAsInt(MessageOption.PARTITION);
+        String clientId = message.optionAsString(MessageOption.CLIENT_ID);
+        byte[] payload = message.optionAsBytes(MessageOption.PAYLOAD);
 
-        Utils.validate(clientId, topicName, partition, payload);
+        message.addOptions(Map.of(
+            MessageOption.MESSAGE_TYPE, MessageType.RES_PUSH.getByte(),
+            MessageOption.OK, 0 // 일단 실패로 초기화
+        )).removeOptions(MessageOption.PAYLOAD); // payload 받았으니까 다음 전송을 위해 제거
         
-        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_PUSH.getByte()) // type 변경
-            .removeOptions(MessageOption.PAYLOAD); // payload 받았으니까 다음 전송을 위해 제거
-
-        Topic topic = topicTable.get(topicName);
-        if (topic != null) {
-            boolean ok = topic.push(partition, clientId, payload.retain());
-            if (ok) {
+        // 메시지에서 꺼내온 값들이 유효하면 비즈니스 로직 수행
+        if(Utils.isValid(topicName, partition, clientId, payload)) {
+            Topic topic = topicMap.get(topicName);
+            if (topic != null && topic.push(partition, clientId, payload)) {
                 message.addOptions(Map.of(
-                    // TODO
-                    // MessageOption.CURSOR, topic.cursor(partition, clientId),
-                    // MessageOption.OFFSET, topic.offset(partition, clientId),
-                    // MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
+                    MessageOption.OFFSET, topic.offset(partition, clientId),
+                    MessageOption.COUNT, topic.count(partition, clientId),
+                    MessageOption.OK, 1
                 ));
-                    
-                topic.notify(partition, message.copy()); // 구독자들에게 알림
+
+                topic.notify(partition, message.copy());
             }
         }
 
@@ -82,27 +96,26 @@ public class TopicManager implements MessageProcessor {
     }
 
     private void pull(ChannelHandlerContext context, Message message) {
-        String clientId = message.option(MessageOption.CLIENT_ID, String.class);
-        String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
-        Integer partition = message.option(MessageOption.PARTITION, Integer.class);
-        Long cursor = message.option(MessageOption.CURSOR, Long.class);
-        cursor = (cursor != null) ? cursor : -1L;
-        
-        Utils.validate(clientId, topicName, partition);
+        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
+        Integer partition = message.optionAsInt(MessageOption.PARTITION);
+        String clientId = message.optionAsString(MessageOption.CLIENT_ID);
+        Long offset = message.optionAsLong(MessageOption.OFFSET);
 
-        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_PULL.getByte()) // type 변경
-            .removeOptions(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
+        message.addOptions(Map.of(
+            MessageOption.MESSAGE_TYPE, MessageType.RES_PULL.getByte(),
+            MessageOption.OK, 0 // 일단 실패로 초기화
+        )).removeOptions(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
 
-        Topic topic = topicTable.get(topicName);
-        if (topic != null) {
-            TopicRecord record = topic.pull(partition, clientId, cursor);
-            if (record != null) {
+        // 메시지에서 꺼내온 값들이 유효하면 비즈니스 로직 수행
+        if (Utils.isValid(topicName, partition, clientId)) {
+            Topic topic = topicMap.get(topicName);
+            TopicRecord record;
+            if (topic != null && (record = topic.pull(partition, clientId, offset)) != null) {
                 message.addOptions(Map.of(
-                    // TODO: ??
-                    // MessageOption.PAYLOAD, record,
-                    // MessageOption.CURSOR, topic.cursor(partition, clientId),
-                    // MessageOption.OFFSET, topic.offset(partition, clientId),
-                    // MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
+                    MessageOption.PAYLOAD, record,
+                    MessageOption.OFFSET, topic.offset(partition, clientId),
+                    MessageOption.COUNT, topic.count(partition, clientId),
+                    MessageOption.OK, 1
                 ));
             }
         }
@@ -111,40 +124,48 @@ public class TopicManager implements MessageProcessor {
     }
 
     private void subscribe(ChannelHandlerContext context, Message message) {
-        String clientId = message.option(MessageOption.CLIENT_ID, String.class);
-        String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
-        Integer partition = message.option(MessageOption.PARTITION, Integer.class);
+        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
+        Integer partition = message.optionAsInt(MessageOption.PARTITION);
+        String clientId = message.optionAsString(MessageOption.CLIENT_ID);
 
-        Utils.validate(clientId, topicName, partition);
+        message.addOptions(Map.of(
+            MessageOption.MESSAGE_TYPE, MessageType.RES_SUBSCRIBE.getByte(),
+            MessageOption.OK, 0 // 일단 실패로 초기화
+        ));
 
-        Topic topic = topicTable.get(topicName);
-        if (topic != null) {
-            topic.subscribe(context, partition, clientId);
-            message.addOptions(Map.of(
-                // TODO: ??
-                // MessageOption.CURSOR, topic.cursor(partition, clientId),
-                // MessageOption.OFFSET, topic.offset(partition, clientId),
-                // MessageOption.REMAINING_COUNT, topic.remainingCount(partition, clientId)
-            ));
+        if (Utils.isValid(topicName, partition, clientId)) {
+            Topic topic = topicMap.get(topicName);
+            if (topic != null) {
+                topic.subscribe(context, partition, clientId);
+                message.addOptions(Map.of(
+                    MessageOption.OFFSET, topic.offset(partition, clientId),
+                    MessageOption.COUNT, topic.count(partition, clientId),
+                    MessageOption.OK, 1
+                ));
+            }
         }
 
-        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_SUBSCRIBE.getByte());
         context.channel().writeAndFlush(message);
     }
 
     private void unsubscribe(ChannelHandlerContext context, Message message) {
-        String id = message.option(MessageOption.CLIENT_ID, String.class);
-        String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
-        Integer partition = message.option(MessageOption.PARTITION, Integer.class);
+        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
+        Integer partition = message.optionAsInt(MessageOption.PARTITION);
+        String clientId = message.optionAsString(MessageOption.CLIENT_ID);
 
-        Utils.validate(id, topicName, partition);
+        message.addOptions(Map.of(
+            MessageOption.MESSAGE_TYPE, MessageType.RES_UNSUBSCRIBE.getByte(),
+            MessageOption.OK, 0 // 일단 실패로 초기화
+        ));
 
-        Topic topic = topicTable.get(topicName);
-        if (topic != null) {
-            topic.unsubscribe(partition, id);
+        if (Utils.isValid(topicName, partition, clientId)) {
+            Topic topic = topicMap.get(topicName);
+            if (topic != null) {
+                topic.unsubscribe(partition, clientId);
+                message.addOption(MessageOption.OK, 1);
+            }
         }
 
-        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.RES_UNSUBSCRIBE.getByte());
         context.channel().writeAndFlush(message);
     }
 }

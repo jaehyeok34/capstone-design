@@ -12,7 +12,6 @@ import java.nio.file.StandardOpenOption;
 
 import capstone.design.Utils;
 import capstone.design.topic.disk.DiskRecord;
-import io.netty.buffer.ByteBuf;
 
 public class Segment {
     
@@ -48,6 +47,10 @@ public class Segment {
         this.retention = retention;
     }
 
+    public static Builder builder(int index, Path log, Path idx) {
+        return new Builder(index, log, idx);
+    }
+
     public int index() { return index; }
     public Path log() { return log; }
     public Path idx() { return idx; }
@@ -57,7 +60,7 @@ public class Segment {
     public int count() { return nextOffset - baseOffset; }
     public boolean isExpired() { return System.currentTimeMillis() - createdTime > retention; }
 
-    public boolean write(ByteBuf buf) {
+    public boolean write(byte[] buf) {
         OpenOption[] options = new OpenOption[] {
             StandardOpenOption.CREATE,
             StandardOpenOption.WRITE,
@@ -99,22 +102,26 @@ public class Segment {
         }
     }
 
-    public void clear() throws IOException {
-        Files.deleteIfExists(log);
-        Files.deleteIfExists(idx);
+    public void clear() {
+        try {
+            Files.deleteIfExists(log);
+            Files.deleteIfExists(idx);
+        } catch (IOException e) {
+            System.err.println("Segment.clear(): " + e);
+        }
     }
 
-    private long writeLog(FileChannel file, ByteBuf buf) throws IOException {
+    private long writeLog(FileChannel file, byte[] buf) throws IOException {
         // 다음 쓰기 위치 획득
         long pos = file.position();
 
         // 메시지 길이 기록
         ByteBuffer lengthBuf = ByteBuffer.allocate(Integer.BYTES);
-        lengthBuf.putInt(buf.readableBytes()).flip();
+        lengthBuf.putInt(buf.length).flip();
         file.write(lengthBuf);  
 
         // 메시지 내용 기록
-        file.write(buf.nioBuffer());
+        file.write(ByteBuffer.wrap(buf));
 
         return pos;
     }
@@ -131,5 +138,66 @@ public class Segment {
      */
     private int getNextOffset() {
         return (int) (new File(idx.toString()).length() / Long.BYTES + baseOffset);
+    }
+
+    public static class Builder {
+        
+        private final Path log;
+        private final Path idx;
+        private final int index;
+
+        private Integer baseOffset = null;
+        private Integer nextOffset = null;
+        private Long createdTime = null;
+        private Long retention = null;
+
+        public Builder(int index, Path log, Path idx) {
+            Utils.validate(log, idx);
+
+            this.index = index;
+            this.log = log;
+            this.idx = idx;
+        }
+
+        public Segment build() {
+            Utils.validate(index, baseOffset, createdTime, retention);
+
+            return switch (nextOffset) {
+                case null -> new Segment(index, log, idx, baseOffset, createdTime, retention);
+                default -> new Segment(index, log, idx, baseOffset, nextOffset, createdTime, retention);
+            };
+        }
+
+        public Builder baseOffset(int baseOffset) {
+            this.baseOffset = baseOffset;
+            return this;
+        }
+
+        public Builder nextOffset(int nextOffset) {
+            this.nextOffset = nextOffset;
+            return this;
+        }
+
+        public Builder createdTime(long createdTime) {
+            this.createdTime = createdTime;
+            return this;
+        }
+
+        public Builder retention(long retention) {
+            this.retention = retention;
+            return this;
+        }
+
+        public Builder keyAndValue(String key, String value) {
+            if (key.contains("baseOffset")) {
+                this.baseOffset = Integer.parseInt(value);
+            } else if (key.contains("nextOffset")) {
+                this.nextOffset = Integer.parseInt(value);
+            } else if (key.contains("createdTime")) {
+                this.createdTime = Long.parseLong(value);
+            }
+
+            return this;
+        }
     }
 }

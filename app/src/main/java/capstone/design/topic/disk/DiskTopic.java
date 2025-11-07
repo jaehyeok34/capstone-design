@@ -16,14 +16,13 @@ import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.topic.Topic;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 
 public class DiskTopic implements Topic {
 
     private static final String DEFAULT_TOPIC_DIR = "./topic";
-    private static final long DEFAULT_SEGMENT_DURATION = 60 * 10 * 1000; // 10분
-    private static final long DEFAULT_SEGMENT_RETENTION = 60 * 10 * 1000; // 10분
+    private static final long DEFAULT_SEGMENT_DURATION = 10 * (60 * 1000); // 10분
+    private static final long DEFAULT_SEGMENT_RETENTION = 30 * (60 * 1000); // 30분
 
     private final Path root;
     private final SubscriberManager subscriberManager;
@@ -31,20 +30,24 @@ public class DiskTopic implements Topic {
     private final long segmentRetention;
     private final Map<Integer, SegmentManager> segmentManagers = new HashMap<>();
 
-    public DiskTopic(String name, long segmentDuration, long segmentRetention) throws IOException {
+    private DiskTopic(String name, long segmentDuration, long segmentRetention) throws IOException {
         Utils.validate(name);
 
         this.segmentDuration = (segmentDuration >= 0) ? segmentDuration : DEFAULT_SEGMENT_DURATION;
         this.segmentRetention = (segmentRetention >= 0) ? segmentRetention : DEFAULT_SEGMENT_RETENTION;
         this.root = Files.createDirectories(Paths.get(DEFAULT_TOPIC_DIR, name));
-        this.subscriberManager = new SubscriberManager(name);
+        this.subscriberManager = new SubscriberManager();
 
         // 프로그램이 재시작 시 기존에 생성된 세그먼트 매니저들이 있다면, 로드
         loadSegmentManagers();
     }
 
-    public DiskTopic(String name) throws IOException {
-        this(name, DEFAULT_SEGMENT_DURATION, DEFAULT_SEGMENT_RETENTION);
+    public static DiskTopic of(String name) throws IOException {
+        return new DiskTopic(name, DEFAULT_SEGMENT_DURATION, DEFAULT_SEGMENT_RETENTION);
+    }
+
+    public static DiskTopic of(String name, long segmentDuration, long segmentRetention) throws IOException {
+        return new DiskTopic(name, segmentDuration, segmentRetention);
     }
 
     public SubscriberManager subscriberManager() { return subscriberManager; }
@@ -54,9 +57,15 @@ public class DiskTopic implements Topic {
      * partition 마다 별도의 segment manager가 존재.
      * segment manager는 여러개의 segment를 관리(segment 생성, 전환 등).
      * buf는 push가 끝나면 모든 refCnt를 감소시킴
+     * 
+     * @param clientId ignored
      */
     @Override
-    public boolean push(int partition, String clientId, ByteBuf buf) {
+    public boolean push(int partition, String clientId, byte[] payload) {
+        if (!Utils.isValid(payload)) {
+            return false;
+        }
+
         // partition 디렉토리 생성(이미 존재한다면 무시)
         Path dir;
         try {
@@ -72,15 +81,21 @@ public class DiskTopic implements Topic {
             ignored -> new SegmentManager(dir, segmentDuration, segmentRetention)
         ); 
 
-        boolean ok = segmentManager.write(buf);
-        buf.release(buf.refCnt());
+        return segmentManager.write(payload);
+    }
 
-        return ok;
+    @Override
+    public @Nullable TopicRecord pull(int partition, String clientId) {
+        return pull(partition, clientId, -1);
     }
 
     @Nullable
     @Override
     public TopicRecord pull(int partition, String clientId, long offset) {
+        if (!Utils.isValid(clientId)) {
+            return null;
+        }   
+
         SegmentManager segmentManager = segmentManagers.get(partition);
         if (segmentManager == null) {
             return null;
@@ -118,10 +133,17 @@ public class DiskTopic implements Topic {
     public long offset(int partition, String clientId) {
         SegmentManager segmentManager = segmentManagers.get(partition);
         if (segmentManager == null) {
-            return 0;
+            return -1;
         }
 
         return segmentManager.offset(clientId);
+    }
+
+    @Override
+    public void clean() {
+        for (SegmentManager segmentManager : segmentManagers.values()) {
+            segmentManager.clean();
+        }
     }
 
     /**
@@ -129,7 +151,7 @@ public class DiskTopic implements Topic {
      */
     public void clearAll() {
         for (SegmentManager segmentManager : segmentManagers.values()) {
-            segmentManager.clear();
+            segmentManager.clearAll();
         }
 
         try {
@@ -148,7 +170,7 @@ public class DiskTopic implements Topic {
             return;
         }
 
-        segmentManager.clear();
+        segmentManager.clearAll();
     }
 
     public int segmentCount(int partition) {
@@ -161,7 +183,7 @@ public class DiskTopic implements Topic {
     }
 
     private void loadSegmentManagers() {
-        for (File dir : root.toFile().listFiles()) {
+        for (File dir : root.toFile().listFiles(File::isDirectory)) {
             int key = Integer.parseInt(dir.getName());
             SegmentManager value = new SegmentManager(dir.toPath(), segmentDuration, segmentRetention);
 

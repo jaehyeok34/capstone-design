@@ -1,19 +1,12 @@
 package capstone.design;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-
-import capstone.design.spy.SpyContext;
 import capstone.design.topic.memory.MemoryTopic;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 
 public class MemoryTopicTest {
 
@@ -21,28 +14,16 @@ public class MemoryTopicTest {
     private final int partition = 0;
     private final String clientId = "user";
     private final String message = "message";
-    private final int messageLength = message.length();
-    private final String topicName = "mem_topic";
-    private final List<ByteBuf> bufs = new ArrayList<>();
 
     void addData() {
         for (int i = 0; i < 2; i++) {
-            ByteBuf buf = Unpooled.copiedBuffer((message + i).getBytes());
-            topic.push(partition, clientId + i, buf.retain());
-
-            bufs.add(buf);
+            topic.push(partition, clientId + i, (message + i).getBytes(StandardCharsets.UTF_8));
         }
     }
 
     @BeforeEach
     void beforeEach() {
-        topic = new MemoryTopic(topicName);
-    }
-
-    @AfterEach
-    void afterEach() {
-        topic = null;
-        bufs.forEach(buf -> { if(buf.refCnt() > 0) buf.release(); });
+        topic = MemoryTopic.of(3000); // 3초 유지
     }
 
     @Test
@@ -68,36 +49,64 @@ public class MemoryTopicTest {
     void pullTest() {
         addData();
 
-        /*
-         * 커서 지정 시, 해당 커서 메시지 반환
-         * 커서 미지정 시, FIFO로 동작
-         */
-        assertEquals(message + 1, ((ByteBuf) topic.pull(partition, clientId + 0, 1).value()).readString(messageLength + 1, StandardCharsets.UTF_8));
-        assertEquals(message + 0, ((ByteBuf) topic.pull(partition, clientId + 0).value()).readString(messageLength + 1, StandardCharsets.UTF_8));
+        Object pulled0 =  topic.pull(partition, clientId + 0, 3L);
+        assertNull(pulled0);
+
+        String pulled1 = new String((byte[]) topic.pull(partition, clientId + 0, 1L).value(), StandardCharsets.UTF_8);
         
-        /*
-         * 동일 partition의 다른 id에는 pull 영향 없어야 하므로 1개 그대로 있어 함
-         */
-        assertEquals(1, topic.count(partition, clientId + 1));
+        // offset을 1로 지정했기 때문에 message1이 나와야 함
+        assertEquals(message + 1, pulled1);
+
+        String pulled2 = new String((byte[]) topic.pull(partition, clientId + 1).value(), StandardCharsets.UTF_8);
+        
+        // offset을 지정하지 않았기 때문에 message0이 나와야 함(FIFO)
+        assertEquals(message + 1, pulled2);
+
+        // clientId + 0은 원래 2개의 메시지가 있었고, 하나를 뻇으니까 1개 남아야 함
+        assertEquals(1, topic.count(partition, clientId + 0));
     }
 
     @Test
-    void subscribeTest() {
-        SpyContext context = new SpyContext();
+    void cleanTest() throws Exception {
+        topic.push(0, "user1", "msg1".getBytes(StandardCharsets.UTF_8));
+        topic.push(1, "user1", "msg2".getBytes(StandardCharsets.UTF_8));
 
-        // 구독자 확인
-        assertEquals(0, topic.subscriberManager().count(partition));
+        Thread.sleep(1000); // 1초 대기
+        topic.push(0, "user2", "msg3".getBytes(StandardCharsets.UTF_8));
+        topic.push(1, "user2", "msg4".getBytes(StandardCharsets.UTF_8));
 
-        // 구독 후 구독자수 확인
-        topic.subscribe(context, partition, "s1");
-        assertEquals(1, topic.subscriberManager().count(partition));
+        Thread.sleep(1000); // 1초 대기
+        topic.push(0, "user1", "msg5".getBytes(StandardCharsets.UTF_8));
+        topic.push(1, "user1", "msg6".getBytes(StandardCharsets.UTF_8));
 
-        // 없는 id로 구독 해제 시도
-        assertDoesNotThrow(() -> topic.unsubscribe(partition, "s0"));
-        assertEquals(1, topic.subscriberManager().count(partition));
+        /*
+         * user1은 2개고 user2는 1개씩 쌓이는 이유는
+         * user1이 먼저 push되면서 partition에 user1에 대한 저장소가 생성되어 있으므로
+         * user2가 push 하더라도 user1에게도 메시지가 쌓이기 때문
+         */
+        assertEquals(3, topic.count(0, "user1"));
+        assertEquals(3, topic.count(1, "user1"));
 
-        // 구독 해제 후 구독자수 확인
-        topic.unsubscribe(partition, "s1");
-        assertEquals(0, topic.subscriberManager().count(partition));
+        assertEquals(2, topic.count(0, "user2"));
+        assertEquals(2, topic.count(1, "user2"));
+
+        Thread.sleep(2000); // 2초 대기
+        
+        /*
+         * msg1, 2는 생성된지 4초가 경과하여 삭제되어야 함
+         * msg3, 4 역시 생성된지 3초가 경과하여 삭제되어야 함
+         */
+        topic.clean();
+
+        /*
+         * msg5(0), msg6(1)만 남아있기 때문에 각각 1개씩 남아야 함
+         * 1. 만료된 메시지가 잘 삭제 됐는지(msg1 ~ 4)
+         * 2. 정상적인 메시지는 삭제되지 않는지(msg5 ~ 6)
+         * 3. 모든 파티션, 저장소에 대해 동작하는지(user2역시 원래 2였는데 1로 줄어들었는지)
+         */
+        assertEquals(1, topic.count(0, "user1"));
+        assertEquals(1, topic.count(1, "user1"));
+        assertEquals(1, topic.count(0, "user2"));
+        assertEquals(1, topic.count(1, "user2"));
     }
 }

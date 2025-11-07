@@ -6,7 +6,6 @@ import capstone.design.topic.TopicRecord;
 
 import io.netty.channel.DefaultFileRegion;
 import io.netty.channel.FileRegion;
-import io.netty.util.ReferenceCounted;
 
 public class DiskRecord implements TopicRecord {
 
@@ -29,7 +28,5 @@ public class DiskRecord implements TopicRecord {
     @Override
     public int length() { return (int) region.count(); }
     @Override
-    public ReferenceCounted value() { return region; }
-    @Override
-    public void release() { region.release(region.refCnt()); }
+    public Object value() { return region; }
 }

@@ -1,30 +1,25 @@
 package capstone.design.topic.memory;
 
-import capstone.design.Utils;
 import capstone.design.topic.TopicRecord;
-import io.netty.buffer.ByteBuf;
-import io.netty.util.ReferenceCounted;
 
 public class MemoryRecord implements TopicRecord {
 
-    private final ByteBuf buf;
+    private final byte[] buf;
+    private final long createdTime;
     
-    private MemoryRecord(ByteBuf buf) {
-        Utils.validate(buf);
-        
+    public MemoryRecord(byte[] buf) {
         this.buf = buf;
+        this.createdTime = System.currentTimeMillis();
     }
 
-    public static MemoryRecord of(ByteBuf buf) { return new MemoryRecord(buf); }
+    @Override
+    public int length() { return buf.length; }
+    @Override
+    public Object value() { return buf; }
+
+    public long createdTime() { return createdTime; }
     
-    @Override
-    public int length() { return buf.readableBytes(); }
-    @Override
-    public ReferenceCounted value() { return buf; }
-    @Override
-    public void release() { 
-        if (buf.refCnt() > 0) {
-            buf.release(buf.refCnt());
-        }   
+    public boolean isExpired(long retention) {
+        return System.currentTimeMillis() - createdTime >= retention;
     }
 }

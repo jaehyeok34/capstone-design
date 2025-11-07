@@ -1,15 +1,12 @@
 package capstone.design.message;
 
-import java.io.FileReader;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-
 import capstone.design.Utils;
-import capstone.design.topic.TopicRecord;
+import capstone.design.topic.disk.DiskRecord;
+import capstone.design.topic.memory.MemoryRecord;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
@@ -18,16 +15,6 @@ import io.netty.channel.ChannelPromise;
 
 public class MessageEncoder extends ChannelOutboundHandlerAdapter {
     
-    private final static String PAYLOAD_TYPE = "5";
-    
-    private final String filePath;
-
-    public MessageEncoder(String filePath) {
-        Utils.validate(filePath);
-        
-        this.filePath = filePath;
-    }
-
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         if (msg instanceof Message message) {
@@ -35,75 +22,47 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
         }
     }
 
-    public List<Object> encode(ByteBufAllocator allocator, Message message) throws IOException {
-        List<Object> out = new LinkedList<>();
-        Properties props = new Properties();
-        try (FileReader reader = new FileReader(filePath)) {
-            props.load(reader);
-        }
+    public List<Object> encode(ByteBufAllocator allocator, Message message) {
+        List<Object> out = new ArrayList<>();
+        ByteBuf encoded = allocator.buffer();
+        int totalLength = 0;
 
-        ByteBuf encoded = allocator.buffer().writeInt(Utils.MAGIC);
-        ByteBuf in = allocator.buffer();
-        Object payload = null;
-
-        for (Map.Entry<String, Object> entry : message.options().entrySet()) {
+        for (Map.Entry<String, Object> entry : message.options().entrySet()) { 
             String key = entry.getKey();
-            Object option = entry.getValue();
-            if (!props.containsKey(key)) { // unknown option(TLVLV 형식)
-                byte[] buf = option.toString().getBytes(StandardCharsets.UTF_8);
-                in.writeByte(Byte.parseByte(Utils.UNKNOWN_OPTION_TYPE)) // type
-                    .writeInt(key.length()) // key length
-                    .writeBytes(key.getBytes(StandardCharsets.UTF_8)) // key value
-                    .writeInt(buf.length) // value length
-                    .writeBytes(buf); // value
-                continue;
-            }
+            Object value = entry.getValue();
 
-            String optionType = props.getProperty(key);
-            if (optionType.equals(PAYLOAD_TYPE)) { // payload 라면 lazy 처리
-                payload = option;
-                continue;
-            } 
+            // key 추가
+            encoded.writeShort(key.length())
+                .writeBytes(key.getBytes(StandardCharsets.UTF_8));
 
-            writeOption(in, optionType, option); // TLV 형식
-        }
+            // value 추가
+            switch (value) {
+                case DiskRecord record -> {
+                    encoded.writeInt(record.length());
+                    out.add(encoded);
+                    out.add(record.value());
 
-        int weight = 0;
-        if (payload != null) {
-            in.writeByte(Byte.parseByte(PAYLOAD_TYPE)); // type
-
-            /*
-             * payload를 항상 마지막에 처리하는 이유는
-             * payload가 TopicRecord일 때, 실제 구현체가 DiskTopic 이면 value()가 FileRegion이기 때문에
-             * ByteBuf에 담을 수 없음. 따라서 length 정보만 담아두고 가중치 값 증가시켜 
-             * message total length 계산 시 반영하도록 함
-             */
-            if (payload instanceof TopicRecord record) { 
-                in.writeInt(record.length());
-                weight = record.length();
-                out.add(record.value());
-            } else if (payload instanceof ByteBuf buf) {
-                in.writeInt(buf.readableBytes()).writeBytes(buf);
-            } else if (payload instanceof byte[] buf) {
-                in.writeInt(buf.length).writeBytes(buf);
-            } else { 
-                in.writeInt(0);
+                    // 지금까지 기록한 옵션 길이 + record 길이 반영
+                    totalLength += encoded.readableBytes() + record.length();
+                    encoded = allocator.buffer();
+                }
+                case MemoryRecord record -> write(encoded, (byte[]) record.value());
+                case byte[] buf -> write(encoded, buf);
+                default -> write(encoded, value.toString().getBytes(StandardCharsets.UTF_8));
             }
         }
+        out.add(encoded);
 
-        encoded.writeLong(in.readableBytes() + weight) // message total length
-            .writeBytes(in); // message options
-
-        out.addFirst(encoded);
+        totalLength += encoded.readableBytes();
+        ByteBuf header = allocator.buffer()
+            .writeInt(Utils.MAGIC)
+            .writeLong(totalLength);
+        out.addFirst(header);
 
         return out;
     }
 
-    private void writeOption(ByteBuf in, String optionType, Object option) {
-        byte[] buf = option.toString().getBytes(StandardCharsets.UTF_8);
-
-        in.writeByte(Byte.parseByte(optionType)) // type
-            .writeInt(buf.length) // length
-            .writeBytes(buf); // value
+    private void write(ByteBuf buf, byte[] data) {
+        buf.writeInt(data.length).writeBytes(data);
     }
 }

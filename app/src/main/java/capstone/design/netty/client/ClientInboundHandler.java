@@ -28,19 +28,22 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
     
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (msg instanceof Message message) {
-            Byte type = message.option(MessageOption.MESSAGE_TYPE, Byte.class);
-            
-            Utils.validate(type);
+        Message message = (msg instanceof Message m) ? m : null;
+        if (message == null) {
+            return;
+        }
+
+        Byte type = message.optionAsByte(MessageOption.MESSAGE_TYPE);
+        Utils.validate(type);
 
             switch (MessageType.values()[type]) {
                 case TOPIC_UPDATED -> {
-                    String topicName = message.option(MessageOption.TOPIC_NAME, String.class);
+                    String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
                     if (topicName == null) { // 토픽 정보가 없으면 알림 X
                         return; 
                     }
                     
-                    int partition = message.option(MessageOption.PARTITION, Integer.class);
+                    Integer partition = message.optionAsInt(MessageOption.PARTITION);
                     BlockingQueue<Message> queue = subscriptions.apply(topicName, partition);
                     if (queue == null) { // 구독 정보가 없으면 알림 X
                         return;
@@ -50,7 +53,7 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
                 }
 
                 default -> {
-                    Integer requestId = message.option(MessageOption.REQUEST_ID, Integer.class);
+                    Integer requestId = message.optionAsInt(MessageOption.REQUEST_ID);
                     if (requestId == null) {
                         /*
                          * RES_XXX 메시지인데, 요청 ID가 없다는 것은
@@ -73,6 +76,5 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
                     future.complete(message);
                 }
             }
-        }
     }
 }

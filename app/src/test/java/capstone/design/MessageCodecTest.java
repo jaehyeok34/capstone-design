@@ -1,11 +1,12 @@
 package capstone.design;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
@@ -15,111 +16,87 @@ import org.junit.jupiter.api.Test;
 import capstone.design.message.Message;
 import capstone.design.message.MessageDecoder;
 import capstone.design.message.MessageEncoder;
-import capstone.design.message.MessageType;
+import capstone.design.topic.TopicRecord;
+import capstone.design.topic.memory.MemoryRecord;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 
 public class MessageCodecTest {
     
     MessageEncoder encoder;
     MessageDecoder decoder;
-    Message msg;
-
-    final String filePath = "../option_mapping_table.properties";
 
     @BeforeEach
     void beforeEach() {
-        encoder = new MessageEncoder(filePath);
-        decoder = new MessageDecoder(filePath);
-        msg = new Message().addOptions(Map.of(
-            "message_type", MessageType.REQ_PULL.getByte(),
-            "client_id", "user",
-            "topic_name", "topic",
-            "partition", 0,
-            "cursor", 12L,
-            "offset", 34L,
-            "remaining_count", 100L,
-            "invalid_option", "hello world",
-            "success", 1,
-            "payload", "hello world".getBytes()
-        ));
-        msg.addOption("request_id", 12345);
+        encoder = new MessageEncoder();
+        decoder = new MessageDecoder();
     }
 
     @AfterEach
     void afterEach() {
         encoder = null;
         decoder = null;
-        msg = null;
     }
 
     @Test
     void encodeTest() throws IOException {
-        ByteBuf encoded = (ByteBuf) encoder.encode(ByteBufAllocator.DEFAULT, msg).get(0);
-        assertEquals(Utils.MAGIC, encoded.readInt());
-        
-        long length = encoded.readLong();
-        
-        System.out.println("Total length: " + length);
-        System.out.println(encoded.readString(encoded.readableBytes(), StandardCharsets.UTF_8));        
-    }
+        Message msg = Message.of(Map.of(
+            "o1", 123,
+            "o2", "456"
+        ));
+
+        List<Object> encoded1 = encoder.encode(ByteBufAllocator.DEFAULT, msg);
+
+        /*
+         * TopicRecord가 포함되지 않는 메시지의 경우
+         * 내부적으로 하나의 ByteBuf에 모든 옵션이 기록되어 List에 전달되기 때문
+         * 따라서 header buf + option buf = 2개
+         */
+        assertEquals(2, encoded1.size());
+
+        TopicRecord record = new MemoryRecord("789".getBytes(StandardCharsets.UTF_8));
+        msg.addOption("payload", record);
+
+        List<Object> encoded2 = encoder.encode(ByteBufAllocator.DEFAULT, msg);
+
+        /*
+         * TopicRecord가 포함되었기 때문에
+         * 내부적으로 ByteBuf에 옵션들을 list에 추가하고,
+         * record를 처리한 다음에
+         * 새로운 ByteBuf에 마저 옵션을 저장하고, list에 최종 추가하기 때문
+         * 따라서 header buf + option buf 1 + record buf + option buf 2 = 4개
+         */
+        assertEquals(4, encoded2.size());
+
+        ByteBuf buf2 = (ByteBuf) encoded2.getFirst();
+
+        /*
+         * key length(2) + key(2, "o1") + value length(4) + value(3, "123")
+         * + key length(2) + key(2, "o2") + value length(4) + value(3, "456")
+         * + key length(2) + key(7, "payload") + value length(4) + value(3, "789")
+         * = 38
+         */
+        assertEquals(38, buf2.skipBytes(4).readLong()); // total length
+        }
 
     @Test
     void decodeTest() throws Exception {
-        ByteBuf encoded = (ByteBuf) encoder.encode(ByteBufAllocator.DEFAULT, msg).get(0);
-        System.out.println(ByteBufUtil.hexDump(encoded));
-        Message decoded = decoder.decode(encoded);
-
-        assertEquals(11, decoded.options().size());
-
-        assertEquals(MessageType.REQ_PULL.getByte(), decoded.option("message_type"));
-
-        assertInstanceOf(String.class, decoded.option("client_id"));
-        assertEquals("user", decoded.option("client_id"));
-
-        assertInstanceOf(String.class, decoded.option("topic_name"));
-        assertEquals("topic", decoded.option("topic_name"));
-
-        assertInstanceOf(Integer.class, decoded.option("partition"));
-        assertEquals(0, decoded.option("partition"));
-
-        assertInstanceOf(Long.class, decoded.option("cursor"));
-        assertEquals(12L, decoded.option("cursor"));
-
-        assertInstanceOf(Long.class, decoded.option("offset"));
-        assertEquals(34L, decoded.option("offset"));
-
-        assertInstanceOf(Long.class, decoded.option("remaining_count"));
-        assertEquals(100L, decoded.option("remaining_count"));
-
-        assertInstanceOf(Byte.class, decoded.option("success"));
-        assertTrue((byte) decoded.option("success") != 0);
-
-        assertInstanceOf(ByteBuf.class, decoded.option("payload"));
-        assertEquals("hello world", decoded.option("payload", ByteBuf.class).readString("hello world".length(), StandardCharsets.UTF_8));
-
-        assertInstanceOf(Integer.class, decoded.option("request_id"));
-        assertEquals(12345, decoded.option("request_id"));
-
-        if (encoded.refCnt() > 0) {
-            encoded.release();
-        }
-    }
-
-    @Test
-    void customeOptionTest() throws Exception {
-        Message msg = new Message().addOptions(Map.of(
-            "c1", 123,
-            "c2", "custom option",
-            "c3", -277
+        Message msg = Message.of(Map.of(
+            "o1", 123,
+            "o2", "456",
+            "o3", new byte[] {7, 8, 9}
         ));
 
-        ByteBuf encoded = (ByteBuf) encoder.encode(ByteBufAllocator.DEFAULT, msg).get(0);
-        Message decoded = decoder.decode(encoded);
+        List<Object> encoded = encoder.encode(ByteBufAllocator.DEFAULT, msg);
+        ByteBuf buf = Unpooled.wrappedBuffer(
+            (ByteBuf) encoded.get(0), (ByteBuf) encoded.get(1)
+        );
+        Message decoded = decoder.decode(buf);
+
         assertEquals(3, decoded.options().size());
-        assertEquals(123, Integer.parseInt((String) decoded.option("c1")));
-        assertEquals("custom option", decoded.option("c2"));
-        assertEquals(-277, Integer.parseInt((String) decoded.option("c3")));
+        assertEquals(123, Integer.parseInt(new String((byte[]) decoded.option("o1"), StandardCharsets.UTF_8)));
+        assertEquals("456", new String((byte[]) decoded.option("o2"), StandardCharsets.UTF_8));
+        assertTrue(Arrays.equals(new byte[] {7, 8, 9}, (byte[]) decoded.option("o3")));
     }
 }

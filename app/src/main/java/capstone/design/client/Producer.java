@@ -11,41 +11,27 @@ import capstone.design.netty.client.NettyClient;
 public class Producer implements AutoCloseable {
 
     private final NettyClient client;
-    private final String client_id;
 
-    public Producer(String host, int port, String clientId, String filePath) throws Exception {
-        this.client = new NettyClient(host, port, filePath);
-        this.client_id = (clientId != null && !clientId.isEmpty()) ? clientId : NettyClient.DEFAULT_ID;
+    public Producer(String host, int port, String clientId) throws Exception {
+        this.client = new NettyClient(host, port, clientId);
     }
-    public Producer(String host, int port, String clientId) throws Exception { this(host, port, clientId, null); }
-    public Producer(String host, int port) throws Exception { this(host, port, null, null); }
-
-    private Message createMessage(String topicName, int partition, byte[] payload) {
-        Utils.validate(topicName, payload);
-
-        return new Message().addOptions(Map.of(
-            MessageOption.MESSAGE_TYPE, MessageType.REQ_PUSH.getByte(),
-            MessageOption.CLIENT_ID, client_id,
-            MessageOption.TOPIC_NAME, topicName,
-            MessageOption.PARTITION, partition,
-            MessageOption.PAYLOAD, payload
-        ));
-    }
+    public Producer(String host, int port) throws Exception { this(host, port, null); }
 
     /**
      * 서버에 REQ_PUSH 메시지 보내고 바로 반환
      */
     public void asyncProducer(Message message) {
         Utils.validate(message);
-
         client.command(message);
     }
 
     public void asyncProduce(String topicName, int partition, byte[] payload) {
+        Utils.validate(topicName, payload);
         asyncProducer(createMessage(topicName, partition, payload));
     }
 
     public void asyncProduce(String topicName, int partition, String payload) {
+        Utils.validate(payload);
         asyncProduce(topicName, partition, payload.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -54,19 +40,12 @@ public class Producer implements AutoCloseable {
      */
     public Message syncProduce(Message message) {
         Utils.validate(message);
-
         return client.request(message).join();
     }
 
     public Message syncProduce(String topicName, int partition, byte[] payload) {
-        Message message = createMessage(topicName, partition, payload);
-
-        /*
-         * 서버의 응답 대기
-         * 현재는 응답 메시지를 해석조차 하지 않음. 즉,
-         * 서버에서 RES_PUSH 메시지 이외의 메시지가 오더라도 일단은 RES_PUSH 메시지가 왔다고 간주함
-         */
-        return syncProduce(message);
+        Utils.validate(topicName, payload);
+        return syncProduce(createMessage(topicName, partition, payload));
     }
 
     public Message syncProduce(String topicName, int partition, String payload) {
@@ -77,5 +56,14 @@ public class Producer implements AutoCloseable {
     @Override
     public void close() throws Exception { 
         client.shutdown();
+    }
+
+    private Message createMessage(String topicName, int partition, byte[] payload) {
+        return Message.of(Map.of(
+            MessageOption.MESSAGE_TYPE, MessageType.REQ_PUSH.getByte(),
+            MessageOption.TOPIC_NAME, topicName,
+            MessageOption.PARTITION, partition,
+            MessageOption.PAYLOAD, payload
+        ));
     }
 }

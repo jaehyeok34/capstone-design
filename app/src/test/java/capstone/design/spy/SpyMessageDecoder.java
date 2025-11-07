@@ -9,10 +9,6 @@ import io.netty.channel.ChannelHandlerContext;
 
 public class SpyMessageDecoder extends MessageDecoder {
 
-    public SpyMessageDecoder(String filePath) {
-        super(filePath);
-    }
-    
     public void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         super.decode(ctx, in, out);
     }
