@@ -2,6 +2,7 @@ package capstone.design.client;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageOption;
@@ -20,14 +21,14 @@ public class Producer implements AutoCloseable {
     /**
      * 서버에 REQ_PUSH 메시지 보내고 바로 반환
      */
-    public void asyncProducer(Message message) {
+    public void asyncProduce(Message message) {
         Utils.validate(message);
         client.command(message);
     }
 
     public void asyncProduce(String topicName, int partition, byte[] payload) {
         Utils.validate(topicName, payload);
-        asyncProducer(createMessage(topicName, partition, payload));
+        asyncProduce(createMessage(topicName, partition, payload));
     }
 
     public void asyncProduce(String topicName, int partition, String payload) {
@@ -38,19 +39,19 @@ public class Producer implements AutoCloseable {
     /**
      * 서버에 REQ_PUSH 메시지 보내고, 서버에서 응답이 올 때까지 대기
      */
-    public Message syncProduce(Message message) {
+    public Message syncProduce(Message message, long timeout) throws Exception {
         Utils.validate(message);
-        return client.request(message).join();
+        return client.request(message).get(timeout, TimeUnit.MILLISECONDS);
     }
 
-    public Message syncProduce(String topicName, int partition, byte[] payload) {
+    public Message syncProduce(String topicName, int partition, byte[] payload, long timeout) throws Exception {
         Utils.validate(topicName, payload);
-        return syncProduce(createMessage(topicName, partition, payload));
+        return syncProduce(createMessage(topicName, partition, payload), timeout);
     }
 
-    public Message syncProduce(String topicName, int partition, String payload) {
+    public Message syncProduce(String topicName, int partition, String payload, long timeout) throws Exception {
         Utils.validate(payload);
-        return syncProduce(topicName, partition, payload.getBytes(StandardCharsets.UTF_8));
+        return syncProduce(topicName, partition, payload.getBytes(StandardCharsets.UTF_8), timeout);
     }
 
     @Override
