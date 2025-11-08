@@ -26,6 +26,8 @@ public class MessageCleaner {
                     for (Topic topic : topics) {
                         topic.clean();
                     }
+                } catch (InterruptedException e) {
+                    break;
                 } catch (Exception e) {
                     System.err.println("MessageCleaner: " + e);
                 }
