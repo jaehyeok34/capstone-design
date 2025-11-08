@@ -1,5 +1,6 @@
 from queue import Queue
 import threading
+from typing import Any, Callable
 from py_client.consumer import Consumer
 from py_client.message.message import Message
 from py_client.message.message_option import MessageOption
@@ -7,7 +8,7 @@ from py_client.message.message_type import MessageType
 from py_client.producer import Producer
 
 
-class Requester:
+class Agent:
 
     def __init__(self, producer: Producer, consumer: Consumer):
         self.producer = producer
@@ -27,8 +28,6 @@ class Requester:
                 raise Exception("produce 실패")
             
             notified: Message = notified_queue.get(timeout=timeout)
-            notified.add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL.value)
-
             consumed = self.consumer.consume(notified, timeout)
             if consumed is None:
                 raise Exception("consume 실패")
@@ -42,4 +41,24 @@ class Requester:
             stop_event.set()
             notifier.join()
 
+    def respond(self, consume_message: Message, handler: Callable[[Message], Any], timeout: float | None = None):
+        notified_queue = Queue()
+        stop_event = threading.Event()
+        notifier = self.consumer.subscribe(consume_message, stop_event, notified_queue, timeout)
+        if notifier is None:
+            return
+        
+        try:
+            notified = notified_queue.get(timeout=timeout)
+            consumed = self.consumer.consume(notified, timeout)
+            if consumed is None:
+                raise Exception("consume 실패")
+            
+            return handler(consumed)
+        
+        except Exception as e:
+            print("Agent.respond():", e)
 
+        finally:
+            stop_event.set()
+            notifier.join()
