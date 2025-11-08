@@ -39,19 +39,19 @@ public class Producer implements AutoCloseable {
     /**
      * 서버에 REQ_PUSH 메시지 보내고, 서버에서 응답이 올 때까지 대기
      */
-    public Message syncProduce(Message message, long timeout) throws Exception {
+    public Message syncProduce(Message message, int timeout, TimeUnit unit) throws Exception {
         Utils.validate(message);
-        return client.request(message).get(timeout, TimeUnit.MILLISECONDS);
+        return client.request(message).get(timeout, unit);
     }
 
-    public Message syncProduce(String topicName, int partition, byte[] payload, long timeout) throws Exception {
+    public Message syncProduce(String topicName, int partition, byte[] payload, int timeout, TimeUnit unit) throws Exception {
         Utils.validate(topicName, payload);
-        return syncProduce(createMessage(topicName, partition, payload), timeout);
+        return syncProduce(createMessage(topicName, partition, payload), timeout, unit);
     }
 
-    public Message syncProduce(String topicName, int partition, String payload, long timeout) throws Exception {
+    public Message syncProduce(String topicName, int partition, String payload, int timeout, TimeUnit unit) throws Exception {
         Utils.validate(payload);
-        return syncProduce(topicName, partition, payload.getBytes(StandardCharsets.UTF_8), timeout);
+        return syncProduce(topicName, partition, payload.getBytes(StandardCharsets.UTF_8), timeout, unit);
     }
 
     @Override

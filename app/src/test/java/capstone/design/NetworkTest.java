@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import capstone.design.broker.Broker;
 import capstone.design.client.Consumer;
 import capstone.design.client.Producer;
@@ -69,7 +71,7 @@ public class NetworkTest {
                  * 존재하지 않는 토픽에 메시지 전송
                  * 응답 메시지에 ok=0 포함됨
                  */
-                Message response = producer.syncProduce("invalid_topic", 0, msg);
+                Message response = producer.syncProduce("invalid_topic", 0, msg, 9999, TimeUnit.SECONDS);
                 assertTrue(response.optionAsByte("ok").equals((byte) 0));
 
                 /*
@@ -77,7 +79,7 @@ public class NetworkTest {
                  * 내부적으로 파티션을 생성하여 추가하기 때문에 ok=1
                  * 또한, 값이 정상적으로 추가 됐는지 확인
                  */
-                response = producer.syncProduce(t1, 99, msg);
+                response = producer.syncProduce(t1, 99, msg, 9999, TimeUnit.SECONDS);
                 assertTrue(response.optionAsByte("ok").equals((byte) 1));
                 assertEquals(1, broker.topic(t1).count(99, "user"));
             });
@@ -153,7 +155,7 @@ public class NetworkTest {
             ExecutorService notifier2 = consumer2.subscribe(t1, 0, notified);
             
             // producer가 토픽에 데이터 추가
-            Message response = producer.syncProduce(t1, 0, "msg".getBytes(StandardCharsets.UTF_8));
+            Message response = producer.syncProduce(t1, 0, "msg".getBytes(StandardCharsets.UTF_8), 9999, TimeUnit.SECONDS);
             assertTrue(response.optionAsByte("ok").equals((byte) 1));
 
             Thread.sleep(1000); // 알림 받을 시간 대기
@@ -165,7 +167,7 @@ public class NetworkTest {
             notifier2.shutdownNow();
 
             // 다시 데이터 추가
-            response = producer.syncProduce(t1, 0, "msg".getBytes(StandardCharsets.UTF_8));
+            response = producer.syncProduce(t1, 0, "msg".getBytes(StandardCharsets.UTF_8), 9999, TimeUnit.SECONDS);
             assertTrue(response.optionAsByte("ok").equals((byte) 1));
 
             Thread.sleep(1000); // 알림 받을 시간 대기
