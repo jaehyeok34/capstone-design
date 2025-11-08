@@ -23,22 +23,12 @@ class Consumer:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.client.close()
     
-    def consume_(self, message: Message):
-        return self.client.request(message).result()
+    def consume(self, message: Message, timeout: float | None = None):
+        try:
+            return self.client.request(message).result(timeout)
         
-    def consume(self, topic_name: str, partition, offset: int = -1):
-        Utils.validate(topic_name)
-
-        message = Message().add_options({
-            MessageOption.MESSAGE_TYPE: MessageType.REQ_PULL,
-            MessageOption.TOPIC_NAME: topic_name,
-            MessageOption.PARTITION: partition
-        })
-
-        if offset >= 0:
-            message.add_option(MessageOption.OFFSET, offset)
-
-        return self.consume_(message)
-    
-    def subscribe(self, topic_name: str, partition: int, event: Event, out: Queue[Message]):
-        return self.client.subscribe(topic_name, partition, event, out)
+        except Exception:
+            return None
+        
+    def subscribe(self, message: Message, event: Event, out: Queue[Message], timeout: float | None = None):
+        return self.client.subscribe(message, event, out, timeout)

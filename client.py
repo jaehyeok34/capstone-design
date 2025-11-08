@@ -107,17 +107,23 @@ class Client:
 
         return future
     
-    def subscribe(self, topic_name: str, partition: int, event: Event, out: Queue):
-        message = Message().add_options({
-            MessageOption.MESSAGE_TYPE: MessageType.REQ_SUBSCRIBE,
-            MessageOption.TOPIC_NAME: topic_name,
-            MessageOption.PARTITION: partition
-        })
+    def subscribe(self, message: Message, event: Event, out: Queue, timeout: float | None = None):
+        message = Message().add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_SUBSCRIBE.value)
 
         # 구독 요청
-        response: Message = self.request(message).result()
-        message_type = response.option_as_byte(MessageOption.MESSAGE_TYPE)
-        if (message_type is None) or (message_type != MessageType.RES_SUBSCRIBE.value):
+        try:
+            response: Message = self.request(message).result(timeout)
+            message_type = response.option_as_byte(MessageOption.MESSAGE_TYPE)
+            if (message_type is None) or (message_type != MessageType.RES_SUBSCRIBE.value):
+                raise Exception("구독 실패")
+        
+        except Exception as e:
+            print("Client.subscribe():", e)
+            return None
+        
+        topic_name = message.option_as_str(MessageOption.TOPIC_NAME)
+        partition = message.option_as_int(MessageOption.PARTITION)
+        if (topic_name is None) or (partition is None):
             return None
 
         partition_map: Dict[int, Queue] = self.subscriptions.get(topic_name, {})

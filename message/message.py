@@ -44,6 +44,13 @@ class Message:
     def option_as_byte(self, key: str):
         return self.option_as_int(key)
     
+    def option_as_bytes(self, key: str):
+        value = self.options.get(key, None)
+        if (value is None) or (not isinstance(value, (bytes, bytearray))):
+            return None
+        
+        return bytes(value)
+    
     def get_options(self):
         return self.options
     
