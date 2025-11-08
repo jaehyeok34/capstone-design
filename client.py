@@ -108,7 +108,7 @@ class Client:
         return future
     
     def subscribe(self, message: Message, event: Event, out: Queue, timeout: float | None = None):
-        message = Message().add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_SUBSCRIBE.value)
+        message.add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_SUBSCRIBE.value)
 
         # 구독 요청
         try:
