@@ -40,16 +40,7 @@ public class MemoryTopic implements Topic {
     public boolean push(int partition, String clientId, byte[] buf) {
         Utils.validate(clientId, buf);
 
-        Map<String, List<MemoryRecord>> partitionMap = topic.computeIfAbsent(
-            partition, 
-            ignored -> new ConcurrentHashMap<>()
-        );
-
-        // partition에 id에 해당하는 큐가 없다면 새롭게 생성
-        partitionMap.computeIfAbsent(
-            clientId, 
-            ignored -> Collections.synchronizedList(new ArrayList<>())
-        );
+        Map<String, List<MemoryRecord>> partitionMap = partitionMap(partition, clientId);
 
         // partition의 모든 구독자에게 레코드 추가
         for (List<MemoryRecord> storage : partitionMap.values()) {
@@ -80,8 +71,7 @@ public class MemoryTopic implements Topic {
          */
         offset = (offset < 0) ? 0 : offset;
         try {
-            // return storage.remove((int) offset);
-            MemoryRecord record = storage.get((int) offset);
+            MemoryRecord record = storage.remove((int) offset);
             if (record.isExpired(retention)) {
                 System.err.println("MemoryTopic.pull(): 만료된 레코드");
                 return null;
@@ -99,11 +89,13 @@ public class MemoryTopic implements Topic {
 
     @Override
     public void subscribe(ChannelHandlerContext context, int partition, String clientId) {
+        partitionMap(partition, clientId); // 구독 전에 storage가 생성되도록 함
         subscriberManager.subscribe(context, partition, clientId);
     }
 
     @Override
     public void unsubscribe(int partition, String clientId) {
+        topic.get(partition).remove(clientId); // storage도 같이 제거
         subscriberManager.unsubscribe(partition, clientId);
     }
 
@@ -151,5 +143,21 @@ public class MemoryTopic implements Topic {
         }
 
         return partitionMap.get(clientId);
+    }
+
+    /**
+     * partition에 해당하는 partition map을 반환
+     * 만약 존재하지 않는다면 새롭게 생성(client id에 해당하는 storage도 함께 생성)
+     */
+    private Map<String, List<MemoryRecord>> partitionMap(int partition, String clientId) {
+        Map<String, List<MemoryRecord>> partitionMap = topic.computeIfAbsent(
+            partition, ignored -> new ConcurrentHashMap<>()
+        );
+
+        partitionMap.computeIfAbsent(
+            clientId, ignored -> Collections.synchronizedList(new ArrayList<>())
+        );
+
+        return partitionMap;
     }
 }
