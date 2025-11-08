@@ -5,17 +5,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 import capstone.design.message.Message;
 import capstone.design.message.MessageOption;
 import capstone.design.message.MessageType;
 
-public class Requester {
+public class Agent {
 
     private final Producer producer;
     private final Consumer consumer;
     
-    public Requester(Producer producer, Consumer consumer) {
+    public Agent(Producer producer, Consumer consumer) {
         this.producer = producer;
         this.consumer = consumer;
     }
@@ -50,10 +51,47 @@ public class Requester {
 
             return consumed;
         } catch (Exception e) {
-            System.err.println("Requester.request(): " + e);
+            System.err.println("Agent.request(): " + e);
             return null;
         } finally {
             notifier.shutdownNow();
         }
+    }
+
+    public void respond(Message consumeMessage, Message produceMessage, Function<Message, byte[]> handler, int timeout, TimeUnit unit) {
+        BlockingQueue<Message> notifiedQueue = new LinkedBlockingQueue<>();
+        ExecutorService notifier;
+        try {
+            notifier = consumer.subscribe(consumeMessage, notifiedQueue, timeout, unit);
+            if (notifier == null) {
+                throw new Exception("구독 실패");
+            }
+        } catch (Exception e) {
+            System.err.println("Agent.respond(): " + e);
+            return;
+        }
+
+        while (true) {
+            try {
+                Message notified = notifiedQueue.poll(timeout, unit);
+                if (notified == null) {
+                    continue;
+                }
+
+                Message consumed = consumer.consume(notified, timeout, unit);
+                if (consumed == null) {
+                    continue;
+                }
+
+                byte[] result = handler.apply(consumed);
+                produceMessage.addOption(MessageOption.PAYLOAD, result);
+                producer.asyncProduce(produceMessage);
+            } catch (Exception e) {
+                System.out.println("Agent.respond(): " + e);
+                break;
+            }
+        }
+
+        notifier.shutdownNow();
     }
  }
