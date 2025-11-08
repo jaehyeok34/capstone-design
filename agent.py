@@ -61,7 +61,8 @@ class Agent:
 
             except Exception as e:
                 print("Agent.respond():", e)
+                break
 
-            finally:
-                stop_event.set()
-                notifier.join(timeout=timeout)
+        print("Agent.respond 종료 대기..")
+        stop_event.set()
+        notifier.join(timeout=timeout)
