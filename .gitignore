@@ -1,7 +1,0 @@
-converter/
-py_client/
-new_message_broker/
-join_key_finder/
-.vscode/
-DS_Store
-.venv/
