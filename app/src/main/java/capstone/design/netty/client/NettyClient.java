@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import capstone.design.Utils;
@@ -113,21 +114,25 @@ public class NettyClient {
      * 특정 토픽/파티션을 구독하고, 메시지가 업데이트되면 out 큐에 TOPIC_UPDATED를 포함한 메시지가 담김
      * 따라서, out 큐를 blocking하게 모니터링해서 TOPIC_UPDATED 메시지를 처리할 수 있음
      */
-    public ExecutorService subscribe(String topicName, int partition, Collection<Message> out) {
-        Utils.validate(topicName, out);
-
-        Message request = Message.of(Map.of(
-            MessageOption.MESSAGE_TYPE, MessageType.REQ_SUBSCRIBE.getByte(),
-            MessageOption.TOPIC_NAME, topicName,
-            MessageOption.PARTITION, partition
-        ));
+    public ExecutorService subscribe(Message message, Collection<Message> out, int timeout, TimeUnit unit) {
+        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.REQ_SUBSCRIBE.getByte());
 
         // 구독 요청
-        Message response = request(request).join(); // 구독 요청 대기
-        Byte messageType = response.optionAsByte(MessageOption.MESSAGE_TYPE);
-        if (messageType == null || messageType != MessageType.RES_SUBSCRIBE.getByte()) {
-            return null; // 구독 실패
+        Message response;
+        try {
+            response = request(message).get(timeout, unit);
+            Byte messageType = response.optionAsByte(MessageOption.MESSAGE_TYPE);
+            if (messageType == null || messageType != MessageType.RES_SUBSCRIBE.getByte()) {
+                throw new Exception("구독 실패");
+            }
+        } catch (Exception e) { 
+            System.err.println("NettyClient.subscribe(): " + e);
+            return null; 
         }
+
+
+        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
+        int partition = message.optionAsInt(MessageOption.PARTITION);
         
         /*
          * subscriptions 맵은 실제 메시지가 저장되는 토픽/파티션의 저장소와 별도의 공간으로
@@ -162,6 +167,13 @@ public class NettyClient {
         });
 
         return executor;
+    }
+
+    public ExecutorService subscribe(String topicName, int partition, Collection<Message> out, int timeout, TimeUnit unit) {
+        return subscribe(Message.of(Map.of(
+            MessageOption.TOPIC_NAME, topicName,
+            MessageOption.PARTITION, partition
+        )), out, timeout, unit);
     }
 
     public void unsubscribe(String topicName, int partition) {

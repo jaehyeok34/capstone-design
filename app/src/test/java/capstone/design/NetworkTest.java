@@ -119,11 +119,11 @@ public class NetworkTest {
     @Test
     void invalidTopicConsumeTest() throws Exception {
         try (Consumer consumer = new Consumer("localhost", port, "user")) {
-            Message response = consumer.consume(t1, 0);
+            Message response = consumer.consume(t1, 0, 5, TimeUnit.SECONDS);
             assertTrue(response.optionAsByte("ok").equals((byte) 0));
             assertEquals(null, response.option("payload"));
 
-            response = consumer.consume(t2, 0);
+            response = consumer.consume(t2, 0, 5, TimeUnit.SECONDS);
             assertTrue(response.optionAsByte("ok").equals((byte) 0));
             assertEquals(null, response.option("payload"));
         }
@@ -133,11 +133,11 @@ public class NetworkTest {
     void consumeTest() throws Exception {
         addData();
         try (Consumer consumer = new Consumer("localhost", port, "user")) {
-            Message response = consumer.consume(t1, 0, 1); // 잘못된 offset
+            Message response = consumer.consume(t1, 0, 3, 1, TimeUnit.SECONDS); // 잘못된 offset
             assertTrue(response.optionAsByte("ok").equals((byte) 0));
             assertEquals(null, response.option("payload"));
 
-            response = consumer.consume(t1, 0); // offset 생략 == FIFO
+            response = consumer.consume(t1, 0, 5, TimeUnit.SECONDS); // offset 생략 == FIFO
             assertTrue(response.optionAsByte("ok").equals((byte) 1));
             assertEquals(new String(msg, StandardCharsets.UTF_8), response.optionAsString("payload"));
         }
@@ -151,9 +151,9 @@ public class NetworkTest {
             Producer producer = new Producer("localhost", port, "p1")
         ) {
             List<Message> notified = new ArrayList<>();
-            ExecutorService notifier1 = consumer1.subscribe(t1, 0, notified);
-            ExecutorService notifier2 = consumer2.subscribe(t1, 0, notified);
-            
+            ExecutorService notifier1 = consumer1.subscribe(t1, 0, notified, 9999, TimeUnit.SECONDS);
+            ExecutorService notifier2 = consumer2.subscribe(t1, 0, notified, 9999, TimeUnit.SECONDS);
+
             // producer가 토픽에 데이터 추가
             Message response = producer.syncProduce(t1, 0, "msg".getBytes(StandardCharsets.UTF_8), 9999, TimeUnit.SECONDS);
             assertTrue(response.optionAsByte("ok").equals((byte) 1));
