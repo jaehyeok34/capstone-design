@@ -20,7 +20,7 @@ import io.netty.channel.ChannelHandlerContext;
 
 public class DiskTopic implements Topic {
 
-    private static final String DEFAULT_TOPIC_DIR = "./topic";
+    private static final String DEFAULT_TOPIC_DIR = "./disk_topics";
     private static final long DEFAULT_SEGMENT_DURATION = 10 * (60 * 1000); // 10분
     private static final long DEFAULT_SEGMENT_RETENTION = 30 * (60 * 1000); // 30분
 
