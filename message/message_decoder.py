@@ -6,11 +6,10 @@ from py_client.utils import Utils
 
 class MessageDecoder:
 
-    def __init__ (self, file_path: str):
-        self.file_path = file_path
+    def __init__ (self):
         self.buffer = bytearray()
-        self.state = 0 # read magic
         self.total_length = 0
+        self.state = 0 # 0: magic, 1: length, 2: message
     
     def decode(self, data: bytes):
         self.buffer.extend(data)
@@ -25,23 +24,20 @@ class MessageDecoder:
                     break
 
             elif self.state == 2: # read message
-                message = self.__read_message()
-                if message is None:
-                    break
-
-                return message
+                return self.__read_message()
 
         return None
-    
+
     def __read_magic(self):
         while len(self.buffer) >= 4:
             magic = struct.unpack('>I', self.buffer[:4])[0]
-            if magic == Utils.MAGIC:
-                self.buffer = self.buffer[4:]
-                self.state = 1 # read length
-                return True
-            
-            self.buffer.pop(0)
+            if magic != Utils.MAGIC:
+                self.buffer.pop(0)
+                continue
+
+            self.buffer = self.buffer[4:]
+            self.state = 1 # read length
+            return True
 
         return False
     
@@ -61,47 +57,23 @@ class MessageDecoder:
         buf = self.buffer[:self.total_length] # total_length만큼 slice
         self.buffer = self.buffer[self.total_length:] # 남은 부분 다시 할당
         
-        props = Utils.read_properties(self.file_path)
-        props = {v: k for k, v in props.items()}
-
         message = Message()
         offset = 0
 
         while (offset < self.total_length):
-            option_type = struct.unpack('b', buf[offset : offset + 1])[0]
-            offset += 1
+            key_length = struct.unpack('>H', buf[offset : offset + 2])[0]
+            offset += 2
 
-            if option_type == Utils.UNKNOWN_OPTION_TYPE:
-                offset = self.__add_unknown_option(message, buf, offset)
-                continue
+            key = buf[offset : offset + key_length]
+            offset += key_length
 
-            key = props[str(option_type)]
-            length = struct.unpack('>I', buf[offset : offset + 4])[0]
+            value_length = struct.unpack('>I', buf[offset : offset + 4])[0]
             offset += 4
 
-            value = buf[offset : offset + length]
-            offset += length
+            value = buf[offset : offset + value_length]
+            offset += value_length
 
-            Utils.cast_add(message, key, value)
+            message.add_option(key.decode('utf-8'), value)
 
-        self.state = 0
+        self.state = 0 # read magic
         return message
-    
-    def __add_unknown_option(self, message: 'Message', buf: bytearray, start_offset: int):
-        offset = start_offset
-
-        key_length = struct.unpack('>I', buf[offset : offset + 4])[0]
-        offset += 4
-
-        key = buf[offset : offset + key_length]
-        offset += key_length
-
-        option_length = struct.unpack('>I', buf[offset : offset + 4])[0]
-        offset += 4
-
-        option = buf[offset : offset + option_length]
-        offset += option_length
-
-        message.add_option(key.decode('utf-8'), option.decode('utf-8'))
-        return offset
-

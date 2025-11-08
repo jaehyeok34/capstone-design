@@ -7,15 +7,15 @@ from typing import Dict
 from py_client.message.message import Message
 from py_client.message.message_option import MessageOption
 from py_client.message.message_type import MessageType
-from py_client.utils import Utils
+from py_client.message.message_encoder import MessageEncoder
 
 
 class Client:
 
-    def __init__(self, host: str, port: int, file_path: str | None = None):
-        self.file_path = file_path if file_path is not None else Utils.DEFAULT_MAPPING_FILE_PATH    
+    def __init__(self, host: str, port: int, client_id: str):
         self.host = host
         self.port = port
+        self.client_id = client_id
         self.request_id_counter = 0
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -29,14 +29,14 @@ class Client:
         self.thread = Thread(target=self.__receive, daemon=True)
         self.thread.start()
 
-    def __del__(self):
+    def close(self):
+        self.sock.close()
         self.stop_event.set()
         self.thread.join(timeout=10)
-        self.sock.close()
 
     def __receive(self):
         from py_client.message.message_decoder import MessageDecoder
-        decoder = MessageDecoder(self.file_path)
+        decoder = MessageDecoder()
 
         while not self.stop_event.is_set():
             try:
@@ -48,10 +48,10 @@ class Client:
                 if message is None:
                     continue
                 
-                message_type = message.option(MessageOption.MESSAGE_TYPE)
+                message_type = message.option_as_byte(MessageOption.MESSAGE_TYPE)
                 if message_type == MessageType.TOPIC_UPDATE.value:
-                    topic_name = message.option(MessageOption.TOPIC_NAME)
-                    partition = message.option(MessageOption.PARTITION)
+                    topic_name = message.option_as_str(MessageOption.TOPIC_NAME)
+                    partition = message.option_as_int(MessageOption.PARTITION)
                     if (topic_name is None) or (partition is None):
                         continue
 
@@ -66,7 +66,7 @@ class Client:
                     notifiedQueue.put(message) # 알림 메시지 전달
 
                 else:
-                    request_id = message.option(MessageOption.REQUEST_ID)
+                    request_id = message.option_as_int(MessageOption.REQUEST_ID)
                     if request_id is None: # RES_XXX 메시지인데 요청 id가 없다는 것은 command 했다는 뜻(not request)
                         continue
 
@@ -76,86 +76,79 @@ class Client:
                     if request is None:
                         continue
                     
+                    # request id를 통해 요청자를 이미 찾았으므로 메시지에서 제거
+                    # 요청자에게 전달하고, 요청자를 목록에서 제거
+                    message.remove_options(MessageOption.REQUEST_ID)
                     request.set_result(message)
-                    # request.put(message)
                     del self.requests[request_id]
 
             except Exception as e:
-                print(f"[error] Client receive error: {e}")
+                print("[error] Client.__receive():", e)
                 break
 
     def command(self, message: 'Message'):
-        Utils.validate(message)
-
-        from py_client.message.message_encoder import MessageEncoder
-        self.sock.sendall(MessageEncoder.encode(self.file_path, message))
+        message.add_option(MessageOption.CLIENT_ID, self.client_id)
+        self.sock.sendall(MessageEncoder.encode(message))
 
     def request(self, message: 'Message'):
-        Utils.validate(message)
-
         request_id = self.request_id_counter
         self.request_id_counter += 1
-        message.add_option(MessageOption.REQUEST_ID, request_id)
+
+        message.add_options({
+            MessageOption.CLIENT_ID: self.client_id,
+            MessageOption.REQUEST_ID: request_id
+        })
 
         future: Future[Message] = Future()
-        # queue: Queue[Message] = Queue()
         with self.lock:
             self.requests[request_id] = future
 
-        from py_client.message.message_encoder import MessageEncoder
-        self.sock.sendall(MessageEncoder.encode(self.file_path, message))
+        self.sock.sendall(MessageEncoder.encode(message))
 
-        # return queue
         return future
     
-    def subscribe(self, topic_name: str, partition: int, client_id: str, event: Event, out: Queue):
-        Utils.validate(out)
-
-        subscribe_message = Message().add_options({
+    def subscribe(self, topic_name: str, partition: int, event: Event, out: Queue):
+        message = Message().add_options({
             MessageOption.MESSAGE_TYPE: MessageType.REQ_SUBSCRIBE,
-            MessageOption.CLIENT_ID: client_id,
             MessageOption.TOPIC_NAME: topic_name,
             MessageOption.PARTITION: partition
         })
 
         # 구독 요청
-        subscribe_response: Message = self.request(subscribe_message).result()
-        response_type = subscribe_response.option(MessageOption.MESSAGE_TYPE)
+        response: Message = self.request(message).result()
+        message_type = response.option_as_byte(MessageOption.MESSAGE_TYPE)
+        if (message_type is None) or (message_type != MessageType.RES_SUBSCRIBE.value):
+            return None
 
-        # 구독 성공 시
-        if response_type == MessageType.RES_SUBSCRIBE.value:
-            partition_map: Dict[int, Queue] = self.subscriptions.get(topic_name, {})
-            queue = partition_map.get(partition, Queue())
+        partition_map: Dict[int, Queue] = self.subscriptions.get(topic_name, {})
+        notified_queue = partition_map.get(partition, Queue())
 
-            partition_map[partition] = queue
-            self.subscriptions[topic_name] = partition_map
+        # 구독 알림 큐 갱신
+        partition_map[partition] = notified_queue
+        self.subscriptions[topic_name] = partition_map
 
-            def worker_subscribe():
-                while not event.is_set():
-                    try:
-                        message = queue.get() # blocking
-                        out.put(message)
-                    except Exception:
-                        break
+        def worker_subscribe():
+            while not event.is_set():
+                try:
+                    message = notified_queue.get(timeout=3) # 3초마다 빠져나옴
+                    out.put(message)
+                except Exception: # timeout 시 event 체크 후 재시도
+                    continue
 
-                del partition_map[partition]
-                self.unsubscribe(topic_name, partition, client_id)
-            
-            thread = Thread(target=worker_subscribe, daemon=True)
-            thread.start()
-
-            return thread
+            del partition_map[partition]
+            self.unsubscribe(topic_name, partition)
         
-        return None
-    
-    def unsubscribe(self, topic_name: str, partition: int, client_id: str):
-        Utils.validate(topic_name, partition, client_id)
+        thread = Thread(target=worker_subscribe, daemon=True)
+        thread.start()
 
-        unsubscribe_msg = Message().add_options({
+        return thread
+        
+    
+    def unsubscribe(self, topic_name: str, partition: int):
+        message = Message().add_options({
             MessageOption.MESSAGE_TYPE: MessageType.REQ_UNSUBSCRIBE,
-            MessageOption.CLIENT_ID: client_id,
             MessageOption.TOPIC_NAME: topic_name,
             MessageOption.PARTITION: partition
         })
 
-        self.command(unsubscribe_msg)
+        self.command(message)
