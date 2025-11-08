@@ -7,6 +7,8 @@ import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 
 import capstone.design.message.Message;
+import capstone.design.message.MessageOption;
+import capstone.design.message.MessageType;
 import capstone.design.netty.client.NettyClient;
 
 
@@ -20,6 +22,7 @@ public class Consumer implements AutoCloseable {
     public Consumer(String host, int port) throws Exception { this(host, port, null); }
 
     public Message consume(Message message, int timeout, TimeUnit unit) throws Exception {
+        message.addOption(MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL.getByte());
         return client.request(message).get(timeout, unit);
     }
 
