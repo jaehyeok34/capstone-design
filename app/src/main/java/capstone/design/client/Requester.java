@@ -20,7 +20,7 @@ public class Requester {
         this.consumer = consumer;
     }
 
-    public Message request(Message produceMessage, Message consumeMessage, int timeout, TimeUnit unit) {
+    public Message request(Message produceMessage, Message consumeMessage, int timeout, TimeUnit unit) throws Exception {
         BlockingQueue<Message> notifiedQueue = new LinkedBlockingQueue<>();
         ExecutorService notifier = consumer.subscribe(consumeMessage, notifiedQueue, timeout, unit);
         if (notifier == null) {

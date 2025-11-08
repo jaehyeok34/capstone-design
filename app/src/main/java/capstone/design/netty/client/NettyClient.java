@@ -13,6 +13,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
+import org.jspecify.annotations.Nullable;
+
 import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageDecoder;
@@ -114,23 +117,17 @@ public class NettyClient {
      * 특정 토픽/파티션을 구독하고, 메시지가 업데이트되면 out 큐에 TOPIC_UPDATED를 포함한 메시지가 담김
      * 따라서, out 큐를 blocking하게 모니터링해서 TOPIC_UPDATED 메시지를 처리할 수 있음
      */
-    public ExecutorService subscribe(Message message, Collection<Message> out, int timeout, TimeUnit unit) {
+    @Nullable
+    public ExecutorService subscribe(Message message, Collection<Message> out, int timeout, TimeUnit unit) throws Exception {
         message.addOption(MessageOption.MESSAGE_TYPE, MessageType.REQ_SUBSCRIBE.getByte());
 
         // 구독 요청
-        Message response;
-        try {
-            response = request(message).get(timeout, unit);
-            Byte messageType = response.optionAsByte(MessageOption.MESSAGE_TYPE);
-            if (messageType == null || messageType != MessageType.RES_SUBSCRIBE.getByte()) {
-                throw new Exception("구독 실패");
-            }
-        } catch (Exception e) { 
-            System.err.println("NettyClient.subscribe(): " + e);
-            return null; 
+        Message response = request(message).get(timeout, unit);
+        Byte messageType = response.optionAsByte(MessageOption.MESSAGE_TYPE);
+        if (messageType == null || messageType != MessageType.RES_SUBSCRIBE.getByte()) {
+            return null;
         }
-
-
+        
         String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
         int partition = message.optionAsInt(MessageOption.PARTITION);
         
@@ -167,13 +164,6 @@ public class NettyClient {
         });
 
         return executor;
-    }
-
-    public ExecutorService subscribe(String topicName, int partition, Collection<Message> out, int timeout, TimeUnit unit) {
-        return subscribe(Message.of(Map.of(
-            MessageOption.TOPIC_NAME, topicName,
-            MessageOption.PARTITION, partition
-        )), out, timeout, unit);
     }
 
     public void unsubscribe(String topicName, int partition) {
