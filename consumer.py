@@ -24,11 +24,8 @@ class Consumer:
         self.client.close()
     
     def consume(self, message: Message, timeout: float | None = None):
-        try:
-            return self.client.request(message).result(timeout)
-        
-        except Exception:
-            return None
+        message.add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_PULL.value)
+        return self.client.request(message).result(timeout)
         
     def subscribe(self, message: Message, event: Event, out: Queue[Message], timeout: float | None = None):
         return self.client.subscribe(message, event, out, timeout)

@@ -1,4 +1,6 @@
 from py_client.message.message import Message
+from py_client.message.message_option import MessageOption
+from py_client.message.message_type import MessageType
 
 class Producer:
 
@@ -18,5 +20,6 @@ class Producer:
         self.client.command(message)
     
     def syncProduce(self, message: Message, timeout: float | None = None):
+        message.add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_PUSH.value)
         return self.client.request(message).result(timeout)
         
