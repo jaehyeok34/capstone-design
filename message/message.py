@@ -29,27 +29,33 @@ class Message:
     
     def option_as_str(self, key: str):
         value = self.options.get(key, None)
-        if (value is None) or (not isinstance(value, (bytes, bytearray))):
+        if isinstance(value, str):
+            return value
+        elif isinstance(value, (bytes, bytearray)):
+            return value.decode('utf-8')
+        else:
             return None
-    
-        return value.decode('utf-8')
     
     def option_as_int(self, key: str):
         value = self.options.get(key, None)
-        if (value is None) or (not isinstance(value, (bytes, bytearray))):
+        if isinstance(value, int):
+            return value
+        elif isinstance(value, (bytes, bytearray)):
+            return int(value.decode('utf-8'))
+        else:
             return None
-        
-        return int(value.decode('utf-8'))
 
     def option_as_byte(self, key: str):
         return self.option_as_int(key)
     
     def option_as_bytes(self, key: str):
         value = self.options.get(key, None)
-        if (value is None) or (not isinstance(value, (bytes, bytearray))):
+        if isinstance(value, (bytes, bytearray)):
+            return value
+        elif value is None:
             return None
-        
-        return bytes(value)
+        else:
+            return str(value).encode('utf-8')
     
     def get_options(self):
         return self.options

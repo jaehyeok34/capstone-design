@@ -121,8 +121,8 @@ class Client:
             print("Client.subscribe():", e)
             return None
         
-        topic_name = message.option_as_str(MessageOption.TOPIC_NAME)
-        partition = message.option_as_int(MessageOption.PARTITION)
+        topic_name = response.option_as_str(MessageOption.TOPIC_NAME)
+        partition = response.option_as_int(MessageOption.PARTITION)
         if (topic_name is None) or (partition is None):
             return None
 
