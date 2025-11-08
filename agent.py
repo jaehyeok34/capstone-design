@@ -51,13 +51,16 @@ class Agent:
         while True:
             try:
                 notified = notified_queue.get() # 무한 대기
-                consumed = self.consumer.consume(notified, timeout)
+                consumed = self.consumer.consume(notified, timeout) # timeout 가능
                 if consumed is None:
                     continue
                 
                 response = handler(consumed)
                 produce_message.add_option(MessageOption.PAYLOAD, response)
                 self.producer.asyncProduce(produce_message)
+
+            except TimeoutError: # timeout 무시
+                pass
 
             except Exception as e:
                 print("Agent.respond():", e)
