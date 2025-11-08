@@ -41,7 +41,7 @@ class Agent:
             stop_event.set()
             notifier.join()
 
-    def respond(self, consume_message: Message, handler: Callable[[Message], Any], timeout: float | None = None):
+    def respond(self, consume_message: Message, produce_message: Message, handler: Callable[[Message], bytes], timeout: float | None = None):
         notified_queue = Queue()
         stop_event = threading.Event()
         notifier = self.consumer.subscribe(consume_message, stop_event, notified_queue, timeout)
@@ -54,7 +54,11 @@ class Agent:
             if consumed is None:
                 raise Exception("consume 실패")
             
-            return handler(consumed)
+            response = handler(consumed)
+            produce_message.add_option(MessageOption.PAYLOAD, response)
+            produced = self.producer.syncProduce(produce_message, timeout)
+
+            return produced.option_as_byte(MessageOption.OK) != 0
         
         except Exception as e:
             print("Agent.respond():", e)
