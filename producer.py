@@ -17,6 +17,7 @@ class Producer:
         self.client.close()
 
     def asyncProduce(self, message: Message):
+        message.add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_PUSH.value)
         self.client.command(message)
     
     def syncProduce(self, message: Message, timeout: float | None = None):
