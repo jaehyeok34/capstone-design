@@ -60,7 +60,7 @@ public class Broker implements AutoCloseable {
             if (Utils.isValid(name, type)) {
                 try {
                     topics.put(name, switch (type) {
-                        case MEMORY -> MemoryTopic.of();
+                        case MEMORY -> MemoryTopic.of(name);
                         case DISK -> DiskTopic.of(name);
                     });
                 } catch (Exception ignored) {}

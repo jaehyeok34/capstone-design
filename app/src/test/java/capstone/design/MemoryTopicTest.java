@@ -23,7 +23,7 @@ public class MemoryTopicTest {
 
     @BeforeEach
     void beforeEach() {
-        topic = MemoryTopic.of(3000); // 3초 유지
+        topic = MemoryTopic.of("test_topic", 3000); // 3초 유지
     }
 
     @Test

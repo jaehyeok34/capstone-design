@@ -29,6 +29,8 @@ public class DiskTopic implements Topic {
     private final long segmentDuration;
     private final long segmentRetention;
     private final Map<Integer, SegmentManager> segmentManagers = new HashMap<>();
+    
+    private final String name;
 
     private DiskTopic(String name, long segmentDuration, long segmentRetention) throws IOException {
         Utils.validate(name);
@@ -37,6 +39,8 @@ public class DiskTopic implements Topic {
         this.segmentRetention = (segmentRetention >= 0) ? segmentRetention : DEFAULT_SEGMENT_RETENTION;
         this.root = Files.createDirectories(Paths.get(DEFAULT_TOPIC_DIR, name));
         this.subscriberManager = new SubscriberManager();
+
+        this.name = name;
 
         // 프로그램이 재시작 시 기존에 생성된 세그먼트 매니저들이 있다면, 로드
         loadSegmentManagers();
@@ -141,9 +145,18 @@ public class DiskTopic implements Topic {
 
     @Override
     public void clean() {
-        for (SegmentManager segmentManager : segmentManagers.values()) {
+        for (Map.Entry<Integer, SegmentManager> entry : segmentManagers.entrySet()) {
+            int partition = entry.getKey();
+            SegmentManager segmentManager = entry.getValue();
+
             segmentManager.clean();
+            System.out.println("DiskTopic.clean(): " + name + "." + partition + "=" + segmentManager.messageCount());
         }
+    }
+
+    @Override
+    public String name() {
+        return name;
     }
 
     /**

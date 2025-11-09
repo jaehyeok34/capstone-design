@@ -16,6 +16,7 @@ public interface Topic {
     long count(int partition, String clientId);
     long offset(int partition, String clientId);
     void clean();
+    String name();
 
     public enum Type { MEMORY, DISK }
 }

@@ -21,17 +21,19 @@ public class MemoryTopic implements Topic {
     private final SubscriberManager subscriberManager = new SubscriberManager();
     private final Map<Integer, Map<String, List<MemoryRecord>>> topic = new ConcurrentHashMap<>();
     private final long retention;
+    private final String name;
 
-    private MemoryTopic(long retention) {
+    private MemoryTopic(String name, long retention) {
+        this.name = name;
         this.retention = retention;
     }
 
-    public static MemoryTopic of() {
-        return new MemoryTopic(DEFAULT_RETENTION);
+    public static MemoryTopic of(String name) {
+        return new MemoryTopic(name, DEFAULT_RETENTION);
     }
 
-    public static MemoryTopic of(long retention) {
-        return new MemoryTopic(retention);
+    public static MemoryTopic of(String name, long retention) {
+        return new MemoryTopic(name, retention);
     }
 
     public SubscriberManager subscriberManager() { return subscriberManager; }
@@ -124,17 +126,27 @@ public class MemoryTopic implements Topic {
          * 모든 partition, 모든 storage(id에 따른 저장소)를 순회하며
          * retention 시간을 초과한 레코드 삭제
          */
-        for (Map<String, List<MemoryRecord>> partitionMap : topic.values()) {
-            for (List<MemoryRecord> storage : partitionMap.values()) {
+        for (Map.Entry<Integer, Map<String, List<MemoryRecord>>> partitionEntry : topic.entrySet()) {
+            int partition = partitionEntry.getKey();
+            Map<String, List<MemoryRecord>> partitionMap = partitionEntry.getValue();
+
+            for (Map.Entry<String, List<MemoryRecord>> entry : partitionMap.entrySet()) {
+                String clientId = entry.getKey();
+                List<MemoryRecord> storage = entry.getValue();
+                
                 Iterator<MemoryRecord> it = storage.iterator();
                 while (it.hasNext()) {
                     if (it.next().isExpired(retention)) {
                         it.remove();
+                        System.out.println("MemoryTopic.clean(): " + name + "." + partition + "." + clientId + "=" + storage.size());
                     }
                 }
             }
         }
     }
+
+    @Override
+    public String name() { return name; }
     
     private List<MemoryRecord> storage(int partition, String clientId) {
         Map<String, List<MemoryRecord>> partitionMap = topic.get(partition);
