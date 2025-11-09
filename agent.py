@@ -69,3 +69,12 @@ class Agent:
         print("Agent.respond 종료 대기..")
         stop_event.set()
         notifier.join(timeout=timeout)
+
+    def notify(self, subscribe_message: Message, timeout: float = 5):
+        notified_queue = Queue()
+        stop_event = threading.Event()
+        notifier = self.consumer.subscribe(message=subscribe_message, event=stop_event, out=notified_queue, timeout=timeout)
+        if notifier is None:
+            return (None, None, None)
+        
+        return (notified_queue, stop_event, notifier)
