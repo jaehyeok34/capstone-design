@@ -13,6 +13,13 @@ class Agent:
         self.producer = producer
         self.consumer = consumer
 
+    def __enter__(self):
+      return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.producer.client.close()
+        self.consumer.client.close()
+
     def request(self, produce_message: Message, consume_message: Message, timeout: float = 5):
         notified_queue = Queue()
         stop_event = threading.Event()
@@ -77,3 +84,10 @@ class Agent:
             return (None, None, None)
         
         return (notified_queue, stop_event, notifier)
+    
+
+def new_agent(host: str, port: int, client_id: str):
+    producer = Producer(host, port, client_id)
+    consumer = Consumer(host, port, client_id)
+    
+    return Agent(producer, consumer)
