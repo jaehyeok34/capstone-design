@@ -1,10 +1,9 @@
 from queue import Queue
 import threading
-from typing import Any, Callable
+from typing import Callable
 from py_client.consumer import Consumer
 from py_client.message.message import Message
 from py_client.message.message_option import MessageOption
-from py_client.message.message_type import MessageType
 from py_client.producer import Producer
 
 
@@ -14,7 +13,7 @@ class Agent:
         self.producer = producer
         self.consumer = consumer
 
-    def request(self, produce_message: Message, consume_message: Message, timeout: float | None = None):
+    def request(self, produce_message: Message, consume_message: Message, timeout: float = 5):
         notified_queue = Queue()
         stop_event = threading.Event()
         notifier = self.consumer.subscribe(consume_message, stop_event, notified_queue, timeout)
@@ -41,7 +40,7 @@ class Agent:
             stop_event.set()
             notifier.join()
 
-    def respond(self, consume_message: Message, produce_message: Message, handler: Callable[[Message], bytes | None], timeout: float | None = None):
+    def respond(self, consume_message: Message, produce_message: Message, handler: Callable[[Message], bytes | None], timeout: float = 5):
         notified_queue = Queue()
         stop_event = threading.Event()
         notifier = self.consumer.subscribe(consume_message, stop_event, notified_queue, timeout)
