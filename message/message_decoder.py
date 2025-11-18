@@ -60,20 +60,33 @@ class MessageDecoder:
         message = Message()
         offset = 0
 
-        while (offset < self.total_length):
-            key_length = struct.unpack('>H', buf[offset : offset + 2])[0]
+        message.type = struct.unpack(">B", buf[offset : offset + 1])[0]
+        offset += 1
+
+        header_count = struct.unpack(">B", buf[offset : offset + 1])[0]
+        offset += 1
+
+        for _ in range(header_count):
+            key_length = struct.unpack(">H", buf[offset : offset + 2])[0]
             offset += 2
 
-            key = buf[offset : offset + key_length]
+            key = buf[offset : offset + key_length].decode('utf-8')
             offset += key_length
 
-            value_length = struct.unpack('>I', buf[offset : offset + 4])[0]
+            value_length = struct.unpack(">I", buf[offset : offset + 4])[0]
             offset += 4
 
-            value = buf[offset : offset + value_length]
+            value = buf[offset : offset + value_length].decode('utf-8')
             offset += value_length
 
-            message.add_option(key.decode('utf-8'), value)
+            message.add_header(key, value)
+
+        if (len(buf) - offset) > 4:
+            payload_length = struct.unpack(">I", buf[offset : offset + 4])[0]
+            offset += 4
+
+            message.payload = buf[offset : offset + payload_length]
+            offset += payload_length
 
         self.state = 0 # read magic
         return message

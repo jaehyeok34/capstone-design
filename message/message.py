@@ -1,71 +1,65 @@
-import struct
 from typing import Any, Dict
 
-
 class Message:
+    def __init__(self, type: int | None = None, header: Dict[str, str] = {}, payload: Any = None):
+        self.type = type
+        self.header: Dict[str, str] = header
+        self.payload: Any = payload
 
-    def __init__(self):
-        self.options: Dict[str, Any] = {}
+    def get_header(self, key: str, default: str = ""):
+        return self.header.get(key, default)
 
-    def add_option(self, key: str, value: Any):
-        self.options[key] = value
+    def add_header(self, key: str, value: str):
+        self.header[key] = value
         return self
-
-    def add_options(self, options: Dict[str, Any]):
-        for key, value in options.items():
-            self.options[key] = value
+    
+    def add_header_dict(self, header: Dict[str, str]):
+        for key, value in header.items():
+            self.add_header(key, value)
 
         return self
     
-    def remove_options(self, *keys: str):
+    def remove_header(self, *keys: str):
         for key in keys:
-            if key in self.options:
-                del self.options[key]
+            if key in self.header:
+                del self.header[key]
 
         return self
     
-    def option(self, key: str):
-        return self.options.get(key, None)
-    
-    def option_as_str(self, key: str):
-        value = self.options.get(key, None)
-        if isinstance(value, str):
-            return value
-        elif isinstance(value, (bytes, bytearray)):
-            return value.decode('utf-8')
-        else:
-            return None
-    
-    def option_as_int(self, key: str):
-        value = self.options.get(key, None)
-        if isinstance(value, int):
-            return value
-        elif isinstance(value, (bytes, bytearray)):
-            return int(value.decode('utf-8'))
-        else:
-            return None
-
-    def option_as_byte(self, key: str):
-        return self.option_as_int(key)
-    
-    def option_as_bytes(self, key: str):
-        value = self.options.get(key, None)
-        if isinstance(value, (bytes, bytearray)):
-            return value
-        elif value is None:
-            return None
-        else:
-            return str(value).encode('utf-8')
-    
-    def get_options(self):
-        return self.options
-    
-    def clear(self):
-        self.options.clear()
+    def remove_payload(self):
+        self.payload = None
         return self
-    
-    def count(self) -> int:
-        return len(self.options)
     
     def copy(self):
-        return Message().add_options(self.options)
+        return Message(self.type, self.header.copy(), self.payload)
+    
+    # 알려진 헤더 옵션에 대한 편의 메서드 =====
+    def add_condition(self, condition: Dict[str, str]):
+        for key, value in condition.items():
+            self.add_header("condition." + key, value)
+
+        return self
+    
+    def set_topic_name(self, topic_name: str):
+        self.add_header("topic.name", topic_name)
+        return self
+    
+    def set_partition(self, partition: int | str):
+        self.add_header("partition", str(partition))
+        return self
+
+    def set_client_id(self, client_id: str):
+        self.add_header("client.id", client_id)
+        return self
+    
+    def set_timeout(self, timeout: int):
+        self.add_header("timeout", str(timeout))
+        return self
+    
+    def set_count(self, count: int):
+        self.add_header("count", str(count))
+        return self
+    
+    def set_offset(self, offset: int):
+        self.add_header("offset", str(offset))
+        return self

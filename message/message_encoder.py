@@ -4,33 +4,35 @@ from py_client.message.message import Message
 
 
 class MessageEncoder:
-
     @staticmethod
     def encode(message: 'Message'):
-        def write(encoded: bytearray, value: bytes, is_key: bool = False):
-            # key는 2byte length, value는 4byte length
-            fmt = '>H' if is_key else '>I'
-            encoded.extend(struct.pack(fmt, len(value))) # length
-            encoded.extend(value) # value
-
         encoded = bytearray()
-        for key, value in message.get_options().items():
-            # key 추가
-            write(encoded, key.encode('utf-8'), True)
 
-            # value 추가
-            if not isinstance(value, (bytes, bytearray)):
-                value = str(value).encode('utf-8')
+        encoded.extend(struct.pack(">B", message.type)) # 메시지 타입 추가
+        encoded.extend(struct.pack(">B", len(message.header))) # header 개수 추가
 
-            write(encoded, value)
+        # header 추가
+        for key, value in message.header.items():
+            key_bytes = key.encode('utf-8')
+            value_bytes = value.encode('utf-8')
+
+            encoded.extend(struct.pack(">H", len(key_bytes)))
+            encoded.extend(key_bytes)
+
+            encoded.extend(struct.pack(">I", len(value_bytes)))
+            encoded.extend(value_bytes)
+
+        # payload 추가(있으면)
+        if message.payload:
+            if isinstance(message.payload, (bytes, bytearray)):
+                encoded.extend(struct.pack(">I", len(message.payload)))
+                encoded.extend(message.payload)
+
+            else:
+                payload = str(message.payload).encode('utf-8')
+                encoded.extend(struct.pack(">I", len(payload)))
+                encoded.extend(payload)
 
         total_length = len(encoded)
         from py_client.utils import Utils
-        return struct.pack('>I', Utils.MAGIC) + struct.pack('>Q', total_length) + encoded
-
-
-
-
-
-
-
+        return struct.pack(">I", Utils.MAGIC) + struct.pack(">Q", total_length) + encoded

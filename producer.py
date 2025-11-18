@@ -1,5 +1,4 @@
 from py_client.message.message import Message
-from py_client.message.message_option import MessageOption
 from py_client.message.message_type import MessageType
 
 class Producer:
@@ -16,11 +15,13 @@ class Producer:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.client.close()
 
-    def asyncProduce(self, message: Message):
-        message.add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_PUSH.value)
-        self.client.command(message)
+    def __produce(self, message: Message):
+        message.type = MessageType.REQ_PUSH
+        return self.client.fetch(message)
     
-    def syncProduce(self, message: Message, timeout: float | None = None):
-        message.add_option(MessageOption.MESSAGE_TYPE, MessageType.REQ_PUSH.value)
-        return self.client.request(message).result(timeout)
+    def asyncProduce(self, message: Message):
+        self.__produce(message)
+
+    def syncProduce(self, message: Message):
+        return self.__produce(message).result()
         
