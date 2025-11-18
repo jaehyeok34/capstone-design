@@ -21,7 +21,7 @@ class Agent:
         self.producer.client.close()
         self.consumer.client.close()
 
-    def find_and_seek(self, topic_name: str, partition: str, condition: Dict[str, str], timeout: int = 30):
+    def find_and_seek(self, topic_name: str, partition: str, condition: Dict[str, str], timeout: int = 30 * 1000):
         offset = self.consumer.find(
             topic_name=topic_name, 
             partition=partition, 
