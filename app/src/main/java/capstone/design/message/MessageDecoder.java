@@ -102,7 +102,7 @@ public class MessageDecoder extends ByteToMessageDecoder {
         // 헤더 읽기
         byte headerCount = in.readByte();
         for (int i = 0; i < headerCount; i++) {
-            byte keyLength = in.readByte();
+            short keyLength = in.readShort();
             String key = in.readString(keyLength, StandardCharsets.UTF_8);
 
             int valueLength = in.readInt();

@@ -30,14 +30,12 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
         encoded.writeByte(message.type().getByte()) // 메시지 타입 추가
             .writeByte(message.header().size()); // header 개수 추가
         for (Map.Entry<String, String> header : message.header().entrySet()) {
-            String key = header.getKey();
-            String value = header.getValue();
-
+            byte[] key = header.getKey().getBytes(StandardCharsets.UTF_8);
+            byte[] value = header.getValue().getBytes(StandardCharsets.UTF_8);
+            
             // header의 key, value 추가
-            encoded.writeByte(key.length())
-                .writeBytes(key.getBytes(StandardCharsets.UTF_8))
-                .writeInt(value.length())
-                .writeBytes(value.getBytes(StandardCharsets.UTF_8));
+            encoded.writeShort(key.length).writeBytes(key)
+                .writeInt(value.length).writeBytes(value);
         }
         
         totalLength += encoded.readableBytes();
