@@ -16,7 +16,7 @@ class Consumer:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.client.close()
 
-    def consume(self, topic_name: str, partition: str, header: Dict[str, str]={}, count: int = 1, timeout: int = 30):
+    def consume(self, topic_name: str, partition: str, header: Dict[str, str]={}, count: int = 1, timeout: int = 30 * 1000):
         message = Message().set_type(MessageType.REQ_PULL) \
             .set_topic_name(topic_name) \
             .set_partition(partition) \
@@ -33,7 +33,7 @@ class Consumer:
 
         return responses
     
-    def find(self, topic_name: str, partition: str, condition: Dict[str, str], timeout: int = 30):
+    def find(self, topic_name: str, partition: str, condition: Dict[str, str], timeout: int = 30 * 1000):
         message = Message().set_type(MessageType.REQ_FIND) \
             .set_topic_name(topic_name) \
             .set_partition(partition) \

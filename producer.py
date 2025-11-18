@@ -28,7 +28,7 @@ class Producer:
         
         self.__produce(message)
 
-    def syncProduce(self, topic_name: str, partition: str, header: Dict[str, str], payload: Any, timeout: int = 30):
+    def syncProduce(self, topic_name: str, partition: str, header: Dict[str, str], payload: Any, timeout: int = 30 * 1000):
         message = Message().set_topic_name(topic_name) \
             .set_partition(partition) \
             .add_header_dict(header) \
