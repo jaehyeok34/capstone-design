@@ -1,110 +1,165 @@
 package capstone.design.message;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import capstone.design.Utils;
+
+import org.jspecify.annotations.Nullable;
 
 public class Message {
+    private MessageType type; // non-null. builder에서 반드시 설정하도록 설계함
+    private final Map<String, String> header = new HashMap<>();
+    private @Nullable Object payload;
 
-    private final Map<String, Object> options = new HashMap<>();
+    // constructor =========================================
+    private Message(MessageType type, Map<String, String> header, @Nullable Object payload) {
+        this.type = type;
+        this.header.putAll(header);
+        this.payload = payload;
+    }
 
-    private Message() {}
+    // static methods =========================================
+    public static Builder builder() { return new Builder(); }
 
-    public static Message of() { return new Message(); }
-    public static Message of(String key, Object value) { return new Message().addOption(key, value); }
-    public static Message of(Map<String, Object> options) { return new Message().addOptions(options); }
+    // getters =========================================
+    public MessageType type() { return type; }
+    public Map<String, String> header() { return header; }
+    public String header(String key) { return header.get(key); }
+    public String header(String key, String defualtValue) { return header.getOrDefault(key, defualtValue); }
+    public @Nullable Object payload() { return payload; }
+
+    // methods =========================================
+    public Message setType(MessageType type) {
+        this.type = type;
+        return this;
+    }
+
+    public Message addHeader(String key, String value) {
+        header.put(key, value);
+        return this;
+    }
     
-    public Message addOption(String key, Object value) {
-        Utils.validate(key, value);
-
-        options.put(key, value);
+    public Message addHeader(Map<String, String> header) {
+        this.header.putAll(header);
         return this;
     }
-
-    public Message addOptions(Map<String, Object> options) {
-        Utils.validate(options);
-        
-        options.forEach(this::addOption);
-        return this;
-    }
-
-    public Message removeOptions(String... keys) {
+    
+    public Message removeHeader(String... keys) {
         for (String key : keys) {
-            options.remove(key);
+            header.remove(key);
         }
-
+        
         return this;
     }
-
-    public Object option(String key) {
-        return options.get(key);
-    }
-
-    public Integer optionAsInt(String key) {
-        switch (options.get(key)) {
-            case Integer i -> { return i; }
-            case byte[] b -> { return Integer.parseInt(new String(b, StandardCharsets.UTF_8)); }
-            case null, default -> { return null; }
-        }
-    }
-
-    public Long optionAsLong(String key) {
-        switch (options.get(key)) {
-            case Long l -> { return l; }
-            case byte[] b -> { return Long.parseLong(new String(b, StandardCharsets.UTF_8)); }
-            case null, default -> { return null; }
-        }
-    }
-
-    public String optionAsString(String key) {
-        switch (options.get(key)) {
-            case String s -> { return s; }
-            case byte[] b -> { return new String(b, StandardCharsets.UTF_8); }
-            case null, default -> { return null; }
-        }
-    }
-
-    public Byte optionAsByte(String key) {
-        switch (options.get(key)) {
-            case Byte b -> { return b; }
-            case byte[] b -> { return Byte.parseByte(new String(b, StandardCharsets.UTF_8)); }
-            case null, default -> { return null; }
-        }
-    }
-
-    public byte[] optionAsBytes(String key) {
-        switch (options.get(key)) {
-            case byte[] b -> { return b; }
-            case null, default -> { return null; }
-        }
-    }
-
-    public Map<String, Object> options() {
-        return options;
-    }
-
-    public Message clear() {
-        options.clear();
-        
+    
+    public Message removePayload() {
+        this.payload = null;
         return this;
     }
 
     public Message copy() {
-        return Message.of(options);
+        return new Message(type, header, payload);
     }
 
+    // override =========================================
     @Override
     public String toString() {
         String str = "";
-        for (Map.Entry<String, Object> entry : options.entrySet()) {
-            str += entry.getKey() + ": ";
-            switch (entry.getValue()) {
-                case byte[] b -> str += new String(b, StandardCharsets.UTF_8) + ", ";
-                default -> str += entry.getValue() + ", ";
-            }
+        str += "type: " + type.name() + ", ";
+        for (Map.Entry<String, String> entry : header.entrySet()) {
+            str += entry.getKey() + ": " + entry.getValue() + ", ";
         }
+        str += "payload: " + payload != null ? "O" : "X";
 
         return "Message{" + str + "}";
+    }
+
+    // inner class =========================================
+    public static class Builder {
+        private MessageType type = null;
+        private final Map<String, String> header = new HashMap<>();
+        private Object payload = null;
+
+        private Builder() {}
+
+        public Message build() {
+            if (type == null) {
+                throw new IllegalStateException("! Message.Builder.build(): 메시지 타입 미설정");
+            }
+
+            return new Message(type, header, payload);
+        }
+
+        public Builder type(MessageType type) {
+            this.type = type;
+            return this;
+        }
+
+        public Builder type(byte type) {
+            this.type = MessageType.values()[type];
+            return this;
+        }
+
+        public Builder header(String key, String value) {
+            header.put(key, value);
+            return this;
+        }
+
+        public Builder header(Map<String, String> header) {
+            this.header.putAll(header);
+            return this;
+        }
+
+        public Builder condition(String key, String value) {
+            header.put("condition." + key, value);
+            return this;
+        }
+
+        public Builder condition(Map<String, String> condition) {
+            for (Map.Entry<String, String> entry : condition.entrySet()) {
+                condition(entry.getKey(), entry.getValue());
+            }
+
+            return this;
+        }
+
+        public Builder topicName(String topicName) {
+            header.put("topic.name", topicName);
+            return this;
+        }
+
+        public Builder partition(int partition) {
+            header.put("partition", String.valueOf(partition));
+            return this;
+        }
+
+        public Builder partition(String partition) {
+            header.put("partition", partition);
+            return this;
+        }
+
+        public Builder clientId(String clientId) {
+            header.put("client.id", clientId);
+            return this;
+        }
+
+        public Builder timeout(long timeout) {
+            header.put("timeout", String.valueOf(timeout));
+            return this;
+        }
+
+        public Builder count(int count) {
+            header.put("count", String.valueOf(count));
+            return this;
+        }
+
+        public Builder offset(int offset) {
+            header.put("offset", String.valueOf(offset));
+            return this;
+        }
+
+        public Builder payload(Object payload) {
+            this.payload = payload;
+            return this;
+        }
     }
 }

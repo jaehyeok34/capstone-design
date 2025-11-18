@@ -27,15 +27,12 @@ public class MessageDecoder extends ByteToMessageDecoder {
                 }
             }
         } catch (Exception e) { 
-            System.err.println("MessageDecoder.decode 예외 발생: " + e); 
+            System.err.println("! MessageDecoder.decode(): " + e); 
 
-            /*
-             * 디코딩 중 예외가 발생하면 지금까지 읽은 데이터 버리고 다음 메시지부터 다시 디코딩
-             */
+            // 디코딩 중 예외가 발생하면 지금까지 읽은 데이터 버리고 다음 메시지부터 다시 디코딩
             length = 0;
             state = State.READ_MAGIC;
-
-            System.out.println("[debug] MessageDecoder 에러 이후 채널 상태: " + ctx.channel().toString() + ", activce: " + ctx.channel().isActive());
+            System.out.println("! MessageDecoder 에러 이후 채널 상태: " + ctx.channel().toString() + ", activce: " + ctx.channel().isActive());
         }
     }
 
@@ -96,23 +93,34 @@ public class MessageDecoder extends ByteToMessageDecoder {
             return false;
         }
 
-        Message message = Message.of();
-        long offset = 0;
+        Message.Builder builder = Message.builder();
+        
+        // 메시지 타입 읽기
+        byte type = in.readByte();
+        builder.type(type);
 
-        while (offset < length) {
-            short keyLength = in.readShort();
+        // 헤더 읽기
+        byte headerCount = in.readByte();
+        for (int i = 0; i < headerCount; i++) {
+            byte keyLength = in.readByte();
             String key = in.readString(keyLength, StandardCharsets.UTF_8);
-            offset += Short.BYTES + keyLength;
 
-            int optionLength = in.readInt();
-            byte[] option = new byte[optionLength];
-            in.readBytes(option);
-            offset += Integer.BYTES + optionLength;
+            int valueLength = in.readInt();
+            String value = in.readString(valueLength, StandardCharsets.UTF_8);
 
-            message.addOption(key, option);
+            builder.header(key, value);
         }
 
-        out.add(message);
+        // payload 읽기
+        if (in.readableBytes() > 0) {
+            int payloadLength = in.readInt();
+            byte[] payload = new byte[payloadLength];
+            in.readBytes(payload);
+
+            builder.payload(payload);
+        }
+
+        out.add(builder.build());
         state = State.READ_MAGIC;
 
         return true;

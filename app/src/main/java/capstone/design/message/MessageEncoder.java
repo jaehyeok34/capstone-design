@@ -4,14 +4,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
 import capstone.design.Utils;
-import capstone.design.topic.disk.DiskRecord;
-import capstone.design.topic.memory.MemoryRecord;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
+import io.netty.channel.FileRegion;
 
 public class MessageEncoder extends ChannelOutboundHandlerAdapter {
     
@@ -27,42 +27,81 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
         ByteBuf encoded = allocator.buffer();
         int totalLength = 0;
 
-        for (Map.Entry<String, Object> entry : message.options().entrySet()) { 
-            String key = entry.getKey();
-            Object value = entry.getValue();
+        encoded.writeByte(message.type().getByte()) // 메시지 타입 추가
+            .writeByte(message.header().size()); // header 개수 추가
+        for (Map.Entry<String, String> header : message.header().entrySet()) {
+            String key = header.getKey();
+            String value = header.getValue();
 
-            // key 추가
-            encoded.writeShort(key.length())
-                .writeBytes(key.getBytes(StandardCharsets.UTF_8));
-
-            // value 추가
-            switch (value) {
-                case DiskRecord record -> {
-                    encoded.writeInt(record.length());
-                    out.add(encoded);
-                    out.add(record.value());
-
-                    // 지금까지 기록한 옵션 길이 + record 길이 반영
-                    totalLength += encoded.readableBytes() + record.length();
-                    encoded = allocator.buffer();
-                }
-                case MemoryRecord record -> write(encoded, (byte[]) record.value());
-                case byte[] buf -> write(encoded, buf);
-                default -> write(encoded, value.toString().getBytes(StandardCharsets.UTF_8));
-            }
+            // header의 key, value 추가
+            encoded.writeByte(key.length())
+                .writeBytes(key.getBytes(StandardCharsets.UTF_8))
+                .writeInt(value.length())
+                .writeBytes(value.getBytes(StandardCharsets.UTF_8));
         }
-        out.add(encoded);
-
+        
         totalLength += encoded.readableBytes();
-        ByteBuf header = allocator.buffer()
-            .writeInt(Utils.MAGIC)
-            .writeLong(totalLength);
-        out.addFirst(header);
+        out.add(encoded); // type, header
+
+        totalLength += writePayload(out, allocator, message.payload()); // payload
+
+        ByteBuf frameHeader = allocator.buffer()
+            .writeInt(Utils.MAGIC) // magic
+            .writeLong(totalLength); // total length
+
+        out.addFirst(frameHeader);
 
         return out;
     }
 
-    private void write(ByteBuf buf, byte[] data) {
-        buf.writeInt(data.length).writeBytes(data);
+    /**
+     * 새로운 ByteBuf를 생성하여 data를 기록하고, 이를 out에 추가.
+     * byte[], ByteBuf, FileRegion 타입 지원
+     * 그 외의 타입의 경우 toString().getBytes()로 변환하여 기록
+     * 
+     * @param allocator ByteBuf를 생성하기 위한 allocator
+     * @param payload 기록할 데이터
+     * @return 기록된 데이터의 총 크기
+     */
+    private long writePayload(List<Object> out, ByteBufAllocator allocator, Object payload) {
+        if (payload == null) {
+            return 0;
+        }
+
+        long weight = Long.BYTES;
+        ByteBuf encoded = allocator.buffer();
+        switch (payload) {
+            case byte[] buf -> {
+                weight += buf.length;
+                encoded.writeInt(buf.length).writeBytes(buf);
+            }
+
+            case ByteBuf buf -> {
+                weight += buf.readableBytes();
+                encoded.writeInt(buf.readableBytes()).writeBytes(buf);
+            }
+
+            case FileRegion region -> {
+                weight += region.count();
+                encoded.writeInt((int) region.count());
+
+                out.add(encoded);
+                out.add(region);
+                encoded = null;
+            }
+
+            default -> {
+                byte[] buf = payload.toString().getBytes(StandardCharsets.UTF_8);
+
+                weight += buf.length;
+                encoded.writeInt(buf.length).writeBytes(buf);
+            }
+        }
+        
+        if (encoded != null) {
+            out.add(encoded);
+        }
+
+        return weight;
     }
 }

@@ -7,7 +7,6 @@ import capstone.design.Utils;
 import capstone.design.netty.server.NettyServer;
 import capstone.design.topic.Topic;
 import capstone.design.topic.TopicManager;
-import capstone.design.topic.disk.DiskTopic;
 import capstone.design.topic.memory.MemoryTopic;
 
 public class Broker implements AutoCloseable {
@@ -15,26 +14,30 @@ public class Broker implements AutoCloseable {
     private final TopicManager topicManager;
     private final NettyServer server;
 
+    // constructor =====
     private Broker(Builder builder) throws Exception {
         topicManager = TopicManager.of(builder.topics, builder.cleanInterval);
         server = new NettyServer(builder.port, topicManager);
     }
     
+    // factory method ===== 
     public static Builder builder() { return new Builder(); }
 
+    // getter =====
+    public TopicManager topicManager() { return topicManager; }
+    public Topic topic(String name) { return topicManager.topic(name); }
+    public boolean isActive() { return server.isActive(); }
+
+    // method =====
     public void start() throws InterruptedException { 
         System.out.println("[debug] 브로커 시작");
         server.start(); 
     }
     
-    public TopicManager topicManager() { return topicManager; }
-    public Topic topic(String name) { return topicManager.topic(name); }
-    public boolean isActive() { return server.isActive(); }
-    
     @Override 
     public void close() {
         server.shutdown();
-        topicManager.close();
+        topicManager.shutdownNow();
     }
     
     // inner class
@@ -61,7 +64,8 @@ public class Broker implements AutoCloseable {
                 try {
                     topics.put(name, switch (type) {
                         case MEMORY -> MemoryTopic.of(name);
-                        case DISK -> DiskTopic.of(name);
+                        // case DISK -> DiskTopic.of(name);
+                        case DISK -> null;
                     });
                 } catch (Exception ignored) {}
             }

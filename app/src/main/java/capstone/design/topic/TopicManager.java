@@ -1,171 +1,231 @@
 package capstone.design.topic;
 
-import capstone.design.Utils;
 import capstone.design.message.Message;
 import capstone.design.message.MessageCleaner;
-import capstone.design.message.MessageOption;
-
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
+
 import capstone.design.message.MessageProcessor;
 import capstone.design.message.MessageType;
+
 import org.jspecify.annotations.Nullable;
 
 import io.netty.channel.ChannelHandlerContext;
 
 public class TopicManager implements MessageProcessor {
 
-    private static final long DEFAULT_CLEAN_INTERVAL = 5 * (60 * 1000); // 5분
+    // static field =====
+    private static final long DEFAULT_CLEAN_INTERVAL = 3 * (60 * 1000); // 3분
 
-    private final Map<String, Topic> topicMap = new ConcurrentHashMap<>();
+    // field =====
+    private final Map<String, Topic> topics = new ConcurrentHashMap<>();
     private final MessageCleaner cleaner;
 
+    // constructor =====
     private TopicManager(Map<String, Topic> topics, long cleanInterval) {
-        try {
-            topicMap.putAll(topics);
-        } catch (Exception e) { System.err.println("TopicManager.<init>(): " + e); }
+        this.topics.putAll(topics);
 
-        // 메시지 클리너 시작
-        cleaner = new MessageCleaner(topicMap.values(), cleanInterval);
-        cleaner.start();
+        this.cleaner = new MessageCleaner(this.topics.values(), cleanInterval);
+        this.cleaner.start();
     }
 
-    public static TopicManager of(Map<String, Topic> topics) {
-        return new TopicManager(topics, DEFAULT_CLEAN_INTERVAL);
-    }
+    // static method =====
+    public static TopicManager of(Map<String, Topic> topics) { return new TopicManager(topics, DEFAULT_CLEAN_INTERVAL); }
+    public static TopicManager of(Map<String, Topic> topics, long cleanInterval) { return new TopicManager(topics, cleanInterval); }
 
-    public static TopicManager of(Map<String, Topic> topics, long cleanInterval) {
-        if (cleanInterval < 0) {
-            cleanInterval = DEFAULT_CLEAN_INTERVAL;
-        }
+    // getter =====
+    public @Nullable Topic topic(String name) { return topics.get(name); }
 
-        return new TopicManager(topics, cleanInterval);
-    }
+    // public method =====
+    public void shutdownNow() { cleaner.shutdownNow(); }
 
-    @Nullable
-    public Topic topic(String name) { return topicMap.get(name); }
-
-    public void close() {
-        cleaner.shutdownNow();
-    }
-
+    // override =====
     @Override
     public void process(ChannelHandlerContext context, Message message) {
-        Utils.validate(context, message);
-
-        Byte type = message.optionAsByte(MessageOption.MESSAGE_TYPE);
-        if (type == null) {
-            return;
-        }
-
-        switch (MessageType.values()[type]) {
+        switch (message.type()) {
             case REQ_PUSH -> push(context, message);
             case REQ_PULL -> pull(context, message);
-            case REQ_SUBSCRIBE -> subscribe(context, message);
-            case REQ_UNSUBSCRIBE -> unsubscribe(context, message);
+            case REQ_FIND -> find(context, message);
+            case REQ_SEEK -> seek(context, message);
             default -> {}
         }
     }
 
+    // private method =====
     private void push(ChannelHandlerContext context, Message message) {
-        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
-        Integer partition = message.optionAsInt(MessageOption.PARTITION);
-        String clientId = message.optionAsString(MessageOption.CLIENT_ID);
-        byte[] payload = message.optionAsBytes(MessageOption.PAYLOAD);
-
-        message.addOptions(Map.of(
-            MessageOption.MESSAGE_TYPE, MessageType.RES_PUSH.getByte(),
-            MessageOption.OK, 0 // 일단 실패로 초기화
-        )).removeOptions(MessageOption.PAYLOAD); // payload 받았으니까 다음 전송을 위해 제거
-        
-        // 메시지에서 꺼내온 값들이 유효하면 비즈니스 로직 수행
-        if(Utils.isValid(topicName, partition, clientId, payload)) {
-            Topic topic = topicMap.get(topicName);
-            if (topic != null && topic.push(partition, clientId, payload)) {
-                message.addOptions(Map.of(
-                    MessageOption.OFFSET, topic.offset(partition, clientId),
-                    MessageOption.COUNT, topic.count(partition, clientId),
-                    MessageOption.OK, 1
-                ));
-
-                topic.notify(partition, message.copy());
+        try {
+            Topic topic = topic(message);
+            if (topic == null) {
+                throw new Exception("topic 없음");
             }
+
+            int offset = topic.push(message);
+            if (offset < 0) {
+                throw new Exception("메시지 저장 실패");
+            }
+
+            message.addHeader(Map.of(
+                "ok", "true",
+                "offset", Integer.toString(offset)
+            ));
+        } catch (Exception e) {
+            System.err.println("! TopicManager.push(): " + e);
+            message.addHeader("ok", "false");
         }
 
+        // push 요청에 대한 응답은 요청 메시지를 payload 삭제하여 재사용(headers에 존재하는 모든 정보 포함)
+        message.setType(MessageType.RES_PUSH).removePayload();
         context.channel().writeAndFlush(message);
     }
 
     private void pull(ChannelHandlerContext context, Message message) {
-        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
-        Integer partition = message.optionAsInt(MessageOption.PARTITION);
-        String clientId = message.optionAsString(MessageOption.CLIENT_ID);
-        Long offset = message.optionAsLong(MessageOption.OFFSET);
-
-        message.addOptions(Map.of(
-            MessageOption.MESSAGE_TYPE, MessageType.RES_PULL.getByte(),
-            MessageOption.OK, 0 // 일단 실패로 초기화
-        )).removeOptions(MessageOption.PAYLOAD); // payload 제거(당연히 없겠지만 안전하게)
-
-        // 메시지에서 꺼내온 값들이 유효하면 비즈니스 로직 수행
-        if (Utils.isValid(topicName, partition, clientId)) {
-            Topic topic = topicMap.get(topicName);
-            TopicRecord record;
-            if (topic != null && (record = topic.pull(partition, clientId, offset)) != null) {
-                message.addOptions(Map.of(
-                    MessageOption.PAYLOAD, record,
-                    MessageOption.OFFSET, topic.offset(partition, clientId),
-                    MessageOption.COUNT, topic.count(partition, clientId),
-                    MessageOption.OK, 1
-                ));
+        try {
+            Topic topic = topic(message);
+            if (topic == null) {
+                throw new Exception("토픽 없음");
             }
+
+            int count = Integer.parseInt(message.header("count", "1"));
+            int existingCount = topic.count(message);
+            List<Message> pulled = pull(topic, message, Math.min(count, existingCount));
+            long timeout = Long.parseLong(message.header("timeout", "0"));
+            if (pulled.size() < count && timeout > 0) {
+                subscribe(
+                    topic, message, timeout, 
+                    () -> {
+                        TopicRecord record = topic.pull(message);
+                        if (record != null) {
+                            record.message().setType(MessageType.RES_PULL).addHeader("ok", "true");
+                            pulled.add(record.message());
+                        }
+                    }, 
+                    () -> pulled.size() < count
+                );
+            }
+
+            if (pulled.isEmpty()) {
+                throw new Exception("pull한 메시지 없음");
+            }
+
+            for (Message msg : pulled) {
+                context.channel().write(msg);
+            }
+            context.channel().flush();
+        } catch (Exception e) {
+            System.err.println("! TopicManager.pull(): " + e);
+
+            message.setType(MessageType.RES_PULL).addHeader("ok", "false");
+            context.channel().writeAndFlush(message);
         }
+    }
+
+    private void seek(ChannelHandlerContext context, Message message) {
+        Topic topic = topic(message);
+        if (topic == null) {
+            System.err.println("! TopicManager.seek(): 토픽 없음");
+            return;
+        }
+
+        boolean ok = topic.seek(message);
+        message.setType(MessageType.RES_SEEK)
+            .addHeader("ok", Boolean.toString(ok));
 
         context.channel().writeAndFlush(message);
     }
 
-    private void subscribe(ChannelHandlerContext context, Message message) {
-        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
-        Integer partition = message.optionAsInt(MessageOption.PARTITION);
-        String clientId = message.optionAsString(MessageOption.CLIENT_ID);
-
-        message.addOptions(Map.of(
-            MessageOption.MESSAGE_TYPE, MessageType.RES_SUBSCRIBE.getByte(),
-            MessageOption.OK, 0 // 일단 실패로 초기화
-        ));
-
-        if (Utils.isValid(topicName, partition, clientId)) {
-            Topic topic = topicMap.get(topicName);
-            if (topic != null) {
-                topic.subscribe(context, partition, clientId);
-                message.addOptions(Map.of(
-                    MessageOption.OFFSET, topic.offset(partition, clientId),
-                    MessageOption.COUNT, topic.count(partition, clientId),
-                    MessageOption.OK, 1
-                ));
-            }
+    private void find(ChannelHandlerContext context, Message message) {
+        Topic topic = topic(message);
+        if (topic == null) {
+            System.err.println("! TopicManager.find(): 토픽 없음");
+            return;
         }
+
+        long timeout = Long.parseLong(message.header("timeout", "0"));
+        AtomicInteger offset = new AtomicInteger(topic.find(message));
+
+        /*
+         * 다음 조건을 모두 만족하면, 구독 및 반복 조회 수행
+         * 1. 찾은 offset이 음수(유효하지 않은 값)
+         * 2. timeout이 설정 됨(0 초과)
+         */
+        if (offset.get() < 0 && timeout > 0) {
+            subscribe(
+                topic, message, timeout, 
+                () -> offset.set(topic.find(message)), // callback
+                () -> offset.get() < 0 // condition
+            );
+        }
+
+        message.setType(MessageType.RES_FIND)
+            .addHeader("offset", String.valueOf(offset.get()))
+            .removePayload();
 
         context.channel().writeAndFlush(message);
     }
 
-    private void unsubscribe(ChannelHandlerContext context, Message message) {
-        String topicName = message.optionAsString(MessageOption.TOPIC_NAME);
-        Integer partition = message.optionAsInt(MessageOption.PARTITION);
-        String clientId = message.optionAsString(MessageOption.CLIENT_ID);
+    /**
+     * 특정 토픽/파티션을 구독하여, 다음 조건이 만족될 때 까지 대기하며 callback 실행
+     * 1. strict 모드가 아닐 경우 한 번만 대기 후 callback 실행
+     * 2. strict 모드이면서 남은 timeout이 존재하다면 condition이 true를 반환할 때까지 반복 대기
+     * 
+     * 반환 직전 unsubscribe 수행함
+     * 
+     * @param callback 구독한 토픽/파티션에 메시지가 갱신됐을 경우 실행할 콜백 함수
+     */
+    private void subscribe(Topic topic, Message message, long timeout, Runnable callback, Supplier<Boolean> condition) {
+        boolean strict = Boolean.parseBoolean(message.header("strict", "false"));
+        BlockingQueue<Object> notifiedQueue = new LinkedBlockingQueue<>();
+        int key = topic.subscribe(message, notifiedQueue);
 
-        message.addOptions(Map.of(
-            MessageOption.MESSAGE_TYPE, MessageType.RES_UNSUBSCRIBE.getByte(),
-            MessageOption.OK, 0 // 일단 실패로 초기화
-        ));
+        do {
+            long start = System.currentTimeMillis();
 
-        if (Utils.isValid(topicName, partition, clientId)) {
-            Topic topic = topicMap.get(topicName);
-            if (topic != null) {
-                topic.unsubscribe(partition, clientId);
-                message.addOption(MessageOption.OK, 1);
+            try {
+                notifiedQueue.poll(timeout, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException ignored) {}
+
+            callback.run();
+            timeout -= (System.currentTimeMillis() - start);
+        } while(strict && timeout > 0 && condition.get());
+
+        topic.unsubscribe(message, key);
+    }
+
+    /**
+     * 이를 호출하기 전에, {@code topic.count()}를 통해 동일한 조건(group, offset)의 메시지 개수를 획득하여
+     * {@code count}로 전달하기 때문에, 실제 {@code topic.pull()}에서 {@code null}이 반환되는 경우는 없을 것으로 예상
+     * 다만, 완전하지 않으므로 반환하는 메시지 리스트의 개수는 {@code count}보다 작을 수 있으므로, 개수를 보장하지 않음
+     */
+    private List<Message> pull(Topic topic, Message message, int count) {
+        List<Message> messages = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            TopicRecord record = topic.pull(message);
+            if (record != null) {
+                messages.add(
+                    record.message()
+                        .setType(MessageType.RES_PULL)
+                        .addHeader("ok", "true")
+                );
             }
         }
 
-        context.channel().writeAndFlush(message);
+        return messages;
+    }
+
+    private @Nullable Topic topic(Message message) {
+        String topicName = message.header("topicName", "");
+        if (topicName.isEmpty()) {
+            System.err.println("! TopicManager.topic(): topic name 없음");
+            return null;
+        }
+
+        return topics.get(topicName);
     }
 }
