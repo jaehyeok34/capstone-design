@@ -180,7 +180,6 @@ public class TopicManager implements MessageProcessor {
      * @param callback 구독한 토픽/파티션에 메시지가 갱신됐을 경우 실행할 콜백 함수
      */
     private void subscribe(Topic topic, Message message, long timeout, Runnable callback, Supplier<Boolean> condition) {
-        boolean strict = Boolean.parseBoolean(message.header("strict", "false"));
         BlockingQueue<Object> notifiedQueue = new LinkedBlockingQueue<>();
         int key = topic.subscribe(message, notifiedQueue);
 
@@ -193,7 +192,7 @@ public class TopicManager implements MessageProcessor {
 
             callback.run();
             timeout -= (System.currentTimeMillis() - start);
-        } while(strict && timeout > 0 && condition.get());
+        } while(timeout > 0 && condition.get());
 
         topic.unsubscribe(message, key);
     }
@@ -220,7 +219,7 @@ public class TopicManager implements MessageProcessor {
     }
 
     private @Nullable Topic topic(Message message) {
-        String topicName = message.header("topicName", "");
+        String topicName = message.header("topic.name", "");
         if (topicName.isEmpty()) {
             System.err.println("! TopicManager.topic(): topic name 없음");
             return null;
