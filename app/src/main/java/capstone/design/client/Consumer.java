@@ -1,6 +1,8 @@
 package capstone.design.client;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import capstone.design.message.Message;
 import capstone.design.message.MessageType;
@@ -19,18 +21,22 @@ public class Consumer implements AutoCloseable {
     // method =====
     public List<Message> consume(Message message) {
         message.setType(MessageType.REQ_PULL);
-        try {
-            return client.fetch(message).join();
-        } catch (Exception e) {
-            System.err.println("Consumer.consume(): " + e);
-            return List.of();
+        List<Message> responses = new ArrayList<>();
+        for (CompletableFuture<Message> future : client.fetch(message)) {
+            try {
+                responses.add(future.join());
+            } catch (Exception e) {
+                System.err.println("Consumer.consume(): future 예외 발생: " + e);
+            }
         }
+
+        return responses;
     }
 
     public int find(Message message) {
         message.setType(MessageType.REQ_FIND);
         try {
-            Message response = client.fetch(message).join().get(0);
+            Message response = client.fetch(message).get(0).join();
             return Integer.parseInt(response.header("offset", "-1"));
         } catch (Exception e) {
             System.err.println("Consumer.find(): " + e);
@@ -41,7 +47,7 @@ public class Consumer implements AutoCloseable {
     public boolean seek(Message message) {
         message.setType(MessageType.REQ_SEEK);
         try {
-            Message response = client.fetch(message).join().get(0);
+            Message response = client.fetch(message).get(0).join();
             return Boolean.parseBoolean(response.header("ok", "false"));
         } catch (Exception e) {
             System.err.println("Consumer.seek(): " + e);

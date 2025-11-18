@@ -52,7 +52,8 @@ public class NettyClient {
         return future.channel();
     }
 
-    public CompletableFuture<List<Message>> fetch(Message message) {
+    // public CompletableFuture<List<Message>> fetch(Message message) {
+    public List<CompletableFuture<Message>> fetch(Message message) {
         String requestId = String.valueOf(requestCounter++);
         message.addHeader(Map.of(
             "client.id", clientId,
@@ -61,8 +62,7 @@ public class NettyClient {
 
         /*
          * consumer.consume() 등에서 여러 개의 메시지를 요청할 수 있음
-         * 이러한 경우를 대비해 요청 개수만큼 future를 생성하고
-         * 합성 future를 반환하여 n개의 결과를 받을 수 있도록 CompletableFuture<List<Message>> 형태로 반환
+         * 이러한 경우를 대비해 요청 개수만큼 future를 생성하여 처리
          * 단, count가 없거나 1인 경우에도 List<Message> 형태이며, 내부 요소는 1개임
          */
         int count = Integer.parseInt(message.header("count", "1"));
@@ -73,26 +73,16 @@ public class NettyClient {
         }
         requests.put(requestId, futures); // 요청 id에 futures 매핑
 
-        /*
-         * 모든 future가 완료(에러X) 되었을 경우, 각 future의 결과를 모아서 반환하는 combined future 생성
-         * 요청이 모두 처리(에러 포함)된 후에는 requests 맵에서 해당 요청 id 제거
-         * 내부 future 중 하나라도 에러가 발생하면, combined.join()에서 예외 발생
-         */
-        CompletableFuture<List<Message>> combined = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-            .thenApply(ignored -> {
-                List<Message> messages = new ArrayList<>();
-                for (CompletableFuture<Message> future : futures) {
-                    messages.add(future.join());
-                }
-
-                return messages;
-            }).whenComplete((result, err) -> {
+        // 요청이 모두 처리되면(에러 포함) requests에서 해당 id 항목 제거
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+            .whenComplete((result, err) -> {
                 requests.remove(requestId);
             });
 
+
         channel.writeAndFlush(message);
 
-        return combined;
+        return futures;
     }
 
     public void shutdownGracefully() {

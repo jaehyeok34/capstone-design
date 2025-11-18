@@ -30,11 +30,13 @@ public class ClientInboundHandler extends ChannelInboundHandlerAdapter {
 
             message.removeHeader("request.id");
 
-            /*
-             * 합성 future에서 아무 future나 꺼내서(삭제) 완료시킴
-             * future가 모두 처리된다면, requests의 해당 id 항목은 빈 리스트가 될 것임
-             */
-            futures.remove(0).complete(message);
+            // 완료되지 않은 future를 찾아서 완료시킴
+            for (CompletableFuture<Message> future : futures) {
+                if (!future.isDone()) {
+                    future.complete(message);
+                    break;
+                }
+            }
         }
     }
 }

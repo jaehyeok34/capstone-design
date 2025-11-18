@@ -27,7 +27,7 @@ public class Producer implements AutoCloseable {
 
     private CompletableFuture<Message> produce(Message message) {
         message.setType(MessageType.REQ_PUSH);
-        return client.fetch(message).thenApply(list -> list.get(0));
+        return client.fetch(message).get(0);
     }   
     
     @Override
