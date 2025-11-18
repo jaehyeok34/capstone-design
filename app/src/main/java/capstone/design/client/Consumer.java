@@ -1,5 +1,7 @@
 package capstone.design.client;
 
+import java.util.List;
+
 import capstone.design.message.Message;
 import capstone.design.message.MessageType;
 import capstone.design.netty.client.NettyClient;
@@ -15,21 +17,36 @@ public class Consumer implements AutoCloseable {
     }
 
     // method =====
-    public Message consume(Message message) throws Exception {
+    public List<Message> consume(Message message) {
         message.setType(MessageType.REQ_PULL);
-        return client.fetch(message).join();
+        try {
+            return client.fetch(message).join();
+        } catch (Exception e) {
+            System.err.println("Consumer.consume(): " + e);
+            return List.of();
+        }
     }
 
     public int find(Message message) {
         message.setType(MessageType.REQ_FIND);
-        Message response = client.fetch(message).join();
-        return Integer.parseInt(response.header("offset", "-1"));
+        try {
+            Message response = client.fetch(message).join().get(0);
+            return Integer.parseInt(response.header("offset", "-1"));
+        } catch (Exception e) {
+            System.err.println("Consumer.find(): " + e);
+            return -1;
+        }
     }
 
     public boolean seek(Message message) {
         message.setType(MessageType.REQ_SEEK);
-        Message response = client.fetch(message).join();
-        return Boolean.parseBoolean(response.header("ok", "false"));
+        try {
+            Message response = client.fetch(message).join().get(0);
+            return Boolean.parseBoolean(response.header("ok", "false"));
+        } catch (Exception e) {
+            System.err.println("Consumer.seek(): " + e);
+            return false;
+        }
     }
 
     @Override
