@@ -6,6 +6,14 @@ class Message:
         self.header: Dict[str, str] = header
         self.payload: Any = payload
 
+    def set_type(self, type: int):
+        self.type = type
+        return self
+    
+    def set_payload(self, payload: Any):
+        self.payload = payload
+        return self
+
     def get_header(self, key: str, default: str = ""):
         return self.header.get(key, default)
 

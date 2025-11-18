@@ -17,7 +17,7 @@ class Consumer:
         self.client.close()
 
     def consume(self, message: Message):
-        message.type = MessageType.REQ_PULL
+        message.set_type(MessageType.REQ_PULL)
         responses: List[Message] = []
         for future in self.client.fetch(message):
             try:
@@ -28,7 +28,7 @@ class Consumer:
         return responses
     
     def find(self, message: Message):
-        message.type = MessageType.REQ_FIND
+        message.set_type(MessageType.REQ_FIND)
         try:
             response = self.client.fetch(message)[0].result()
             return int(response.get_header("offset", "-1"))
@@ -37,7 +37,7 @@ class Consumer:
             return -1
     
     def seek(self, message: Message):
-        message.type = MessageType.REQ_SEEK
+        message.set_type(MessageType.REQ_SEEK)
         try:
             response = self.client.fetch(message)[0].result()
             return response.get_header("ok", "false").lower() == "true"

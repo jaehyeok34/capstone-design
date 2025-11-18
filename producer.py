@@ -16,7 +16,7 @@ class Producer:
         self.client.close()
 
     def __produce(self, message: Message):
-        message.type = MessageType.REQ_PUSH
+        message.set_type(MessageType.REQ_PUSH)
         return self.client.fetch(message)
     
     def asyncProduce(self, message: Message):

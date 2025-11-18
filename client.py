@@ -77,10 +77,8 @@ class Client:
         request_id = str(self.request_id_counter)
         self.request_id_counter += 1
 
-        message.add_header_dict({
-            "client.id": self.client_id,
-            "request.id": request_id
-        })
+        message.set_client_id(self.client_id) \
+            .add_header("request.id", request_id)
 
         count = int(message.get_header("count", "1"))
         futures: List[Future[Message]] = []
