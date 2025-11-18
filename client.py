@@ -1,7 +1,7 @@
 from concurrent.futures import Future
 import socket
 from threading import Event, Thread, Lock
-from typing import Dict
+from typing import Dict, List
 
 from py_client.message.message import Message
 from py_client.message.message_encoder import MessageEncoder
@@ -18,7 +18,7 @@ class Client:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
 
-        self.requests: Dict[str, Future[Message]] = {}
+        self.requests: Dict[str, List[Future[Message]]] = {}
         self.lock = Lock()
 
         self.stop_event = Event()
@@ -57,13 +57,21 @@ class Client:
             return
         
         with self.lock:
-            request = self.requests.pop(request_id, None)
+            futures = self.requests.get(request_id)
 
-        if request is None:
+        if futures is None:
             return
-                
+
         message.remove_header('request.id')
-        request.set_result(message)
+        for future in futures:
+            if not future.done():
+                future.set_result(message)
+                break
+
+        if all(future.done() for future in futures):
+            with self.lock:
+                del self.requests[request_id]
+
 
     def fetch(self, message: Message):
         request_id = str(self.request_id_counter)
@@ -74,10 +82,15 @@ class Client:
             "request.id": request_id
         })
 
-        future: Future[Message] = Future()
+        count = int(message.get_header("count", "1"))
+        futures: List[Future[Message]] = []
+        for _ in range(count):
+            future: Future[Message] = Future()
+            futures.append(future)
+
         with self.lock:
-            self.requests[request_id] = future
+            self.requests[request_id] = futures
 
         self.sock.sendall(MessageEncoder.encode(message))
 
-        return future
+        return futures

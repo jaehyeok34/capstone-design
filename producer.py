@@ -23,5 +23,5 @@ class Producer:
         self.__produce(message)
 
     def syncProduce(self, message: Message):
-        return self.__produce(message).result()
+        return self.__produce(message)[0].result()
         

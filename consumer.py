@@ -1,6 +1,5 @@
 
-from queue import Queue
-from threading import Event
+from typing import List
 from py_client.message.message import Message
 from py_client.message.message_type import MessageType
 
@@ -19,14 +18,29 @@ class Consumer:
 
     def consume(self, message: Message):
         message.type = MessageType.REQ_PULL
-        return self.client.fetch(message).result()
+        responses: List[Message] = []
+        for future in self.client.fetch(message):
+            try:
+                responses.append(future.result())
+            except Exception as e:
+                print("! Consumer.consume(): future 에러 발생:", e)
+
+        return responses
     
     def find(self, message: Message):
         message.type = MessageType.REQ_FIND
-        response = self.client.fetch(message).result()
-        return int(response.get_header("offset", "-1"))
+        try:
+            response = self.client.fetch(message)[0].result()
+            return int(response.get_header("offset", "-1"))
+        except Exception as e:
+            print("! Consumer.find(): future 에러 발생:", e)
+            return -1
     
     def seek(self, message: Message):
         message.type = MessageType.REQ_SEEK
-        response = self.client.fetch(message).result()
-        return response.get_header("ok", "false").lower() == "true"
+        try:
+            response = self.client.fetch(message)[0].result()
+            return response.get_header("ok", "false").lower() == "true"
+        except Exception as e:
+            print("! Consumer.seek(): future 에러 발생:", e)
+            return False
