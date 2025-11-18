@@ -1,3 +1,4 @@
+from typing import Any, Dict
 from py_client.message.message import Message
 from py_client.message.message_type import MessageType
 
@@ -19,9 +20,19 @@ class Producer:
         message.set_type(MessageType.REQ_PUSH)
         return self.client.fetch(message)
     
-    def asyncProduce(self, message: Message):
+    def asyncProduce(self, topic_name: str, partition: str, header: Dict[str, str], payload: Any):
+        message = Message().set_topic_name(topic_name) \
+            .set_partition(partition) \
+            .add_header_dict(header) \
+            .set_payload(payload)
+        
         self.__produce(message)
 
-    def syncProduce(self, message: Message):
-        return self.__produce(message)[0].result()
+    def syncProduce(self, topic_name: str, partition: str, header: Dict[str, str], payload: Any, timeout: int = 30):
+        message = Message().set_topic_name(topic_name) \
+            .set_partition(partition) \
+            .add_header_dict(header) \
+            .set_payload(payload)
+        
+        return self.__produce(message)[0].result(timeout=timeout)
         

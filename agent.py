@@ -1,4 +1,7 @@
+from typing import Dict
 from py_client.consumer import Consumer
+from py_client.message.message import Message
+from py_client.message.message_type import MessageType
 from py_client.producer import Producer
 
 
@@ -17,6 +20,20 @@ class Agent:
     def close(self):
         self.producer.client.close()
         self.consumer.client.close()
+
+    def find_and_seek(self, topic_name: str, partition: str, condition: Dict[str, str], timeout: int = 30):
+        offset = self.consumer.find(
+            topic_name=topic_name, 
+            partition=partition, 
+            condition=condition,
+            timeout=timeout
+        )
+        if offset == -1:
+            return False
+        
+        self.consumer.seek(topic_name=topic_name, partition=partition, offset=offset)
+        
+        return True
     
     @staticmethod
     def of(host: str, port: int, client_id: str):
