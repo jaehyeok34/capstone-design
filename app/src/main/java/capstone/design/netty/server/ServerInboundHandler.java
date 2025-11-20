@@ -5,9 +5,11 @@ import capstone.design.Utils;
 import capstone.design.message.Message;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.AttributeKey;
 
 public class ServerInboundHandler extends ChannelInboundHandlerAdapter {
 
+    private static final AttributeKey<Message> ATTRIBUTE_KEY = AttributeKey.valueOf("message");
     private final MessageProcessor processor;
 
     public ServerInboundHandler(MessageProcessor processor) {
@@ -19,13 +21,8 @@ public class ServerInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (msg instanceof Message message) {
-            String str = "type: " + message.type().name() + 
-                ", ok: " + message.header("ok", "null") +
-                ", client.id: " + message.header("client.id") +
-                ", topic.name: " + message.header("topic.name") + 
-                ", partition: " + message.header("partition");
-
-            System.out.println("! 서버 수신: " + str);
+            System.out.println("! 서버 수신: " + msg);
+            ctx.channel().attr(ATTRIBUTE_KEY).set(message);
             processor.process(ctx, message);
         }
     }

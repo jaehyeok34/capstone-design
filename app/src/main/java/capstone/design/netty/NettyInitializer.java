@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-import capstone.design.Utils;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandler;
@@ -26,20 +24,11 @@ public class NettyInitializer extends ChannelInitializer<Channel> {
     @Override
     protected void initChannel(Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
-        handlerConstructors.forEach(constructor -> pipeline.addLast(constructor.get()));
-
-        if (exceptionHandler == null) {
-            pipeline.addLast(new ChannelDuplexHandler() {
-
-                @Override
-                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-                    System.err.println("채널(" + ctx.channel().remoteAddress() + ") 예외 발생: " + cause);
-                    cause.printStackTrace();
-
-                    // super.exceptionCaught(ctx, cause); // 예외 전파 안함
-                }
-            });
+        for (Supplier<ChannelHandler> constructor : handlerConstructors) {
+            pipeline.addLast(constructor.get());
         }
+
+        pipeline.addLast(exceptionHandler);
     }
 
     public static Builder builder() { return new Builder(null); }
@@ -51,7 +40,18 @@ public class NettyInitializer extends ChannelInitializer<Channel> {
         private final ChannelDuplexHandler exceptionHandler;
 
         private Builder(ChannelDuplexHandler exceptionHandler) {
-            this.exceptionHandler = exceptionHandler;
+            this.exceptionHandler = (exceptionHandler != null) ? exceptionHandler : new ChannelDuplexHandler() {
+                @Override
+                public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+                    ctx.close(); // 채널 비활성화 시 채널 닫기
+                }
+
+                @Override
+                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                    // 예외 발생하더라도 채널을 닫지 않고 유지
+                    System.err.println("채널(" + ctx.channel().remoteAddress() + ") 예외 발생: " + cause.getMessage());
+                }
+            };
         }
 
         public Builder addHandler(Class<? extends ChannelHandler> handlerClass) {
@@ -87,8 +87,6 @@ public class NettyInitializer extends ChannelInitializer<Channel> {
         }
 
         public NettyInitializer build() {
-            Utils.validate(handlerConstructors);
-            
             return new NettyInitializer(this); 
         }
     }
