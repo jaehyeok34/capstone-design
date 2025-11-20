@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
+import org.jspecify.annotations.Nullable;
+
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandler;
@@ -14,11 +16,11 @@ import io.netty.channel.ChannelPipeline;
 public class NettyInitializer extends ChannelInitializer<Channel> {
 
     private final List<Supplier<ChannelHandler>> handlerConstructors;
-    private final ChannelDuplexHandler exceptionHandler;
+    private final Supplier<ChannelDuplexHandler> exceptionHandlerConstructor;
 
     private NettyInitializer(Builder builder) {
         this.handlerConstructors = builder.handlerConstructors;
-        this.exceptionHandler = builder.exceptionHandler;
+        this.exceptionHandlerConstructor = builder.exceptionHandlerConstructor;
     }
 
     @Override
@@ -28,21 +30,22 @@ public class NettyInitializer extends ChannelInitializer<Channel> {
             pipeline.addLast(constructor.get());
         }
 
-        pipeline.addLast(exceptionHandler);
+        pipeline.addLast(exceptionHandlerConstructor.get());
     }
 
     public static Builder builder() { return new Builder(null); }
-    public static Builder builder(ChannelDuplexHandler exceptionHandler) { return new Builder(exceptionHandler); }
+    public static Builder builder(Supplier<ChannelDuplexHandler> exceptionHandlerConstructor) { return new Builder(exceptionHandlerConstructor); }
 
     public static class Builder {
 
         private final List<Supplier<ChannelHandler>> handlerConstructors = new ArrayList<>();
-        private final ChannelDuplexHandler exceptionHandler;
+        private Supplier<ChannelDuplexHandler> exceptionHandlerConstructor;
 
-        private Builder(ChannelDuplexHandler exceptionHandler) {
-            this.exceptionHandler = (exceptionHandler != null) ? exceptionHandler : new ChannelDuplexHandler() {
+        private Builder(@Nullable Supplier<ChannelDuplexHandler> exceptionHandlerConstructor) {
+            this.exceptionHandlerConstructor = (exceptionHandlerConstructor != null) ? exceptionHandlerConstructor : () -> new ChannelDuplexHandler() {
                 @Override
                 public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+                    System.out.println("! 채널 비활성화: " + ctx.channel().remoteAddress() + ", 채널 닫음");
                     ctx.close(); // 채널 비활성화 시 채널 닫기
                 }
 
@@ -83,6 +86,11 @@ public class NettyInitializer extends ChannelInitializer<Channel> {
                 }
             });
 
+            return this;
+        }
+
+        public Builder exceptionHandlerConstructor(Supplier<ChannelDuplexHandler> exceptionHandlerConstructor) {
+            this.exceptionHandlerConstructor = exceptionHandlerConstructor;
             return this;
         }
 

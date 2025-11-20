@@ -186,6 +186,7 @@ public class TopicManager implements MessageProcessor {
     private void subscribe(Topic topic, Message message, long timeout, Runnable callback, Supplier<Boolean> condition) {
         BlockingQueue<Object> notifiedQueue = new LinkedBlockingQueue<>();
         int key = topic.subscribe(message, notifiedQueue);
+        System.out.println("! TopicManager.subscribe(): 구독 시작, key=" + key);
 
         do {
             long start = System.currentTimeMillis();
@@ -199,6 +200,7 @@ public class TopicManager implements MessageProcessor {
         } while(timeout > 0 && condition.get());
 
         topic.unsubscribe(message, key);
+        System.out.println("! TopicManager.subscribe(): 구독 해제 완료, key=" + key);
     }
 
     /**
