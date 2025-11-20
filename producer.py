@@ -20,7 +20,7 @@ class Producer:
         message.set_type(MessageType.REQ_PUSH)
         return self.client.fetch(message)
     
-    def asyncProduce(self, topic_name: str, partition: str, header: Dict[str, str], payload: Any):
+    def asyncProduce(self, topic_name: str, partition: str, header: Dict[str, str], payload: Any = None):
         message = Message().set_topic_name(topic_name) \
             .add_header_dict(header) \
             .set_partition(partition) \
