@@ -112,12 +112,14 @@ public class MessageDecoder extends ByteToMessageDecoder {
         }
 
         // payload 읽기
-        if (in.readableBytes() > 0) {
+        if (in.readableBytes() >= Integer.BYTES) {
             int payloadLength = in.readInt();
-            byte[] payload = new byte[payloadLength];
-            in.readBytes(payload);
+            if (payloadLength > 0 && in.readableBytes() >= payloadLength) {
+                byte[] payload = new byte[payloadLength];
+                in.readBytes(payload);
 
-            builder.payload(payload);
+                builder.payload(payload);
+            }
         }
 
         out.add(builder.build());

@@ -1,5 +1,8 @@
 package capstone.design.netty.server;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import capstone.design.Utils;
 import capstone.design.message.MessageDecoder;
 import capstone.design.message.MessageEncoder;
@@ -20,6 +23,7 @@ public class NettyServer {
 
     private final EventLoopGroup bossGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
     private final EventLoopGroup workerGroup = new MultiThreadIoEventLoopGroup(5, NioIoHandler.newFactory());
+    private final ExecutorService executor = Executors.newFixedThreadPool(10);
     private final ServerBootstrap bootstrap;
     private Channel channel;
 
@@ -36,7 +40,7 @@ public class NettyServer {
 
         NettyInitializer initializer = NettyInitializer.builder()
             .addHandler(MessageDecoder.class)
-            .addHandler(ServerInboundHandler.class, new Class<?>[] { MessageProcessor.class }, processor)
+            .addHandler(ServerInboundHandler.class, new Class<?>[] { MessageProcessor.class, ExecutorService.class }, processor, executor)
             .addHandler(MessageEncoder.class)
             .build();
 

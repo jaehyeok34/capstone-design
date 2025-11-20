@@ -62,12 +62,9 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
      * @return 기록된 데이터의 총 크기
      */
     private long writePayload(List<Object> out, ByteBufAllocator allocator, Object payload) {
-        if (payload == null) {
-            return 0;
-        }
-
         long weight = Integer.BYTES;
         ByteBuf encoded = allocator.buffer();
+        
         switch (payload) {
             case byte[] buf -> {
                 weight += buf.length;
@@ -88,6 +85,8 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
                 encoded = null;
             }
 
+            case null -> encoded.writeInt(0);
+
             default -> {
                 byte[] buf = payload.toString().getBytes(StandardCharsets.UTF_8);
 
@@ -95,10 +94,8 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
                 encoded.writeInt(buf.length).writeBytes(buf);
             }
         }
-        
-        if (encoded != null) {
-            out.add(encoded);
-        }
+
+        out.add(encoded);
 
         return weight;
     }
