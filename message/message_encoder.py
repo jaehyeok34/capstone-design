@@ -32,6 +32,8 @@ class MessageEncoder:
                 payload = str(message.payload).encode('utf-8')
                 encoded.extend(struct.pack(">I", len(payload)))
                 encoded.extend(payload)
+        else:
+            encoded.extend(struct.pack(">I", 0)) # payload 없음 의미
 
         total_length = len(encoded)
         from py_client.utils import Utils

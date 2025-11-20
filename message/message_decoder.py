@@ -81,12 +81,14 @@ class MessageDecoder:
 
             message.add_header(key, value)
 
-        if (len(buf) - offset) > 4:
+        # payload 읽기
+        if (len(buf) - offset) >= 4:
             payload_length = struct.unpack(">I", buf[offset : offset + 4])[0]
             offset += 4
 
-            message.payload = buf[offset : offset + payload_length]
-            offset += payload_length
+            if (payload_length > 0) and ((len(buf) - offset) >= payload_length):
+                message.payload = buf[offset : offset + payload_length]
+                offset += payload_length
 
         self.state = 0 # read magic
         return message
