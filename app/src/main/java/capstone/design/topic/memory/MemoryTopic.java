@@ -86,26 +86,29 @@ public class MemoryTopic implements Topic {
         /*
          * client offset 획득.
          * 
-         * 최초 요청 및 기존 오프셋이 유효하지 않은 경우(기존 오프셋의 메시지가 만료되어 삭제된 경우)
-         * defaultOffset(파티션의 최소 offset)으로 설정하여 FIFO 방식으로 메시지를 처리하도록 함.
-         * 
-         * offset을 획득한 이후에는 곧바로 오프셋을 증가하여 갱신함
+         * client id에 해당하는 offset이 없는 경우(최초 요청) default offset으로 설정.
+         * 또한, client offset이 default offset보다 작은 경우(메시지 만료로 인한 삭제 등)에도
+         * default offset으로 조정.
          */
         int defaultOffset = Collections.min(storage.keySet());
-        int offset = clientOffsets.computeIfAbsent(partition, ignored -> {
+        int clientOffset = clientOffsets.computeIfAbsent(partition, ignored -> {
             return new ConcurrentHashMap<>();
         }).getOrDefault(clientId, defaultOffset);
-        clientOffsets.get(partition).put(clientId, offset + 1);
+
+        clientOffset = Math.max(defaultOffset, clientOffset); // offset 조정
 
         /*
          * 메모리 토픽의 경우 메시지 재처리를 지원하지 않기 때문에
          * storage.get()이 아닌, remove()를 통해 메시지를 꺼냄과 동시에 삭제함
          */
-        TopicRecord record = storage.remove(offset);
+        TopicRecord record = storage.remove(clientOffset);
         if (record == null || record.isExpired(retention)) {
             System.err.println("! MemoryTopic.pull(): 유효하지 않은 메시지");
             return null;
         }
+
+        // 유효한 record를 획득한 경우 offset 갱신
+        clientOffsets.get(partition).put(clientId, clientOffset + 1);
 
         return record;
     }
