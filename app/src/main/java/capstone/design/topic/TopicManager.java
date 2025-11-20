@@ -60,6 +60,10 @@ public class TopicManager implements MessageProcessor {
 
     // private method =====
     private void push(ChannelHandlerContext context, Message message) {
+        Message.Builder builder = Message.builder()
+            .type(MessageType.RES_PUSH)
+            .header(message.header());
+
         try {
             Topic topic = topic(message);
             if (topic == null) {
@@ -71,38 +75,35 @@ public class TopicManager implements MessageProcessor {
                 throw new Exception("메시지 저장 실패");
             }
 
-            message.addHeader(Map.of(
-                "ok", "true",
-                "offset", Integer.toString(offset)
-            ));
+            builder.header("ok", "true")
+                .header("offset", String.valueOf(offset));
         } catch (Exception e) {
             System.err.println("! TopicManager.push(): " + e);
-            message.addHeader("ok", "false");
+            builder.header("ok", "false");
         }
 
-        // push 요청에 대한 응답은 요청 메시지를 payload 삭제하여 재사용(headers에 존재하는 모든 정보 포함)
-        message.setType(MessageType.RES_PUSH).removePayload();
-        context.channel().writeAndFlush(message);
+        context.channel().writeAndFlush(builder.build());
     }
 
     private void pull(ChannelHandlerContext context, Message message) {
+        int count = Integer.parseInt(message.header("count", "1"));
+        long timeout = Long.parseLong(message.header("timeout", "0"));
+        List<Message> results = new ArrayList<>();
+
         try {
             Topic topic = topic(message);
             if (topic == null) {
                 throw new Exception("토픽 없음");
             }
 
-            int count = Integer.parseInt(message.header("count", "1"));
             int existingCount = topic.count(message);
             List<Message> pulled = pull(topic, message, Math.min(count, existingCount));
-            long timeout = Long.parseLong(message.header("timeout", "0"));
             if (pulled.size() < count && timeout > 0) {
-                subscribe(
+                subscribe( // 구독하여 부족한 메시지 채우기
                     topic, message, timeout, 
                     () -> {
                         TopicRecord record = topic.pull(message);
                         if (record != null) {
-                            record.message().setType(MessageType.RES_PULL).addHeader("ok", "true");
                             pulled.add(record.message());
                         }
                     }, 
@@ -110,20 +111,28 @@ public class TopicManager implements MessageProcessor {
                 );
             }
 
-            if (pulled.isEmpty()) {
-                throw new Exception("pull한 메시지 없음");
-            }
-
             for (Message msg : pulled) {
-                context.channel().write(msg);
+                msg.setType(MessageType.RES_PULL)
+                    .addHeader("ok", "true")
+                    .addHeader(message.header());
+                results.add(msg);
             }
-            context.channel().flush();
         } catch (Exception e) {
             System.err.println("! TopicManager.pull(): " + e);
-
-            message.setType(MessageType.RES_PULL).addHeader("ok", "false");
-            context.channel().writeAndFlush(message);
         }
+
+        // 토픽에서 획득한 메시지 write
+        for (Message msg : results) {
+            context.channel().write(msg);
+        }
+
+        // 부족한 개수만큼 실패 메시지 write
+        message.setType(MessageType.RES_PULL).addHeader("ok", "false");
+        for (int i = results.size(); i < count; i++) {
+            context.channel().write(message);
+        }
+
+        context.channel().flush();
     }
 
     private void seek(ChannelHandlerContext context, Message message) {
@@ -134,9 +143,7 @@ public class TopicManager implements MessageProcessor {
         }
 
         boolean ok = topic.seek(message);
-        message.setType(MessageType.RES_SEEK)
-            .addHeader("ok", Boolean.toString(ok));
-
+        message.setType(MessageType.RES_SEEK).addHeader("ok", Boolean.toString(ok));
         context.channel().writeAndFlush(message);
     }
 
@@ -163,10 +170,7 @@ public class TopicManager implements MessageProcessor {
             );
         }
 
-        message.setType(MessageType.RES_FIND)
-            .addHeader("offset", String.valueOf(offset.get()))
-            .removePayload();
-
+        message.setType(MessageType.RES_FIND).addHeader("offset", String.valueOf(offset.get()));
         context.channel().writeAndFlush(message);
     }
 
@@ -207,11 +211,7 @@ public class TopicManager implements MessageProcessor {
         for (int i = 0; i < count; i++) {
             TopicRecord record = topic.pull(message);
             if (record != null) {
-                messages.add(
-                    record.message()
-                        .setType(MessageType.RES_PULL)
-                        .addHeader("ok", "true")
-                );
+                messages.add(record.message());
             }
         }
 

@@ -68,7 +68,7 @@ public class Message {
         for (Map.Entry<String, String> entry : header.entrySet()) {
             str += entry.getKey() + ": " + entry.getValue() + ", ";
         }
-        str += "payload: " + payload != null ? "O" : "X";
+        str += "payload: " + (payload != null ? "O" : "X");
 
         return "Message{" + str + "}";
     }

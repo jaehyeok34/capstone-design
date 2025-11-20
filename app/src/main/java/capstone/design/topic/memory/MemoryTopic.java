@@ -77,6 +77,7 @@ public class MemoryTopic implements Topic {
         }
 
         Map<Integer, TopicRecord> storage = storages.get(partition);
+
         if (storage == null || storage.isEmpty()) {
             System.err.println("! MemoryTopic.pull(): 파티션에 메시지 없음");
             return null;

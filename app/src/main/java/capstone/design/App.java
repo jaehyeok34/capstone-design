@@ -6,7 +6,7 @@ import capstone.design.topic.memory.MemoryTopic;
 public class App {
 
     public static void main(String[] args) throws Exception {
-        long retention = 1 * 60 * 1000; // 1분
+        long retention = 30 * 60 * 1000; // 1분
         String converFile = "convert_file";
         String joinKey = "join_key";
         Broker broker  = Broker.builder()

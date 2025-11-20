@@ -66,7 +66,7 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
             return 0;
         }
 
-        long weight = Long.BYTES;
+        long weight = Integer.BYTES;
         ByteBuf encoded = allocator.buffer();
         switch (payload) {
             case byte[] buf -> {

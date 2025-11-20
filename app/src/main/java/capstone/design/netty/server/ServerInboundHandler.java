@@ -20,13 +20,13 @@ public class ServerInboundHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (msg instanceof Message message) {
             String str = "type: " + message.type().name() + 
+                ", ok: " + message.header("ok", "null") +
                 ", client.id: " + message.header("client.id") +
                 ", topic.name: " + message.header("topic.name") + 
                 ", partition: " + message.header("partition");
 
             System.out.println("! 서버 수신: " + str);
             processor.process(ctx, message);
-            System.out.println("! 서버 처리 완료: " + str);
         }
     }
 }
