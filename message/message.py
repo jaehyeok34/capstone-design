@@ -1,9 +1,9 @@
 from typing import Any, Dict
 
 class Message:
-    def __init__(self, type: int | None = None, header: Dict[str, str] = {}, payload: Any = None):
+    def __init__(self, type: int | None = None, header: Dict[str, str] | None = None, payload: Any = None):
         self.type = type
-        self.header: Dict[str, str] = header
+        self.header: Dict[str, str] = header if header is not None else {}
         self.payload: Any = payload
 
     def set_type(self, type: int):

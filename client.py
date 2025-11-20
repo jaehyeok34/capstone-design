@@ -1,6 +1,7 @@
 from concurrent.futures import Future
 import socket
 from threading import Event, Thread, Lock
+import threading
 from typing import Dict, List
 
 from py_client.message.message import Message
@@ -47,7 +48,7 @@ class Client:
                 self.__channel_read(message)
 
             except Exception as e:
-                print("[error] Client.__receive():", e)
+                print("! Client.__receive():", e)
                 break
 
         
@@ -61,8 +62,14 @@ class Client:
 
         if futures is None:
             return
+            
+        message.remove_header("request.id")
+        with self.lock:
+            futures = self.requests.get(request_id)
 
-        message.remove_header('request.id')
+        if futures is None:
+            return
+        
         for future in futures:
             if not future.done():
                 future.set_result(message)
@@ -71,7 +78,6 @@ class Client:
         if all(future.done() for future in futures):
             with self.lock:
                 del self.requests[request_id]
-
 
     def fetch(self, message: Message):
         request_id = str(self.request_id_counter)
@@ -91,4 +97,8 @@ class Client:
 
         self.sock.sendall(MessageEncoder.encode(message))
 
-        return futures
+        # 별도 스레드에서 동작하는 channel_read()에서 futures에 접근하여 
+        # fetch를 호출한 스레드에서 같은 리스트에 대하여 동시 접근 문제가 발생할 수 있어
+        # 얕은 복사를 통해 같은 값을 공유하는 별도의 리스트를 반환하여 동일 리스트 동시 접근 문제 해결
+        shallow_copy = futures.copy()
+        return shallow_copy

@@ -1,4 +1,3 @@
-
 from typing import Dict, List
 from py_client.message.message import Message
 from py_client.message.message_type import MessageType
@@ -16,11 +15,10 @@ class Consumer:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.client.close()
 
-    def consume(self, topic_name: str, partition: str, header: Dict[str, str]={}, count: int = 1, timeout: int = 30 * 1000):
+    def consume(self, topic_name: str, partition: str, count: int = 1, timeout: int = 30 * 1000):
         message = Message().set_type(MessageType.REQ_PULL) \
             .set_topic_name(topic_name) \
             .set_partition(partition) \
-            .add_header_dict(header) \
             .set_count(count) \
             .set_timeout(timeout)
         
