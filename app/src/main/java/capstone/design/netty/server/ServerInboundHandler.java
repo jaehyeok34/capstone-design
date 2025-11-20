@@ -2,13 +2,13 @@ package capstone.design.netty.server;
 
 import capstone.design.message.MessageProcessor;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import capstone.design.message.Message;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
 public class ServerInboundHandler extends ChannelInboundHandlerAdapter {
-
     private final MessageProcessor processor;
     private final ExecutorService executor;
 
@@ -19,9 +19,12 @@ public class ServerInboundHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (msg instanceof Message message) {
-            System.out.println("! 서버 수신: " + msg);
-            executor.submit(() -> processor.process(ctx, message));
+        List<?> messages = (List<?>) msg;
+        System.out.println("! channelRead(): 수신한 메시지 개수: " + messages.size());
+
+        for (Object message : messages) {
+            Message m = (Message) message;
+            executor.submit(() -> processor.process(ctx, m));
         }
     }
 }

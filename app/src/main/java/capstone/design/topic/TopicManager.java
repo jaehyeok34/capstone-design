@@ -121,6 +121,8 @@ public class TopicManager implements MessageProcessor {
             System.err.println("! TopicManager.pull(): " + e);
         }
 
+        System.out.println("! TopicManager.pull(): 획득 성공 메시지 개수: " + results.size());
+
         // 토픽에서 획득한 메시지 write
         for (Message msg : results) {
             context.channel().write(msg);
@@ -129,6 +131,7 @@ public class TopicManager implements MessageProcessor {
         // 부족한 개수만큼 실패 메시지 write
         message.setType(MessageType.RES_PULL).addHeader("ok", "false");
         for (int i = results.size(); i < count; i++) {
+            System.out.println("! TopicManager.pull(): 실패 메시지 작성");
             context.channel().write(message);
         }
 

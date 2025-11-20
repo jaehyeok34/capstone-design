@@ -64,6 +64,7 @@ public class MemoryTopic implements Topic {
         // 알림 전송
         subscribeManager.notify(partition);
 
+        System.out.println("! MemoryTopic.push(): 성공: " + name + "." + partition + "=" + storage.size());
         return offset;
     }
 
@@ -110,6 +111,7 @@ public class MemoryTopic implements Topic {
         // 유효한 record를 획득한 경우 offset 갱신
         clientOffsets.get(partition).put(clientId, clientOffset + 1);
 
+        System.out.println("! MemoryTopic.pull(): 성공: " + name + "." + partition + "=" + storage.size());
         return record;
     }
 
@@ -127,6 +129,7 @@ public class MemoryTopic implements Topic {
             return new ConcurrentHashMap<>();
         }).put(clientId, offset);
         
+        System.out.println("! MemoryTopic.seek(): 성공: " + name + "." + partition + "=" + offset);
         return true;
     }
 
@@ -163,10 +166,11 @@ public class MemoryTopic implements Topic {
         }
 
         if (finded.isEmpty()) {
-            System.err.println("! MemoryTopic.find(): 탐색 실패");
+            System.err.println("! MemoryTopic.find(): 탐색 실패: " + name + "." + partition);
             return -1;
         }
 
+        System.out.println("! MemoryTopic.find(): 성공: " + name + "." + partition);
         return Collections.min(finded);
     }
 
@@ -190,6 +194,7 @@ public class MemoryTopic implements Topic {
         }
         
         subscribeManager.unsubscribe(partition, key);
+        System.out.println("! MemoryTopic.unsubscribe(): 성공: " + name + "." + partition + ", key=" + key);
     }
 
     @Override

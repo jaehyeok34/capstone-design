@@ -1,10 +1,9 @@
 package capstone.design.message;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import org.jspecify.annotations.Nullable;
 
 import capstone.design.Utils;
 import io.netty.buffer.ByteBuf;
@@ -19,14 +18,30 @@ public class MessageDecoder extends ByteToMessageDecoder {
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         try {
+            List<Message> messages = new ArrayList<>();
             while (true) {
-                switch (state) {
-                    case READ_MAGIC -> { if (!readMagic(in)) return; }
-                    case READ_LENGTH -> { if (!readLength(in)) return; }
-                    case READ_MESSAGE -> { if (!readMessage(in, out)) return; }
+                if (state == State.READ_MAGIC && !readMagic(in)) {
+                    break;
+                }
+
+                if (state == State.READ_LENGTH && !readLength(in)) {
+                    break;
+                }
+
+                if (state == State.READ_MESSAGE) {
+                    Message message = readMessage(in);
+                    if (message == null) {
+                        break;
+                    }
+
+                    messages.add(message);
                 }
             }
-        } catch (Exception e) { 
+
+            if (!messages.isEmpty()) {
+                out.add(messages);
+            }
+        } catch (Exception e) {
             System.err.println("! MessageDecoder.decode(): " + e); 
 
             // 디코딩 중 예외가 발생하면 지금까지 읽은 데이터 버리고 다음 메시지부터 다시 디코딩
@@ -46,13 +61,8 @@ public class MessageDecoder extends ByteToMessageDecoder {
         }
 
         long length = in.readLong();
-        BlockingQueue<Object> out = new LinkedBlockingQueue<>();
 
-        if(!readMessage(length, in, out)) {
-            return null;
-        }
-
-        return (Message) out.take();
+        return readMessage(length, in);
     }
 
     private boolean readMagic(ByteBuf in) {
@@ -84,13 +94,13 @@ public class MessageDecoder extends ByteToMessageDecoder {
         return true;
     }
 
-    private boolean readMessage(ByteBuf in, List<Object> out) throws Exception {
-        return readMessage(length, in, out);
+    private @Nullable Message readMessage(ByteBuf in) throws Exception {
+        return readMessage(length, in);
     }
 
-    private boolean readMessage(long length, ByteBuf in, Collection<Object> out) throws Exception {
+    private @Nullable Message readMessage(long length, ByteBuf in) throws Exception {
         if (in.readableBytes() < length) {
-            return false;
+            return null;
         }
 
         Message.Builder builder = Message.builder();
@@ -122,10 +132,9 @@ public class MessageDecoder extends ByteToMessageDecoder {
             }
         }
 
-        out.add(builder.build());
         state = State.READ_MAGIC;
 
-        return true;
+        return builder.build();
     }
 
     private enum State { READ_MAGIC, READ_LENGTH, READ_MESSAGE }
