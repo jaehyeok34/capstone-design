@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import JoinModal from "../components/JoinModal";
+import joinIcon from '../assets/illustration/join_white.png';
+import startIcon from '../assets/illustration/start_white.png';   
 
 function Join() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,7 +33,10 @@ function Join() {
           margin: '0 0 20px 0',
           textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
         }}>
-          🔗 + 📄
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={joinIcon} alt="join" style={{ width: 250, height: 200, verticalAlign: 'middle', marginBottom: 12 }} />
+            <span>데이터 결합 신청</span>
+          </div>
         </h1>
         <h2 style={{
           fontSize: '1.8rem',
@@ -39,15 +44,9 @@ function Join() {
           margin: '0 0 10px 0',
           opacity: '0.9'
         }}>
+
           데이터를 결합하세요
         </h2>
-        <p style={{
-          fontSize: '1.1rem',
-          opacity: '0.8',
-          margin: '0'
-        }}>
-          데이터를 결합하여 가치있게 분석해요
-        </p>
       </div>
 
       {/* 메인 컨테이너 */}
@@ -126,7 +125,9 @@ function Join() {
               e.target.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.3)';
             }}
           >
-            <span>🚀</span>
+            <span>
+              <img src={startIcon} alt="start" style={{ width: 30, height: 30, verticalAlign: 'middle', marginBottom: 1 }} />
+            </span>
             결합 요청 시작하기
           </button>
         </div>
@@ -146,22 +147,6 @@ function Join() {
             gap: '30px',
             flexWrap: 'wrap'
           }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⚡</div>
-              <span style={{ color: '#64748b', fontSize: '0.9rem' }}>빠른 처리</span>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>🔒</div>
-              <span style={{ color: '#64748b', fontSize: '0.9rem' }}>안전한 처리</span>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>📊</div>
-              <span style={{ color: '#64748b', fontSize: '0.9rem' }}>다양한 형식</span>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>💾</div>
-              <span style={{ color: '#64748b', fontSize: '0.9rem' }}>자동 저장</span>
-            </div>
           </div>
         </div>
       </div>

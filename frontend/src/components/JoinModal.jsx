@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import ModalNavigation from './ModalNavigation';
+import folderIcon from '../assets/illustration/folder.png';
+import keyIcon from '../assets/illustration/key.png';
 
 const JoinModal = ({ isOpen, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -101,11 +103,11 @@ const JoinModal = ({ isOpen, onClose }) => {
       setKeyAnalysisComplete(true);
       
       if (result.recommended_keys && result.recommended_keys.length > 0) {
-        alert(`✅ ${result.recommended_keys.length}개의 추천 결합키를 찾았습니다!`);
+        alert(` ${result.recommended_keys.length}개의 추천 결합키를 찾았습니다!`);
       } else if (result.join_key_candidates && result.join_key_candidates.length > 0) {
-        alert(`⚠️ ${result.join_key_candidates.length}개의 결합키 후보를 찾았지만 추천 점수가 낮습니다.`);
+        alert(` ${result.join_key_candidates.length}개의 결합키 후보를 찾았지만 추천 점수가 낮습니다.`);
       } else {
-        alert('❌ 공통 결합키를 찾을 수 없습니다. 수동으로 설정해주세요.');
+        alert(' 공통 결합키를 찾을 수 없습니다. 수동으로 설정해주세요.');
       }
 
     } catch (error) {
@@ -283,7 +285,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                   fontSize: '3rem',
                   marginBottom: '20px'
                 }}>
-                  📁
+                  <img src={folderIcon} alt="folder" style={{ width: 50, height: 50, verticalAlign: 'middle', marginBottom: 12 }} />
                 </div>
                 <h2 style={{
                   fontSize: '2rem',
@@ -323,7 +325,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                   fontSize: '4rem',
                   marginBottom: '20px'
                 }}>
-                  ⬆️
+                  
                 </div>
                 
                 <label style={{
@@ -356,7 +358,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                     onChange={handleFileChange}
                     style={{ display: 'none' }}
                   />
-                  📁 파일 선택하기
+                   파일 선택하기
                 </label>
                 
                 <p style={{
@@ -365,8 +367,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                   color: '#64748b',
                   textAlign: 'center'
                 }}>
-                  📊 지원 형식: CSV, Excel (.xlsx, .xls), JSON, TSV<br/>
-                  여러 파일을 동시에 선택할 수 있습니다
+            
                 </p>
               </div>
 
@@ -420,7 +421,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                   fontSize: '3rem',
                   marginBottom: '20px'
                 }}>
-                  📋
+                  
                 </div>
                 <h2 style={{
                   fontSize: '2rem',
@@ -573,7 +574,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                     alignItems: 'center',
                     gap: '10px'
                   }}>
-                    <span>🔗</span>
+                    <span><img src={keyIcon} alt="key" style={{ width: 20, height: 20, verticalAlign: 'middle' }} /></span>
                     결합키 자동 분석
                   </h3>
                   
@@ -604,12 +605,12 @@ const JoinModal = ({ isOpen, onClose }) => {
                     >
                       {isAnalyzingKeys ? (
                         <>
-                          <span>⏳</span>
+                          
                           분석 중...
                         </>
                       ) : (
                         <>
-                          <span>🔍</span>
+                          
                           결합키 찾기
                         </>
                       )}
@@ -621,7 +622,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                         fontSize: '0.9rem',
                         fontWeight: '500'
                       }}>
-                        ✅ 분석 완료: {joinKeys.length}개 후보 발견
+                         ✅ 분석 완료: {joinKeys.length}개 후보 발견
                       </div>
                     )}
                   </div>
@@ -689,7 +690,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   marginBottom: '16px'
-                }}>🔧 프로젝트 설정</h2>
+                }}> 프로젝트 설정</h2>
                 <p style={{
                   color: '#64748b',
                   fontSize: '18px',
@@ -706,7 +707,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                     marginBottom: '8px',
                     color: '#374151'
                   }}>
-                    📁 프로젝트명 (폴더명) <span style={{ color: '#ef4444' }}>*</span>
+                     프로젝트명 (폴더명) <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
                     type="text"
@@ -744,7 +745,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                     marginBottom: '8px',
                     color: '#374151'
                   }}>
-                    ⚙️ 처리 작업 선택
+                    처리 작업 선택
                   </label>
                   <select
                     value={processingType}
@@ -772,8 +773,6 @@ const JoinModal = ({ isOpen, onClose }) => {
                     }}
                   >
                     <option value="join">📄 결합 신청</option>
-                    <option value="md-conversion">📝 마크다운 변환</option>
-                    <option value="format-conversion">🔄 형식 변환</option>
                   </select>
                 </div>
               </div>

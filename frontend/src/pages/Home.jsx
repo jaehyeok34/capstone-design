@@ -2,6 +2,8 @@ import { useState } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import MarkdownViewer from '../components/MarkdownViewer';
+import convertIcon from '../assets/illustration/converter_white.png';
+import folderIcon from '../assets/illustration/folder.png';
 
 function Home() {
   const [markdownFiles, setMarkdownFiles] = useState([]); // 여러 파일의 마크다운 결과 저장
@@ -160,7 +162,10 @@ function Home() {
           margin: '0 0 20px 0',
           textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
         }}>
-          📄 → 📘
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={convertIcon} alt="convert" style={{ width: 230, height: 220, verticalAlign: 'middle', marginBottom: 12, marginLeft:70 }} />
+            <span>파일 변환</span>
+          </div>
         </h1>
         <h2 style={{
           fontSize: '1.8rem',
@@ -258,7 +263,7 @@ function Home() {
                 fontSize: '4rem',
                 marginBottom: '20px'
               }}>
-                📁
+                <img src={folderIcon} alt="folder" style={{ width: 100, height: 100, verticalAlign: 'middle', marginBottom: 12 }} />
               </div>
               <h3 style={{ 
                 color: '#334155',
@@ -271,7 +276,6 @@ function Home() {
                 color: '#64748b',
                 margin: '0 0 20px 0'
               }}>
-                📄 여러 파일 동시 업로드 지원<br/>
                 CSV, Excel, JSON 파일을 지원합니다
               </p>
               <div style={{

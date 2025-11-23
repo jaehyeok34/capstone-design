@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
 import ProjectDetail from "../components/ProjectDetail";
+import checkIcon from '../assets/illustration/check.png';
+import sendwatchIcon from '../assets/illustration/sendwatch.png';
+import pauseIcon from '../assets/illustration/pause.png';
+import keyIcon from '../assets/illustration/key.png';
+import folderIcon from '../assets/illustration/folder.png';
+import joinIcon from '../assets/illustration/join_white.png';
+import downloadIcon from '../assets/illustration/download_white.png';
+import analyzeIcon from '../assets/illustration/analyze_white.png';
 
 const Analysis = () => {
   const [joinProjects, setJoinProjects] = useState([]);
@@ -65,11 +73,16 @@ const Analysis = () => {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'completed': return '✅';
-      case 'processing': return '⏳';
-      case 'pending': return '⏸️';
-      case 'failed': return '❌';
-      default: return '❓';
+      case 'completed':
+        return <img src={checkIcon} alt="completed" style={{ width: 16, height: 16 }} />;
+      case 'processing':
+        return <img src={sendwatchIcon} alt="processing" style={{ width: 16, height: 16 }} />;
+      case 'pending':
+        return <img src={pauseIcon} alt="pending" style={{ width: 16, height: 16 }} />;
+      case 'failed':
+        return '❌';
+      default:
+        return '❓';
     }
   };
 
@@ -100,7 +113,10 @@ const Analysis = () => {
           margin: '0 0 20px 0',
           textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
         }}>
-          📊 데이터 결합 분석
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={analyzeIcon} alt="analyze" style={{ width: 250, height: 200, verticalAlign: 'middle', marginBottom: 12 }} />
+            <span>데이터 결합 분석</span>
+          </div>
         </h1>
         <h2 style={{
           fontSize: '1.8rem',
@@ -144,7 +160,9 @@ const Analysis = () => {
             padding: '20px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>✅</div>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>
+              <img src={checkIcon} alt="completed" style={{ width: 32, height: 32 }} />
+            </div>
             <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#059669' }}>
               {joinProjects.filter(p => p.status === 'completed').length}
             </div>
@@ -158,7 +176,9 @@ const Analysis = () => {
             padding: '20px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏳</div>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>
+              <img src={sendwatchIcon} alt="processing" style={{ width: 20, height: 32 }} />
+            </div>
             <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#d97706' }}>
               {joinProjects.filter(p => p.status === 'processing').length}
             </div>
@@ -172,7 +192,9 @@ const Analysis = () => {
             padding: '20px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏸️</div>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>
+              <img src={pauseIcon} alt="pending" style={{ width: 32, height: 32 }} />
+            </div>
             <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#6b7280' }}>
               {joinProjects.filter(p => p.status === 'pending').length}
             </div>
@@ -186,7 +208,9 @@ const Analysis = () => {
             padding: '20px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📁</div>
+            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>
+              <img src={folderIcon} alt="folder" style={{ width: 32, height: 32 }} />
+            </div>
             <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#667eea' }}>
               {joinProjects.length}
             </div>
@@ -207,7 +231,7 @@ const Analysis = () => {
             color: '#1f2937',
             margin: '0'
           }}>
-            📋 결합 프로젝트 목록
+            결합 프로젝트 목록
           </h3>
           <div style={{
             color: '#6b7280',
@@ -229,7 +253,7 @@ const Analysis = () => {
               marginBottom: '20px',
               animation: 'spin 2s linear infinite'
             }}>
-              ⏳
+              <img src={sendwatchIcon} alt="loading" style={{ width: 30, height: 30 }} />
             </div>
             <p>프로젝트 목록을 불러오는 중...</p>
           </div>
@@ -276,7 +300,7 @@ const Analysis = () => {
                       color: '#1f2937',
                       margin: '0 0 8px 0'
                     }}>
-                      📁 {project.projectName}
+                      <img src={folderIcon} alt="folder" style={{ width: 18, height: 18, marginRight: 8, verticalAlign: 'middle' }} /> {project.projectName}
                     </h4>
                     <div style={{
                       fontSize: '0.9rem',
@@ -309,9 +333,13 @@ const Analysis = () => {
                     fontSize: '0.9rem',
                     color: '#374151',
                     marginBottom: '8px',
-                    fontWeight: '500'
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8
                   }}>
-                    🔗 결합키:
+                    <img src={keyIcon} alt="key" style={{ width: 18, height: 18 }} />
+                    <span>결합키:</span>
                   </div>
                   <div style={{
                     display: 'flex',
@@ -406,7 +434,8 @@ const Analysis = () => {
                             e.target.style.transform = 'scale(1)';
                           }}
                         >
-                          📥 다운로드
+                          <img src={downloadIcon} alt="download" style={{ width: 18, height: 20, verticalAlign: 'middle', marginRight: 6 }} />
+                          다운로드
                         </button>
                       </>
                     ) : (

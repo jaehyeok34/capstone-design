@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import downloadIcon from '../assets/illustration/download_white.png';
 
 function AdminDashboard() {
   const [requests, setRequests] = useState([]);
@@ -82,20 +83,23 @@ function AdminDashboard() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => updateStatus(r.id, 'approved')} disabled={r.review?.status==='approved'}>승인</button>
                 <button onClick={() => updateStatus(r.id, 'rejected')} disabled={r.review?.status==='rejected'}>반려</button>
-                <button 
-                  onClick={() => downloadResult(r.id, r.projectName)} 
-                  style={{ 
-                    backgroundColor: '#10b981', 
+                <button
+                  onClick={() => downloadResult(r.id, r.projectName)}
+                  style={{
+                    backgroundColor: '#10b981',
                     color: 'white',
                     border: 'none',
                     padding: '6px 12px',
                     borderRadius: '4px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center'
                   }}
                   onMouseEnter={(e) => e.target.style.backgroundColor = '#059669'}
                   onMouseLeave={(e) => e.target.style.backgroundColor = '#10b981'}
                 >
-                  📥 결과 다운로드
+                  <img src={downloadIcon} alt="download" style={{ width: 20, height: 20, verticalAlign: 'middle', marginRight: 6 }} />
+                  다운로드
                 </button>
               </div>
             </div>

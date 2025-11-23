@@ -1,4 +1,10 @@
 import { useState, useEffect } from "react";
+import downloadIcon from '../assets/illustration/download_white.png';
+import checkIcon from '../assets/illustration/check.png';
+import sendwatchIcon from '../assets/illustration/sendwatch.png';
+import pauseIcon from '../assets/illustration/pause.png';
+import keyIcon from '../assets/illustration/key.png';
+import folderIcon from '../assets/illustration/folder.png';
 
 const ProjectDetail = ({ project, onClose }) => {
   const [projectData, setProjectData] = useState(project);
@@ -120,11 +126,16 @@ A5: 모니터    B5: 300      C5: 8`;
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'completed': return '✅';
-      case 'processing': return '⏳';
-      case 'pending': return '⏸️';
-      case 'failed': return '❌';
-      default: return '❓';
+      case 'completed':
+        return <img src={checkIcon} alt="completed" style={{ width: 16, height: 16 }} />;
+      case 'processing':
+        return <img src={sendwatchIcon} alt="processing" style={{ width: 16, height: 16 }} />;
+      case 'pending':
+        return <img src={pauseIcon} alt="pending" style={{ width: 16, height: 16 }} />;
+      case 'failed':
+        return '❌';
+      default:
+        return '❓';
     }
   };
 
@@ -167,7 +178,7 @@ A5: 모니터    B5: 300      C5: 8`;
               color: '#1f2937',
               margin: '0 0 10px 0'
             }}>
-              📁 {project.projectName}
+               {project.projectName}
             </h2>
             <div style={{
               display: 'flex',
@@ -240,7 +251,7 @@ A5: 모니터    B5: 300      C5: 8`;
               color: '#374151',
               margin: '0 0 8px 0'
             }}>
-              📊 기본 정보
+              기본 정보
             </h3>
             <div style={{ color: '#6b7280', fontSize: '0.9rem', lineHeight: '1.6' }}>
               <div>처리 유형: {project.processingType}</div>
@@ -260,7 +271,7 @@ A5: 모니터    B5: 300      C5: 8`;
               color: '#374151',
               margin: '0 0 8px 0'
             }}>
-              💾 결과물
+              결과물
             </h3>
             <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
               {project.status === 'completed' && project.reviewStatus === 'approved' ? (
@@ -307,8 +318,9 @@ A5: 모니터    B5: 300      C5: 8`;
                     e.target.style.backgroundColor = '#0ea5e9';
                     e.target.style.transform = 'scale(1)';
                   }}
-                >
-                  📥 결과 파일 다운로드
+                >다운로드
+                <img src={downloadIcon} alt="download" style={{ width: 18, height: 20, verticalAlign: 'middle', marginRight: 6 }} />
+                                  
                 </button>
               ) : (
                 'none'
@@ -334,7 +346,8 @@ A5: 모니터    B5: 300      C5: 8`;
             alignItems: 'center',
             gap: '8px'
           }}>
-            🔗 결합키 정보
+            <img src={keyIcon} alt="key" style={{ width: 20, height: 20, marginRight: 6 }} />
+            결합키 정보
           </h3>
           
           {project.joinKeys && project.joinKeys.length > 0 ? (
@@ -402,7 +415,7 @@ A5: 모니터    B5: 300      C5: 8`;
             alignItems: 'center',
             gap: '8px'
           }}>
-            📄 업로드된 파일
+             업로드된 파일
           </h3>
           
           {project.files && project.files.length > 0 ? (

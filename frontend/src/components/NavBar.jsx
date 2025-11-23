@@ -268,7 +268,7 @@ function NavBar() {
                                 }
                             }}
                         >
-                            🔐 관리자
+                             관리자
                             {activeTab === '/admin' && (
                                 <div style={{
                                     position: 'absolute',
