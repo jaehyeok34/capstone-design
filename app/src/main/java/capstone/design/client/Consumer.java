@@ -26,7 +26,7 @@ public class Consumer implements AutoCloseable {
             try {
                 responses.add(future.join());
             } catch (Exception e) {
-                System.err.println("Consumer.consume(): future 예외 발생: " + e);
+                System.err.println("? Consumer.consume(): future 예외 발생: " + e);
             }
         }
 
@@ -39,7 +39,7 @@ public class Consumer implements AutoCloseable {
             Message response = client.fetch(message).get(0).join();
             return Integer.parseInt(response.header("offset", "-1"));
         } catch (Exception e) {
-            System.err.println("Consumer.find(): " + e);
+            System.err.println("? Consumer.find(): " + e);
             return -1;
         }
     }
@@ -48,9 +48,9 @@ public class Consumer implements AutoCloseable {
         message.setType(MessageType.REQ_SEEK);
         try {
             Message response = client.fetch(message).get(0).join();
-            return Boolean.parseBoolean(response.header("ok", "false"));
+            return response.header("error", "").isEmpty();
         } catch (Exception e) {
-            System.err.println("Consumer.seek(): " + e);
+            System.err.println("? Consumer.seek(): " + e);
             return false;
         }
     }

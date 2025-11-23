@@ -75,11 +75,10 @@ public class TopicManager implements MessageProcessor {
                 throw new Exception("메시지 저장 실패");
             }
 
-            builder.header("ok", "true")
-                .header("offset", String.valueOf(offset));
+            builder.header("offset", String.valueOf(offset));
         } catch (Exception e) {
-            System.err.println("! TopicManager.push(): " + e);
-            builder.header("ok", "false");
+            System.err.println("? TopicManager.push(): " + e);
+            builder.header("error", e.getMessage());
         }
 
         context.channel().writeAndFlush(builder.build());
@@ -112,16 +111,12 @@ public class TopicManager implements MessageProcessor {
             }
 
             for (Message msg : pulled) {
-                msg.setType(MessageType.RES_PULL)
-                    .addHeader("ok", "true")
-                    .addHeader(message.header());
+                msg.setType(MessageType.RES_PULL).addHeader(message.header());
                 results.add(msg);
             }
         } catch (Exception e) {
-            System.err.println("! TopicManager.pull(): " + e);
+            System.err.println("? TopicManager.pull(): " + e);
         }
-
-        System.out.println("! TopicManager.pull(): 획득 성공 메시지 개수: " + results.size());
 
         // 토픽에서 획득한 메시지 write
         for (Message msg : results) {
@@ -129,9 +124,8 @@ public class TopicManager implements MessageProcessor {
         }
 
         // 부족한 개수만큼 실패 메시지 write
-        message.setType(MessageType.RES_PULL).addHeader("ok", "false");
         for (int i = results.size(); i < count; i++) {
-            System.out.println("! TopicManager.pull(): 실패 메시지 작성");
+            message.addHeader("error", "메시지 획득 실패");
             context.channel().write(message);
         }
 
@@ -141,19 +135,23 @@ public class TopicManager implements MessageProcessor {
     private void seek(ChannelHandlerContext context, Message message) {
         Topic topic = topic(message);
         if (topic == null) {
-            System.err.println("! TopicManager.seek(): 토픽 없음");
+            System.err.println("? TopicManager.seek(): 토픽 없음");
             return;
         }
 
         boolean ok = topic.seek(message);
-        message.setType(MessageType.RES_SEEK).addHeader("ok", Boolean.toString(ok));
+        message.setType(MessageType.RES_SEEK);
+        if (!ok) {
+            message.addHeader("error", "seek 실패");
+        }
+
         context.channel().writeAndFlush(message);
     }
 
     private void find(ChannelHandlerContext context, Message message) {
         Topic topic = topic(message);
         if (topic == null) {
-            System.err.println("! TopicManager.find(): 토픽 없음");
+            System.err.println("? TopicManager.find(): 토픽 없음");
             return;
         }
 
@@ -174,6 +172,10 @@ public class TopicManager implements MessageProcessor {
         }
 
         message.setType(MessageType.RES_FIND).addHeader("offset", String.valueOf(offset.get()));
+        if (offset.get() < 0) {
+            message.addHeader("error", "해당 조건에 맞는 메시지 없음");
+        }
+
         context.channel().writeAndFlush(message);
     }
 
@@ -189,7 +191,6 @@ public class TopicManager implements MessageProcessor {
     private void subscribe(Topic topic, Message message, long timeout, Runnable callback, Supplier<Boolean> condition) {
         BlockingQueue<Object> notifiedQueue = new LinkedBlockingQueue<>();
         int key = topic.subscribe(message, notifiedQueue);
-        System.out.println("! TopicManager.subscribe(): 구독 시작, key=" + key);
 
         do {
             long start = System.currentTimeMillis();
@@ -203,7 +204,6 @@ public class TopicManager implements MessageProcessor {
         } while(timeout > 0 && condition.get());
 
         topic.unsubscribe(message, key);
-        System.out.println("! TopicManager.subscribe(): 구독 해제 완료, key=" + key);
     }
 
     /**
@@ -226,7 +226,7 @@ public class TopicManager implements MessageProcessor {
     private @Nullable Topic topic(Message message) {
         String topicName = message.header("topic.name", "");
         if (topicName.isEmpty()) {
-            System.err.println("! TopicManager.topic(): topic name 없음");
+            System.err.println("? TopicManager.topic(): topic name 없음");
             return null;
         }
 

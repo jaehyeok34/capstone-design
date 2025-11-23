@@ -45,14 +45,14 @@ public class NettyInitializer extends ChannelInitializer<Channel> {
             this.exceptionHandlerConstructor = (exceptionHandlerConstructor != null) ? exceptionHandlerConstructor : () -> new ChannelDuplexHandler() {
                 @Override
                 public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-                    System.out.println("! 채널 비활성화: " + ctx.channel().remoteAddress() + ", 채널 닫음");
+                    System.err.println("? 채널 비활성화: " + ctx.channel().remoteAddress() + ", 채널 닫음");
                     ctx.close(); // 채널 비활성화 시 채널 닫기
                 }
 
                 @Override
                 public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
                     // 예외 발생하더라도 채널을 닫지 않고 유지
-                    System.err.println("채널(" + ctx.channel().remoteAddress() + ") 예외 발생: " + cause.getMessage());
+                    System.err.println("? 채널(" + ctx.channel().remoteAddress() + ") 예외 발생: " + cause.getMessage());
                 }
             };
         }

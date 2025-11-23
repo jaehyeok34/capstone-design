@@ -34,4 +34,9 @@ public class TopicRecord {
     public boolean isExpired(long retention) {
         return (System.currentTimeMillis() - createdAt) > retention;
     }
+
+    @Override
+    public String toString() {
+        return "{message=" + message + ", createdAt=" + createdAt + "}";
+    }
 }

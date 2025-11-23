@@ -164,6 +164,7 @@ public class SpyPipeline implements ChannelPipeline {
         return null;
     }
 
+    @SuppressWarnings("null")
     @Override
     public <T extends ChannelHandler> T get(Class<T> handlerType) {
         return null;

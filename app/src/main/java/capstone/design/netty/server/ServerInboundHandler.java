@@ -20,7 +20,6 @@ public class ServerInboundHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         List<?> messages = (List<?>) msg;
-        System.out.println("! channelRead(): 수신한 메시지 개수: " + messages.size());
 
         for (Object message : messages) {
             Message m = (Message) message;

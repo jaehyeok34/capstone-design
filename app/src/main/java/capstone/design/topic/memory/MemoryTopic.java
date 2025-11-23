@@ -40,13 +40,23 @@ public class MemoryTopic implements Topic {
     public static MemoryTopic of(String name) { return new MemoryTopic(name, DEFAULT_RETENTION); }
     public static MemoryTopic of(String name, long retention) { return new MemoryTopic(name, retention); }
 
+    private void log(String caller) {
+        System.out.println(
+            "!=== MemoryTopic 상태(" + caller + ") ===" + "\n" +
+            " name: " + name + "\n" +
+            " storages: " + storages + "\n" +
+            " offsets: " + offsets + "\n" +
+            " clientOffsets: " + clientOffsets
+        );
+    }
+
     @Override public String name() { return name; }
 
     @Override
     public int push(Message message) {
         String partition = message.header("partition", "");
         if (partition.isEmpty()) {
-            System.err.println("! MemoryTopic.push(): 필수 옵션 누락");
+            System.err.println("? MemoryTopic.push(): 필수 옵션 누락");
             return -1;
         }
 
@@ -64,7 +74,8 @@ public class MemoryTopic implements Topic {
         // 알림 전송
         subscribeManager.notify(partition);
 
-        System.out.println("! MemoryTopic.push(): 성공: " + name + "." + partition + "=" + storage.size());
+        log("push");
+
         return offset;
     }
 
@@ -73,14 +84,14 @@ public class MemoryTopic implements Topic {
         String partition = message.header("partition", "");
         String clientId = message.header("client.id", "");
         if (partition.isEmpty() || clientId.isEmpty()) {
-            System.err.println("! MemoryTopic.pull(): 필수 옵션 누락");
+            System.err.println("? MemoryTopic.pull(): 필수 옵션 누락");
             return null;
         }
 
         Map<Integer, TopicRecord> storage = storages.get(partition);
 
         if (storage == null || storage.isEmpty()) {
-            System.err.println("! MemoryTopic.pull(): 파티션에 메시지 없음");
+            System.err.println("? MemoryTopic.pull(): 파티션에 메시지 없음");
             return null;
         }
 
@@ -104,14 +115,15 @@ public class MemoryTopic implements Topic {
          */
         TopicRecord record = storage.remove(clientOffset);
         if (record == null || record.isExpired(retention)) {
-            System.err.println("! MemoryTopic.pull(): 유효하지 않은 메시지");
+            System.err.println("? MemoryTopic.pull(): 유효하지 않은 메시지");
             return null;
         }
 
         // 유효한 record를 획득한 경우 offset 갱신
         clientOffsets.get(partition).put(clientId, clientOffset + 1);
 
-        System.out.println("! MemoryTopic.pull(): 성공: " + name + "." + partition + "=" + storage.size());
+        log("pull");
+
         return record;
     }
 
@@ -121,15 +133,16 @@ public class MemoryTopic implements Topic {
         String clientId = message.header("client.id", "");
         int offset = Integer.parseInt(message.header("offset", "-1"));
         if (partition.isEmpty() || clientId.isEmpty() || offset < 0) {
-            System.err.println("! MemoryTopic.seek(): 필수 옵션 누락");
+            System.err.println("? MemoryTopic.seek(): 필수 옵션 누락");
             return false;
         }
 
         clientOffsets.computeIfAbsent(partition, ignored -> {
             return new ConcurrentHashMap<>();
         }).put(clientId, offset);
-        
-        System.out.println("! MemoryTopic.seek(): 성공: " + name + "." + partition + "=" + offset);
+
+        log("seek");
+
         return true;
     }
 
@@ -137,13 +150,13 @@ public class MemoryTopic implements Topic {
     public int find(Message message) {
         String partition = message.header("partition", "");
         if (partition.isEmpty()) {
-            System.err.println("! MemoryTopic.find(): 필수 옵션 누락");
+            System.err.println("? MemoryTopic.find(): 필수 옵션 누락");
             return -1;
         }
 
         Map<Integer, TopicRecord> storage = storages.get(partition);
         if (storage == null || storage.isEmpty()) {
-            System.err.println("! MemoryTopic.find(): 빈 파티션");
+            System.err.println("? MemoryTopic.find(): 빈 파티션");
             return -1;
         }
 
@@ -166,11 +179,10 @@ public class MemoryTopic implements Topic {
         }
 
         if (finded.isEmpty()) {
-            System.err.println("! MemoryTopic.find(): 탐색 실패: " + name + "." + partition);
+            System.err.println("? MemoryTopic.find(): 탐색 실패: " + name + "." + partition);
             return -1;
         }
 
-        System.out.println("! MemoryTopic.find(): 성공: " + name + "." + partition);
         return Collections.min(finded);
     }
 
@@ -178,7 +190,7 @@ public class MemoryTopic implements Topic {
     public int subscribe(Message message, Collection<Object> out) {
         String partition = message.header("partition", "");
         if (partition.isEmpty()) {
-            System.err.println("! MemoryTopic.subscribe(): 필수 옵션 누락");
+            System.err.println("? MemoryTopic.subscribe(): 필수 옵션 누락");
             return -1;
         }
 
@@ -189,19 +201,18 @@ public class MemoryTopic implements Topic {
     public void unsubscribe(Message message, int key) {
         String partition = message.header("partition", "");
         if (partition.isEmpty()) {
-            System.err.println("! MemoryTopic.unsubscribe(): 필수 옵션 누락");
+            System.err.println("? MemoryTopic.unsubscribe(): 필수 옵션 누락");
             return;
         }
         
         subscribeManager.unsubscribe(partition, key);
-        System.out.println("! MemoryTopic.unsubscribe(): 성공: " + name + "." + partition + ", key=" + key);
     }
 
     @Override
     public int count(Message message) {
         String partition = message.header("partition", "");
         if (partition.isEmpty()) {
-            System.err.println("! MemoryTopic.count(): 필수 옵션 누락");
+            System.err.println("? MemoryTopic.count(): 필수 옵션 누락");
             return 0;
         }
         
@@ -215,16 +226,12 @@ public class MemoryTopic implements Topic {
 
     @Override
     public void clean() {
-        for (Map.Entry<String, Map<Integer, TopicRecord>> entry : storages.entrySet()) {
-            String partition = entry.getKey();
-            Map<Integer, TopicRecord> storage = entry.getValue();
-
-            Iterator<Map.Entry<Integer, TopicRecord>> iterator = storage.entrySet().iterator();
+        for (Map<Integer, TopicRecord> storage : storages.values()) {
+            Iterator<TopicRecord> iterator = storage.values().iterator();
             while (iterator.hasNext()) {
-                Map.Entry<Integer, TopicRecord> recordEntry = iterator.next();
-                if (recordEntry.getValue().isExpired(retention)) {
+                TopicRecord record = iterator.next();
+                if (record.isExpired(retention)) {
                     iterator.remove();
-                    System.out.println("! MemoryTopic.clean(): " + name + "." + partition + "=" + storage.size());
                 }
             }
         }

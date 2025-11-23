@@ -1,6 +1,7 @@
 package capstone.design.topic.subscribe;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -16,6 +17,8 @@ public class SubscribeManager {
         subscribeMap.computeIfAbsent(partition, ignored -> new ConcurrentHashMap<>())
             .put(key, out);
 
+        log("subscribe");
+
         return key;
     }
 
@@ -26,6 +29,10 @@ public class SubscribeManager {
         }
 
         subscribers.remove(key);
+        
+        log("unsubscribe");
+
+        clean();
     }
 
     public void notify(String partition) {
@@ -37,5 +44,24 @@ public class SubscribeManager {
         for (Collection<Object> subscriber : subscribers.values()) {
             subscriber.add(true);
         }
+    }
+
+    private void clean() {
+        Iterator<Map<Integer, Collection<Object>>> iterator = subscribeMap.values().iterator();
+        while (iterator.hasNext()) {
+            if (iterator.next().isEmpty()) {
+                iterator.remove();
+            }
+        }
+
+        log("clean");
+    }
+
+    private void log(String caller) {
+        System.out.println(
+            "! === SubscribeManager 상태(" + caller + ") ===" + "\n" + 
+            " subscribeMab: " + subscribeMap + "\n" +
+            " next key: " + key.get()
+        );
     }
 }

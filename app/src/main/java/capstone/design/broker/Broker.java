@@ -30,7 +30,7 @@ public class Broker implements AutoCloseable {
 
     // method =====
     public void start() throws InterruptedException { 
-        System.out.println("[debug] 브로커 시작");
+        System.out.println("! broker start");
         server.start(); 
     }
     
