@@ -8,7 +8,6 @@ from py_client.message.message_encoder import MessageEncoder
 
 
 class Client:
-
     def __init__(self, host: str, port: int, client_id: str):
         self.host = host
         self.port = port
@@ -42,11 +41,12 @@ class Client:
                 if not chunk:
                     break
 
-                message = decoder.decode(chunk)
-                if message is None:
+                messages = decoder.decode(chunk)
+                if not messages:
                     continue
 
-                self.__channel_read(message)
+                for message in messages:
+                    self.__channel_read(message)
 
             except Exception as e:
                 print("! Client.__receive():", e)

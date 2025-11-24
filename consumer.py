@@ -53,7 +53,10 @@ class Consumer:
         
         try:
             response = self.client.fetch(message)[0].result()
-            return response.get_header("ok", "false").lower() == "true"
+            if error := response.get_header("error"):
+                raise ValueError(error)
+            
+            return True
         except Exception as e:
             print("! Consumer.seek(): future 에러 발생:", e)
             return False

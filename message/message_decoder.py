@@ -1,11 +1,11 @@
 import struct
+from typing import List
 
 from py_client.message.message import Message
 from py_client.utils import Utils
 
 
 class MessageDecoder:
-
     def __init__ (self):
         self.buffer = bytearray()
         self.total_length = 0
@@ -13,6 +13,7 @@ class MessageDecoder:
     
     def decode(self, data: bytes):
         self.buffer.extend(data)
+        out: List[Message] = []
 
         while True:
             if self.state == 0: # read magic
@@ -24,9 +25,13 @@ class MessageDecoder:
                     break
 
             elif self.state == 2: # read message
-                return self.__read_message()
+                message = self.__read_message()
+                if message is None: # 충분한 데이터가 없는 경우
+                    break
 
-        return None
+                out.append(message)
+
+        return out
 
     def __read_magic(self):
         while len(self.buffer) >= 4:

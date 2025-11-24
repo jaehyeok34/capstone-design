@@ -22,13 +22,7 @@ class Agent:
         self.consumer.client.close()
 
     def find_and_seek(self, topic_name: str, partition: str, condition: Dict[str, str], timeout: int = 30 * 1000):
-        offset = self.consumer.find(
-            topic_name=topic_name, 
-            partition=partition, 
-            condition=condition,
-            timeout=timeout
-        )
-        if offset == -1:
+        if (offset := self.consumer.find(topic_name=topic_name, partition=partition, condition=condition, timeout=timeout)) == -1:
             return False
         
         self.consumer.seek(topic_name=topic_name, partition=partition, offset=offset)
