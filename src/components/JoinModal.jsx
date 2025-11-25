@@ -1,60 +1,66 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ModalNavigation from './ModalNavigation';
 import folderIcon from '../assets/illustration/folder.png';
 import keyIcon from '../assets/illustration/key.png';
 
-const JoinModal = ({ isOpen, onClose }) => {
+const JoinModal = ({isOpen, onClose}) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [projectName, setProjectName] = useState('');
-  const [processingType, setProcessingType] = useState('join');
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [candidateColumns, setCandidateColumns] = useState({});
+  const [isFinding, setIsFinding] = useState(false);
+  const [isFindCompleted, setIsFindCompleted] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const [processingType, setProcessingType] = useState("join");
   const [previewFile, setPreviewFile] = useState(null);
   const [previewContent, setPreviewContent] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [joinKeys, setJoinKeys] = useState([]);
-  const [isAnalyzingKeys, setIsAnalyzingKeys] = useState(false);
-  const [keyAnalysisComplete, setKeyAnalysisComplete] = useState(false);
 
-  // 파일 변경 핸들러
-  const handleFileChange = (event) => {
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    initialize();
+  }, [isOpen]);
+
+  // 파일 업로드 핸들러
+  const uploadFileHandler = (event) => {
     const files = Array.from(event.target.files);
     const allowedExtensions = ['.csv', '.xlsx', '.xls', '.json', '.tsv'];
     
     // 파일 형식 검증
-    const validFiles = files.filter(file => {
+    const [valid, invalid] = [[], []];
+    for (const file of files) {
       const fileName = file.name.toLowerCase();
-      return allowedExtensions.some(ext => fileName.endsWith(ext));
-    });
-    
-    const invalidFiles = files.filter(file => {
-      const fileName = file.name.toLowerCase();
-      return !allowedExtensions.some(ext => fileName.endsWith(ext));
-    });
-    
-    // 잘못된 파일이 있으면 알림
-    if (invalidFiles.length > 0) {
-      alert(`다음 파일들은 지원하지 않는 형식입니다:\n${invalidFiles.map(f => f.name).join('\n')}\n\n지원 형식: CSV, Excel, JSON, TSV`);
+      if (allowedExtensions.some(ext => fileName.endsWith(ext))) {
+        valid.push(file);
+      } else {
+        invalid.push(file);
+      }
     }
-    
-    // 유효한 파일만 추가
-    if (validFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...validFiles]);
+
+    // 유효하지 않은 파일 알림
+    if (invalid.length > 0) {
+      alert(`다음 파일들은 지원하지 않는 형식입니다:\n${invalid.map(f => f.name).join('\n')}\n\n지원 형식: CSV, Excel, JSON, TSV`);
     }
+
+    // 유효한 파일 추가
+    setUploadedFiles(prev => [...prev, ...valid]);
   };
 
   // 파일 삭제
-  const removeFile = (indexToRemove) => {
-    setSelectedFiles(prev => prev.filter((_, index) => index !== indexToRemove));
+  const removeFileHandler = (index) => {
+    setUploadedFiles(prev => prev.filter((_, idx) => idx !== index));
   };
 
   // 파일 미리보기
-  const previewFileContent = (file) => {
+  const filePreviewHandler = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreviewContent(e.target.result);
       setPreviewFile(file);
     };
-    
+
     if (file.type.startsWith('text/') || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
       reader.readAsText(file);
     } else if (file.type.startsWith('image/')) {
@@ -70,124 +76,82 @@ const JoinModal = ({ isOpen, onClose }) => {
     setPreviewContent('');
   };
 
-  // 결합키 자동 분석
-  const analyzeJoinKeys = async () => {
-    if (selectedFiles.length !== 2) {
-      alert('결합키 분석을 위해서는 정확히 2개의 파일이 필요합니다.');
-      return;
+  // 결합키 생성 후보 컬럼 탐색
+  const findCandidateColumnsHandler = async () => {
+    setIsFinding(true);
+
+    const formData = new FormData();
+    uploadedFiles.forEach(file => formData.append("files", file));
+
+    const response = await fetch("http://localhost:8000/api/find_candidate_columns", {
+      method: "POST",
+      body: formData
+    })
+
+    if (!response.ok) {
+      alert(`후보 컬럼 탐색 실패: ${response.status}`);
     }
 
-    setIsAnalyzingKeys(true);
-    try {
-      const formData = new FormData();
-      selectedFiles.forEach(file => {
-        formData.append('files', file);
-      });
+    const candidateColumns = await response.json();
 
-      const response = await fetch('http://localhost:8000/api/find-join-keys', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`분석 실패: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      setJoinKeys(result.join_key_candidates || []);
-      setKeyAnalysisComplete(true);
-      
-      if (result.recommended_keys && result.recommended_keys.length > 0) {
-        alert(` ${result.recommended_keys.length}개의 추천 결합키를 찾았습니다!`);
-      } else if (result.join_key_candidates && result.join_key_candidates.length > 0) {
-        alert(` ${result.join_key_candidates.length}개의 결합키 후보를 찾았지만 추천 점수가 낮습니다.`);
-      } else {
-        alert(' 공통 결합키를 찾을 수 없습니다. 수동으로 설정해주세요.');
-      }
-
-    } catch (error) {
-      console.error('결합키 분석 오류:', error);
-      alert(`결합키 분석 중 오류가 발생했습니다: ${error.message}`);
-    } finally {
-      setIsAnalyzingKeys(false);
-    }
+    // 상태 업데이트
+    setCandidateColumns(candidateColumns);
+    setIsFinding(false);
+    setIsFindCompleted(true);
   };
 
-  // 다음 단계
-  const nextStep = () => {
-    if (currentStep === 1 && selectedFiles.length === 0) {
-      alert('파일을 먼저 선택해주세요.');
-      return;
-    }
-    if (currentStep === 3 && !projectName.trim()) {
-      alert('프로젝트명을 입력해주세요.');
-      return;
-    }
-    setCurrentStep(prev => prev + 1);
-  };
-
-  // 이전 단계
-  const prevStep = () => {
-    setCurrentStep(prev => prev - 1);
-  };
-
-  // 모달 닫기 및 초기화
-  const handleClose = () => {
-    setCurrentStep(1);
-    setSelectedFiles([]);
-    setProjectName('');
-    setProcessingType('join');
-    setPreviewFile(null);
-    setPreviewContent('');
-    setIsProcessing(false);
+  const closeHandler = () => {
+    initialize();
     onClose();
   };
 
+  // 모달 초기화
+  const initialize = () => {
+    console.log("모달 초기화");
+    setCurrentStep(1);
+    setUploadedFiles([]);
+    setCandidateColumns({});
+    setIsFinding(false);
+    setIsFindCompleted(false);
+    setProjectName("");
+    setProcessingType("join");
+    setPreviewFile(null);
+    setPreviewContent("");
+    setIsProcessing(false);
+  };
+
   // 결합 요청 처리
-  const handleSubmit = async () => {
+  const submitHandler = async () => {
     setIsProcessing(true);
     
     const formData = new FormData();
     formData.append('projectName', projectName);
-    formData.append('processingType', processingType);
-    
-    // 추출된 결합키 정보도 함께 전송
-    if (joinKeys && joinKeys.length > 0) {
-      formData.append('joinKeys', JSON.stringify(joinKeys));
+    // formData.append('processingType', processingType);
+  
+    if (Object.keys(candidateColumns).length > 0) {
+      formData.append("candidateColumns", JSON.stringify(candidateColumns))
     }
     
-    selectedFiles.forEach((file) => {
-      formData.append('files', file);
+    uploadedFiles.forEach((file) => formData.append('files', file));
+
+    const response = await fetch("http://localhost:8000/api/create_project", {
+      method: "POST", 
+      body: formData
     });
 
-    try {
-      const response = await fetch('http://localhost:8000/api/join', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert(`프로젝트 "${projectName}"가 성공적으로 처리되었습니다!`);
-        handleClose();
-      } else {
-        const error = await response.json();
-        alert(`오류: ${error.message || '처리 중 문제가 발생했습니다.'}`);
-        setIsProcessing(false);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('서버 연결 오류가 발생했습니다. 백엔드 서버가 실행 중인지 확인해주세요.');
-      setIsProcessing(false);
+    if (!response.ok) {
+      alert(`프로젝트 생성 실패: ${response.status}`);
+      return;
     }
+
+    const projectId = await response.text();
+    alert(`프로젝트 "${projectName}"가 성공적으로 생성되었습니다! (ID: ${projectId})`);
+    closeHandler();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <>
@@ -210,7 +174,7 @@ const JoinModal = ({ isOpen, onClose }) => {
           gap: '0'
         }}
         onClick={(e) => {
-          if (e.target === e.currentTarget) handleClose();
+          if (e.target === e.currentTarget) closeHandler();
         }}
       >
         <div 
@@ -231,10 +195,9 @@ const JoinModal = ({ isOpen, onClose }) => {
             animation: 'slideIn 0.3s ease-out'
           }}
         >
-          
           {/* X 버튼 - 오른쪽 상단 고정 */}
           <button 
-            onClick={handleClose} 
+            onClick={closeHandler} 
             style={{
               position: 'absolute',
               top: '20px',
@@ -265,70 +228,51 @@ const JoinModal = ({ isOpen, onClose }) => {
               e.target.style.color = '#64748b';
               e.target.style.transform = 'scale(1)';
             }}
-          >
-            ×
-          </button>
+          >×</button>
 
           {/* 1단계: 파일 업로드 */}
           {currentStep === 1 && (
-            <div style={{ 
-              padding: '40px',
-              paddingTop: '80px',
-              paddingBottom: '120px'
-            }}>
+            <div style={{padding: '40px', paddingTop: '80px', paddingBottom: '120px'}}>
               {/* 헤더 섹션 */}
-              <div style={{
-                textAlign: 'center',
-                marginBottom: '40px'
-              }}>
-                <div style={{
-                  fontSize: '3rem',
-                  marginBottom: '20px'
-                }}>
+              <div style={{textAlign: 'center', marginBottom: '40px'}}>
+                <div style={{fontSize: '3rem', marginBottom: '20px'}}>
                   <img src={folderIcon} alt="folder" style={{ width: 50, height: 50, verticalAlign: 'middle', marginBottom: 12 }} />
                 </div>
-                <h2 style={{
-                  fontSize: '2rem',
-                  fontWeight: '700',
-                  color: '#667eea',
-                  margin: '0 0 12px 0'
-                }}>
+                <h2 style={{fontSize: '2rem', fontWeight: '700', color: '#667eea', margin: '0 0 12px 0'}}>
                   파일 업로드
                 </h2>
-                <p style={{
-                  color: '#64748b',
-                  fontSize: '1.1rem',
-                  margin: '0'
-                }}>
+                <p style={{color: '#64748b', fontSize: '1.1rem', margin: '0'}}>
                   결합할 파일들을 선택해주세요
                 </p>
               </div>
-              
-              <div style={{
-                border: '3px dashed rgba(102, 126, 234, 0.3)',
-                borderRadius: '20px',
-                padding: '40px',
-                textAlign: 'center',
-                backgroundColor: 'rgba(102, 126, 234, 0.02)',
-                transition: 'all 0.3s ease',
-                cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.borderColor = 'rgba(102, 126, 234, 0.5)';
-                e.target.style.backgroundColor = 'rgba(102, 126, 234, 0.05)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.borderColor = 'rgba(102, 126, 234, 0.3)';
-                e.target.style.backgroundColor = 'rgba(102, 126, 234, 0.02)';
-              }}>
-                <div style={{ 
-                  fontSize: '4rem',
-                  marginBottom: '20px'
-                }}>
-                  
-                </div>
+              <div 
+                style={{
+                  border: '3px dashed rgba(102, 126, 234, 0.3)',
+                  borderRadius: '20px',
+                  padding: '40px',
+                  textAlign: 'center',
+                  backgroundColor: 'rgba(102, 126, 234, 0.02)',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.borderColor = 'rgba(102, 126, 234, 0.5)';
+                  e.target.style.backgroundColor = 'rgba(102, 126, 234, 0.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.borderColor = 'rgba(102, 126, 234, 0.3)';
+                  e.target.style.backgroundColor = 'rgba(102, 126, 234, 0.02)';
+                }}
+              >
+                <div 
+                  style={{ 
+                    fontSize: '4rem',
+                    marginBottom: '20px'
+                  }}
+                ></div>
                 
-                <label style={{
+                <label 
+                  style={{
                   display: 'inline-block',
                   padding: '14px 28px',
                   background: 'linear-gradient(135deg, #667eea, #764ba2)',
@@ -340,38 +284,28 @@ const JoinModal = ({ isOpen, onClose }) => {
                   transition: 'all 0.3s ease',
                   boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
                   border: 'none'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = 'linear-gradient(135deg, #5a67d8, #6b46c1)';
-                  e.target.style.transform = 'translateY(-2px)';
-                  e.target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
-                }}>
-                  <input 
-                    type="file" 
-                    multiple 
-                    accept=".csv,.xlsx,.xls,.json,.tsv"
-                    onChange={handleFileChange}
-                    style={{ display: 'none' }}
-                  />
-                   파일 선택하기
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = 'linear-gradient(135deg, #5a67d8, #6b46c1)';
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                  }}
+                >
+                  <input type="file" multiple accept=".csv,.xlsx,.xls,.json,.tsv" onChange={uploadFileHandler} style={{ display: 'none' }}/>
+                   파일 추가하기
                 </label>
                 
-                <p style={{
-                  marginTop: '20px',
-                  fontSize: '0.9rem',
-                  color: '#64748b',
-                  textAlign: 'center'
-                }}>
-            
+                <p style={{marginTop: '20px', fontSize: '0.9rem', color: '#64748b', textAlign: 'center'}}>
+                  지원형식: CSV, Excel, JSON, Markdown, TSV
                 </p>
               </div>
 
-              {selectedFiles.length > 0 && (
+              {uploadedFiles.length > 0 && (
                 <div style={{
                   marginTop: '30px',
                   padding: '20px',
@@ -388,60 +322,36 @@ const JoinModal = ({ isOpen, onClose }) => {
                     gap: '8px'
                   }}>
                     <span>✅</span>
-                    {selectedFiles.length}개 파일이 선택되었습니다
+                    {uploadedFiles.length}개 파일이 추가되었습니다.
                   </p>
                   <p style={{
                     fontSize: '0.9rem',
                     color: '#059669',
                     margin: '0'
                   }}>
-                    {selectedFiles.map(f => f.name).slice(0, 3).join(', ')}
-                    {selectedFiles.length > 3 && ` 외 ${selectedFiles.length - 3}개`}
+                    {uploadedFiles.map(f => f.name).slice(0, 3).join(', ')}
+                    {uploadedFiles.length > 3 && ` 외 ${uploadedFiles.length - 3}개`}
                   </p>
                 </div>
               )}
-
-
             </div>
           )}
 
           {/* 2단계: 파일 관리 */}
           {currentStep === 2 && (
-            <div style={{ 
-              padding: '40px',
-              paddingTop: '80px',
-              paddingBottom: '120px'
-            }}>
+            <div style={{padding: '40px', paddingTop: '80px', paddingBottom: '120px'}}>
               {/* 헤더 섹션 */}
-              <div style={{
-                textAlign: 'center',
-                marginBottom: '40px'
-              }}>
-                <div style={{
-                  fontSize: '3rem',
-                  marginBottom: '20px'
-                }}>
-                  
-                </div>
-                <h2 style={{
-                  fontSize: '2rem',
-                  fontWeight: '700',
-                  color: '#667eea',
-                  margin: '0 0 12px 0'
-                }}>
+              <div style={{textAlign: 'center', marginBottom: '40px'}}>
+                <div style={{fontSize: '3rem', marginBottom: '20px'}}/>
+                <h2 style={{fontSize: '2rem', fontWeight: '700', color: '#667eea', margin: '0 0 12px 0'}}>
                   파일 관리
                 </h2>
-                <p style={{
-                  color: '#64748b',
-                  fontSize: '1.1rem',
-                  margin: '0'
-                }}>
+                <p style={{color: '#64748b', fontSize: '1.1rem', margin: '0'}}>
                   선택된 파일들을 확인하고 관리하세요
                 </p>
               </div>
-              
               <div className="space-y-4 max-h-80 overflow-y-auto">
-                {selectedFiles.map((file, index) => (
+                {uploadedFiles.map((file, index) => (
                   <div 
                     key={index}
                     style={{
@@ -466,7 +376,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                       e.target.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.1)';
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         {/* 파일 아이콘 */}
                         <div 
@@ -495,7 +405,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                          onClick={() => previewFileContent(file)}
+                          onClick={() => filePreviewHandler(file)}
                           style={{
                             padding: '8px 16px',
                             background: 'linear-gradient(135deg, #667eea, #764ba2)',
@@ -519,11 +429,9 @@ const JoinModal = ({ isOpen, onClose }) => {
                             e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
                             e.target.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
                           }}
-                        >
-                          미리보기
-                        </button>
+                        >미리보기</button>
                         <button
-                          onClick={() => removeFile(index)}
+                          onClick={() => removeFileHandler(index)}
                           style={{
                             padding: '8px 16px',
                             background: 'linear-gradient(135deg, #ef4444, #dc2626)',
@@ -547,17 +455,15 @@ const JoinModal = ({ isOpen, onClose }) => {
                             e.target.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
                             e.target.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
                           }}
-                        >
-                        삭제
-                        </button>
+                        >삭제</button>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* 결합키 분석 섹션 */}
-              {selectedFiles.length === 2 && (
+              {/* 결합키 생성 후보 컬럼 분석 섹션 */}
+              {uploadedFiles.length >= 2 && (
                 <div style={{
                   marginTop: '40px',
                   padding: '30px',
@@ -574,92 +480,56 @@ const JoinModal = ({ isOpen, onClose }) => {
                     alignItems: 'center',
                     gap: '10px'
                   }}>
-                    <span><img src={keyIcon} alt="key" style={{ width: 20, height: 20, verticalAlign: 'middle' }} /></span>
-                    결합키 자동 분석
+                    <span><img src={keyIcon} alt="key" style={{ width: 20, height: 20, verticalAlign: 'middle' }}/></span>
+                    결합키 생성 후보 컬럼 자동 탐색
                   </h3>
-                  
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '20px',
-                    flexWrap: 'wrap'
-                  }}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap'}}>
                     <button
-                      onClick={analyzeJoinKeys}
-                      disabled={isAnalyzingKeys}
+                      onClick={findCandidateColumnsHandler}
+                      disabled={isFinding}
                       style={{
                         padding: '12px 24px',
-                        backgroundColor: isAnalyzingKeys ? '#94a3b8' : '#10b981',
+                        backgroundColor: isFinding ? '#94a3b8' : '#10b981',
                         color: 'white',
                         border: 'none',
                         borderRadius: '12px',
                         fontSize: '1rem',
                         fontWeight: '600',
-                        cursor: isAnalyzingKeys ? 'not-allowed' : 'pointer',
+                        cursor: isFinding ? 'not-allowed' : 'pointer',
                         transition: 'all 0.3s ease',
                         boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px'
                       }}
-                    >
-                      {isAnalyzingKeys ? (
-                        <>
-                          
-                          분석 중...
-                        </>
-                      ) : (
-                        <>
-                          
-                          결합키 찾기
-                        </>
-                      )}
-                    </button>
-                    
-                    {keyAnalysisComplete && (
-                      <div style={{
-                        color: '#059669',
-                        fontSize: '0.9rem',
-                        fontWeight: '500'
-                      }}>
-                         ✅ 분석 완료: {joinKeys.length}개 후보 발견
+                    >{isFinding ? (<>탐색 중...</>) : (<>후보 탐색</>)}</button>
+                    {isFindCompleted && (
+                      <div style={{color: '#059669', fontSize: '0.9rem', fontWeight: '500'}}>
+                        ✅ 분석 완료: {Object.keys(candidateColumns).length}개 후보 발견
                       </div>
                     )}
                   </div>
-
                   {/* 결합키 결과 표시 */}
-                  {keyAnalysisComplete && joinKeys.length > 0 && (
+                  {isFindCompleted &&  (
                     <div style={{ marginTop: '24px' }}>
-                      <h4 style={{
-                        color: '#475569',
-                        fontSize: '1.1rem',
-                        marginBottom: '16px',
-                        fontWeight: '600'
-                      }}>
+                      <h4 style={{color: '#475569', fontSize: '1.1rem', marginBottom: '16px', fontWeight: '600'}}>
                         발견된 결합키 후보:
                       </h4>
-                      <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                        {joinKeys.map((key, index) => (
-                          <div key={index} style={{
-                            backgroundColor: key.recommended ? 'rgba(34, 197, 94, 0.1)' : 'rgba(156, 163, 175, 0.1)',
-                            border: `1px solid ${key.recommended ? 'rgba(34, 197, 94, 0.3)' : 'rgba(156, 163, 175, 0.3)'}`,
+                      <div style={{maxHeight: '200px', overflowY: 'auto', padding: "8px"}}>
+                        {Object.entries(candidateColumns).map(([fileName, columns]) => (
+                          <div key={fileName} style={{
+                            backgroundColor: "rgba(34, 197, 94, 0.1)",
+                            border: `1px solid rgba(34, 197, 94, 0.3)`,
                             borderRadius: '8px',
                             padding: '12px',
                             marginBottom: '8px',
-                            fontSize: '0.9rem'
+                            fontSize: '1rem',
+                            fontWeight: '500',
+                            whiteSpace: "nowrap",
+                            overflos: "hidden",
+                            textOverflow: "ellipsis"
                           }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div>
-                                <strong>{key.dataA_column}</strong> ↔ <strong>{key.dataB_column}</strong>
-                                {key.recommended && <span style={{ color: '#059669', marginLeft: '8px' }}>✅ 추천</span>}
-                              </div>
-                              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                                유사도: {(key.value_similarity_score * 100).toFixed(1)}%
-                              </div>
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
-                              고유비율: {(key.dataA_unique_ratio * 100).toFixed(1)}% / {(key.dataB_unique_ratio * 100).toFixed(1)}%
-                            </div>
+                            {fileName}: [<span style={{color: "#059669", fontWeight: "700"}}>{columns.join(", ")}</span>]
                           </div>
                         ))}
                       </div>
@@ -667,7 +537,6 @@ const JoinModal = ({ isOpen, onClose }) => {
                   )}
                 </div>
               )}
-
             </div>
           )}
 
@@ -681,7 +550,6 @@ const JoinModal = ({ isOpen, onClose }) => {
               border: '1px solid rgba(255, 255, 255, 0.1)',
               margin: '20px'
             }}>
-              {/* 중앙 정렬된 제목 */}
               <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                 <h2 style={{
                   fontSize: '32px',
@@ -697,7 +565,6 @@ const JoinModal = ({ isOpen, onClose }) => {
                   fontWeight: '500'
                 }}>프로젝트 정보를 입력해주세요</p>
               </div>
-              
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div>
                   <label style={{
@@ -707,7 +574,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                     marginBottom: '8px',
                     color: '#374151'
                   }}>
-                     프로젝트명 (폴더명) <span style={{ color: '#ef4444' }}>*</span>
+                    프로젝트명 (폴더명) <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
                     type="text"
@@ -736,7 +603,6 @@ const JoinModal = ({ isOpen, onClose }) => {
                     }}
                   />
                 </div>
-
                 <div>
                   <label style={{
                     display: 'block',
@@ -776,8 +642,6 @@ const JoinModal = ({ isOpen, onClose }) => {
                   </select>
                 </div>
               </div>
-
-
             </div>
           )}
 
@@ -792,7 +656,6 @@ const JoinModal = ({ isOpen, onClose }) => {
               border: '1px solid rgba(255, 255, 255, 0.1)',
               margin: '20px'
             }}>
-              {/* 중앙 정렬된 제목 */}
               <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                 <h2 style={{
                   fontSize: '32px',
@@ -801,14 +664,13 @@ const JoinModal = ({ isOpen, onClose }) => {
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   marginBottom: '16px'
-                }}>🚀 결합 요청</h2>
+                }}>결합 요청</h2>
                 <p style={{
                   color: '#64748b',
                   fontSize: '18px',
                   fontWeight: '500'
-                }}>설정을 확인하고 결합을 요청하세요</p>
+                }}>설정을 확인하고 결합 요청을 완료하세요.</p>
               </div>
-              
               <div style={{
                 background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(16, 185, 129, 0.1))',
                 backdropFilter: 'blur(10px)',
@@ -836,8 +698,7 @@ const JoinModal = ({ isOpen, onClose }) => {
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent'
                     }}>
-                      {processingType === 'join' ? '📄 결합 신청' : 
-                       processingType === 'md-conversion' ? '📝 마크다운 변환' : '🔄 형식 변환'}
+                      {processingType === 'join' ? "결합 신청" : "알 수 없음"}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -847,9 +708,8 @@ const JoinModal = ({ isOpen, onClose }) => {
                       background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent'
-                    }}>{selectedFiles.length}개</span>
+                    }}>{uploadedFiles.length}개</span>
                   </div>
-                  
                   <div style={{ marginTop: '16px' }}>
                     <p style={{ 
                       fontSize: '14px', 
@@ -866,12 +726,12 @@ const JoinModal = ({ isOpen, onClose }) => {
                       overflowY: 'auto',
                       backdropFilter: 'blur(5px)'
                     }}>
-                      {selectedFiles.map((file, index) => (
+                      {uploadedFiles.map((file, index) => (
                         <div key={index} style={{ 
                           fontSize: '13px', 
                           color: '#4b5563', 
                           padding: '4px 0',
-                          borderBottom: index < selectedFiles.length - 1 ? '1px solid rgba(148, 163, 184, 0.2)' : 'none'
+                          borderBottom: index < uploadedFiles.length - 1 ? '1px solid rgba(148, 163, 184, 0.2)' : 'none'
                         }}>
                           📄 {file.name} <span style={{ color: '#9ca3af' }}>({(file.size / 1024).toFixed(1)} KB)</span>
                         </div>
@@ -880,23 +740,20 @@ const JoinModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
               </div>
-
-
             </div>
           )}
-
         </div>
         
         {/* 네비게이션 버튼 - JoinModal 하단 외부에 위치 */}
         <ModalNavigation
           currentStep={currentStep}
           totalSteps={4}
-          onPrev={prevStep}
-          onNext={nextStep}
-          onSubmit={handleSubmit}
+          onPrev={() => setCurrentStep(prev => prev - 1)}
+          onNext={() => setCurrentStep(prev => prev + 1)}
+          onSubmit={submitHandler}
           canProceed={
-            currentStep === 1 ? selectedFiles.length > 0 :
-            currentStep === 3 ? projectName.trim() !== '' :
+            currentStep === 1 ? uploadedFiles.length > 1 : 
+            currentStep === 3 ? projectName.trim() : 
             true
           }
           isProcessing={isProcessing}

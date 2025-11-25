@@ -21,12 +21,7 @@ function Join() {
       marginLeft: '-50vw',
       marginRight: '-50vw'
     }}>
-      {/* 헤더 섹션 */}
-      <div style={{
-        textAlign: 'center',
-        marginBottom: '60px',
-        color: 'white'
-      }}>
+      <div style={{textAlign: 'center', marginBottom: '60px', color: 'white'}}>
         <h1 style={{
           fontSize: '3.5rem',
           fontWeight: '700',
@@ -38,18 +33,10 @@ function Join() {
             <span>데이터 결합 신청</span>
           </div>
         </h1>
-        <h2 style={{
-          fontSize: '1.8rem',
-          fontWeight: '400',
-          margin: '0 0 10px 0',
-          opacity: '0.9'
-        }}>
-
-          데이터를 결합하세요
+        <h2 style={{fontSize: '1.8rem', fontWeight: '400', margin: '0 0 10px 0', opacity: '0.9'}}>
+          데이터를 결합하세요.
         </h2>
       </div>
-
-      {/* 메인 컨테이너 */}
       <div style={{
         width: '100%',
         maxWidth: '1000px',
@@ -60,18 +47,6 @@ function Join() {
         backdropFilter: 'blur(10px)',
         textAlign: 'center'
       }}>
-        
-        {/* 기능 설명 카드들 */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '30px',
-          marginBottom: '50px'
-        }}>
-          
-        </div>
-
-        {/* 시작하기 버튼 */}
         <div style={{
           padding: '40px 30px',
           backgroundColor: 'rgba(168, 85, 247, 0.05)',
@@ -92,11 +67,9 @@ function Join() {
             fontSize: '1rem',
             lineHeight: '1.6'
           }}>
-            단계별 가이드를 통해 데이터를 결합할 수 있습니다.
-            <br/>
+            단계별 가이드를 통해 데이터를 결합할 수 있습니다. <br/>
             지원 형식: CSV, Excel, JSON 파일 등
           </p>
-          
           <button
             onClick={() => setIsModalOpen(true)}
             style={{
@@ -131,26 +104,7 @@ function Join() {
             결합 요청 시작하기
           </button>
         </div>
-
-        {/* 추가 정보 섹션 */}
-        <div style={{
-          marginTop: '40px',
-          padding: '25px',
-          backgroundColor: 'rgba(15, 23, 42, 0.03)',
-          borderRadius: '12px',
-          border: '1px solid rgba(15, 23, 42, 0.1)'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '30px',
-            flexWrap: 'wrap'
-          }}>
-          </div>
-        </div>
       </div>
-
       <JoinModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 

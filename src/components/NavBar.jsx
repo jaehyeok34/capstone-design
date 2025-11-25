@@ -1,15 +1,13 @@
-import { Link } from 'react-router-dom';
-import { useState, useRef } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+
 
 function NavBar() {
-    const [activeTab, setActiveTab] = useState(window.location.pathname);
+    const location = useLocation();
+    const [activeTab, setActiveTab] = useState(location.pathname);
     const [showAdmin, setShowAdmin] = useState(false);
     const clickCountRef = useRef(0);
     const clickTimerRef = useRef(null);
-
-    const handleTabClick = (path) => {
-        setActiveTab(path);
-    };
 
     const handleSecretClick = () => {
         clickCountRef.current += 1;
@@ -32,6 +30,10 @@ function NavBar() {
             }
         }
     };
+
+    useEffect(() => {
+        setActiveTab(location.pathname);
+    }, [location.pathname]);
 
     return (
         <div 
@@ -83,7 +85,6 @@ function NavBar() {
                     {/* 결합 버튼 */}
                     <Link 
                         to="/join" 
-                        onClick={() => handleTabClick('/join')}
                         style={{
                             position: 'relative',
                             padding: '12px 24px',
@@ -133,7 +134,6 @@ function NavBar() {
                     {/* 분석 버튼 */}
                     <Link 
                         to="/analysis" 
-                        onClick={() => handleTabClick('/analysis')}
                         style={{
                             position: 'relative',
                             padding: '12px 24px',
@@ -183,7 +183,6 @@ function NavBar() {
                     {/* 변환 버튼 */}
                     <Link 
                         to="/convert" 
-                        onClick={() => handleTabClick('/convert')}
                         style={{
                             position: 'relative',
                             padding: '12px 24px',
@@ -235,7 +234,6 @@ function NavBar() {
                     {showAdmin && (
                         <Link 
                             to="/admin" 
-                            onClick={() => handleTabClick('/admin')}
                             style={{
                                 position: 'relative',
                                 padding: '12px 24px',

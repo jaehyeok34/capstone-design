@@ -3,88 +3,31 @@ import ProjectDetail from "../components/ProjectDetail";
 import checkIcon from '../assets/illustration/check.png';
 import sendwatchIcon from '../assets/illustration/sendwatch.png';
 import pauseIcon from '../assets/illustration/pause.png';
-import keyIcon from '../assets/illustration/key.png';
-import folderIcon from '../assets/illustration/folder.png';
-import joinIcon from '../assets/illustration/join_white.png';
 import downloadIcon from '../assets/illustration/download_white.png';
+import folderIcon from '../assets/illustration/folder.png';
 import analyzeIcon from '../assets/illustration/analyze_white.png';
+import { getStatusColor, getStatusIcon, getStatusText, downloadHandler } from "../utils";
 
 const Analysis = () => {
-  const [joinProjects, setJoinProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState({});
+  const [isFetching, setIsFetching] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
 
   // 실제 결합 프로젝트 데이터 가져오기
   useEffect(() => {
-    const fetchJoinProjects = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('http://localhost:8000/api/join-projects');
-        const data = await response.json();
-        
-        // 백엔드가 {projects: [...]} 형태로 반환하므로 data.projects 사용
-        const projectsArray = data.projects || [];
-        
-        // 백엔드 데이터를 프론트엔드 형식으로 변환
-      const formattedProjects = projectsArray.map(project => ({
-        id: project.id,
-        projectName: project.projectName,
-        createdAt: new Date(project.createdAt).toLocaleDateString('ko-KR'),
-        fileCount: project.files.length,
-        joinKeys: project.joinKeys,
-        reviewStatus: project.review?.status || 'pending',
-        backendStatus: project.status,
-        status: project.status === '승인 완료' || project.review?.status === 'approved' ? 'completed'
-              : project.status === '분석 완료' ? 'completed' 
-              : project.status === '진행 중' ? 'processing' 
-              : 'pending'
-      }));        setJoinProjects(formattedProjects);
-      } catch (error) {
-        console.error('결합 프로젝트 데이터 가져오기 실패:', error);
-        // 오류 발생 시 빈 배열로 설정
-        setJoinProjects([]);
-      } finally {
-        setLoading(false);
+    (async () => {
+      setIsFetching(true);
+
+      const response = await fetch("http://localhost:8000/api/projects");
+      if (response.ok) {
+        setProjects(await response.json());
+      } else {
+        alert(`결합 프로젝트 데이터 가져오기 실패: ${response.status}`);
       }
-    };
 
-    fetchJoinProjects();
+      setIsFetching(false);
+    })();
   }, []);
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return '#10b981';
-      case 'processing': return '#f59e0b';
-      case 'pending': return '#6b7280';
-      case 'failed': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'completed': return '완료';
-      case 'processing': return '진행중';
-      case 'pending': return '대기중';
-      case 'failed': return '실패';
-      default: return '알 수 없음';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed':
-        return <img src={checkIcon} alt="completed" style={{ width: 16, height: 16 }} />;
-      case 'processing':
-        return <img src={sendwatchIcon} alt="processing" style={{ width: 16, height: 16 }} />;
-      case 'pending':
-        return <img src={pauseIcon} alt="pending" style={{ width: 16, height: 16 }} />;
-      case 'failed':
-        return '❌';
-      default:
-        return '❓';
-    }
-  };
 
   return (
     <div style={{
@@ -101,41 +44,23 @@ const Analysis = () => {
       marginLeft: '-50vw',
       marginRight: '-50vw'
     }}>
-      {/* 헤더 섹션 */}
-      <div style={{
-        textAlign: 'center',
-        marginBottom: '60px',
-        color: 'white'
-      }}>
+      <div style={{textAlign: 'center', marginBottom: '60px', color: 'white'}}>
         <h1 style={{
           fontSize: '3.5rem',
           fontWeight: '700',
           margin: '0 0 20px 0',
           textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <img src={analyzeIcon} alt="analyze" style={{ width: 250, height: 200, verticalAlign: 'middle', marginBottom: 12 }} />
             <span>데이터 결합 분석</span>
           </div>
         </h1>
-        <h2 style={{
-          fontSize: '1.8rem',
-          fontWeight: '400',
-          margin: '0 0 10px 0',
-          opacity: '0.9'
-        }}>
-          결합 프로젝트 현황을 확인하세요
+        <h2 style={{fontSize: '1.8rem', fontWeight: '400', margin: '0 0 10px 0', opacity: '0.9'}}>
+          결합 프로젝트 현황을 확인하세요.
         </h2>
-        <p style={{
-          fontSize: '1.1rem',
-          opacity: '0.8',
-          margin: '0'
-        }}>
-          
-        </p>
+        <p style={{fontSize: '1.1rem', opacity: '0.8', margin: '0'}}></p>
       </div>
-
-      {/* 메인 컨테이너 */}
       <div style={{
         width: '100%',
         maxWidth: '1200px',
@@ -145,14 +70,7 @@ const Analysis = () => {
         boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
         backdropFilter: 'blur(10px)'
       }}>
-        
-        {/* 통계 요약 */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '20px',
-          marginBottom: '40px'
-        }}>
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '40px'}}>
           <div style={{
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             border: '1px solid rgba(16, 185, 129, 0.3)',
@@ -164,7 +82,7 @@ const Analysis = () => {
               <img src={checkIcon} alt="completed" style={{ width: 32, height: 32 }} />
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#059669' }}>
-              {joinProjects.filter(p => p.status === 'completed').length}
+              {Object.entries(projects).filter(([id, information]) => information.status === "done").length}
             </div>
             <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>완료된 프로젝트</div>
           </div>
@@ -180,7 +98,7 @@ const Analysis = () => {
               <img src={sendwatchIcon} alt="processing" style={{ width: 20, height: 32 }} />
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#d97706' }}>
-              {joinProjects.filter(p => p.status === 'processing').length}
+              {Object.entries(projects).filter(([id, information]) => information.status === "active").length}
             </div>
             <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>진행중인 프로젝트</div>
           </div>
@@ -196,7 +114,7 @@ const Analysis = () => {
               <img src={pauseIcon} alt="pending" style={{ width: 32, height: 32 }} />
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#6b7280' }}>
-              {joinProjects.filter(p => p.status === 'pending').length}
+              {Object.entries(projects).filter(([id, information]) => information.status === "idle").length}
             </div>
             <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>대기중인 프로젝트</div>
           </div>
@@ -212,60 +130,35 @@ const Analysis = () => {
               <img src={folderIcon} alt="folder" style={{ width: 32, height: 32 }} />
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#667eea' }}>
-              {joinProjects.length}
+              {Object.keys(projects).length}
             </div>
             <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>전체 프로젝트</div>
           </div>
         </div>
 
         {/* 프로젝트 리스트 헤더 */}
-        <div style={{
-          marginBottom: '24px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <h3 style={{
-            fontSize: '1.5rem',
-            fontWeight: '600',
-            color: '#1f2937',
-            margin: '0'
-          }}>
+        <div style={{marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <h3 style={{fontSize: '1.5rem', fontWeight: '600', color: '#1f2937', margin: '0'}}>
             결합 프로젝트 목록
           </h3>
-          <div style={{
-            color: '#6b7280',
-            fontSize: '0.9rem'
-          }}>
-            총 {joinProjects.length}개 프로젝트
+          <div style={{color: '#6b7280', fontSize: '0.9rem'}}>
+            총 {Object.keys(projects).length}개 프로젝트
           </div>
         </div>
 
         {/* 로딩 상태 */}
-        {loading ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '60px',
-            color: '#6b7280'
-          }}>
-            <div style={{
-              fontSize: '3rem',
-              marginBottom: '20px',
-              animation: 'spin 2s linear infinite'
-            }}>
+        {isFetching ? (
+          <div style={{textAlign: 'center', padding: '60px', color: '#6b7280'}}>
+            <div style={{fontSize: '3rem', marginBottom: '20px', animation: 'spin 2s linear infinite'}}>
               <img src={sendwatchIcon} alt="loading" style={{ width: 30, height: 30 }} />
             </div>
             <p>프로젝트 목록을 불러오는 중...</p>
           </div>
         ) : (
           /* 프로젝트 리스트 */
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px'
-          }}>
-            {joinProjects.map((project) => (
-              <div key={project.id} style={{
+          <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+            {Object.entries(projects).map(([id, information]) => (
+              <div key={id} style={{
                 backgroundColor: '#f8fafc',
                 border: '1px solid #e2e8f0',
                 borderRadius: '16px',
@@ -273,7 +166,7 @@ const Analysis = () => {
                 transition: 'all 0.3s ease',
                 cursor: 'pointer'
               }}
-              onClick={() => setSelectedProject(project)}
+              onClick={() => setSelectedProject({ id, ...information })}
               onMouseEnter={(e) => {
                 e.target.style.backgroundColor = '#f1f5f9';
                 e.target.style.borderColor = '#667eea';
@@ -286,161 +179,67 @@ const Analysis = () => {
                 e.target.style.transform = 'translateY(0)';
                 e.target.style.boxShadow = 'none';
               }}>
-                {/* 프로젝트 헤더 */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '16px'
-                }}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px'}}>
                   <div>
-                    <h4 style={{
-                      fontSize: '1.2rem',
-                      fontWeight: '600',
-                      color: '#1f2937',
-                      margin: '0 0 8px 0'
-                    }}>
-                      <img src={folderIcon} alt="folder" style={{ width: 18, height: 18, marginRight: 8, verticalAlign: 'middle' }} /> {project.projectName}
+                    <h4 style={{fontSize: '1.2rem', fontWeight: '600', color: '#1f2937', margin: '0 0 8px 0'}}>
+                      <img src={folderIcon} alt="folder" style={{ width: 18, height: 18, marginRight: 8, verticalAlign: 'middle' }} /> 
+                      {information.projectName}
                     </h4>
-                    <div style={{
-                      fontSize: '0.9rem',
-                      color: '#6b7280'
-                    }}>
-                      생성일: {project.createdAt} | 파일 수: {project.fileCount}개
+                    <div style={{fontSize: '0.9rem', color: '#6b7280'}}>
+                      생성일: {information.createdAt} | 파일 수: {information.files.length}개
                     </div>
                   </div>
-                  
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    backgroundColor: getStatusColor(project.status) + '20',
-                    border: `1px solid ${getStatusColor(project.status)}40`,
+                    backgroundColor: getStatusColor(information.status) + '20',
+                    border: `1px solid ${getStatusColor(information.status)}40`,
                     borderRadius: '20px',
                     padding: '6px 12px',
                     fontSize: '0.85rem',
                     fontWeight: '500',
-                    color: getStatusColor(project.status)
+                    color: getStatusColor(information.status)
                   }}>
-                    <span>{getStatusIcon(project.status)}</span>
-                    {getStatusText(project.status)}
-                  </div>
-                </div>
-
-                {/* 결합키 정보 */}
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{
-                    fontSize: '0.9rem',
-                    color: '#374151',
-                    marginBottom: '8px',
-                    fontWeight: '500',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8
-                  }}>
-                    <img src={keyIcon} alt="key" style={{ width: 18, height: 18 }} />
-                    <span>결합키:</span>
-                  </div>
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '8px'
-                  }}>
-                    {(project.joinKeys && project.joinKeys.length > 0) ? (
-                      project.joinKeys.map((key, index) => {
-                        // key가 객체인 경우 (예: {column: 'id', matchedColumn: 'user_id'})
-                        const displayText = typeof key === 'object' 
-                          ? `${key.column || key.dataA_column || ''} ↔ ${key.matchedColumn || key.dataB_column || ''}`
-                          : key;
-                        
-                        return (
-                          <span key={index} style={{
-                            backgroundColor: '#667eea',
-                            color: 'white',
-                            padding: '4px 12px',
-                            borderRadius: '12px',
-                            fontSize: '0.8rem',
-                            fontWeight: '500'
-                          }}>
-                            {displayText}
-                          </span>
-                        );
-                      })
-                    ) : (
-                      <span style={{
-                        backgroundColor: '#e5e7eb',
-                        color: '#6b7280',
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '0.8rem',
-                        fontWeight: '500'
-                      }}>none</span>
-                    )}
+                    <span>{getStatusIcon(information.status)}</span>
+                    {getStatusText(information.status)}
                   </div>
                 </div>
 
                 {/* 결과물 정보 */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <div style={{
-                    color: '#6b7280',
-                    fontSize: '0.9rem'
-                  }}>
-                    {project.status === 'completed' && project.reviewStatus === 'approved' ? (
-                      <>
-                        결과물: 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // 결과 파일 다운로드
-                            fetch(`http://localhost:8000/api/admin/join-requests/${project.id}/result`)
-                              .then(response => response.blob())
-                              .then(blob => {
-                                const url = window.URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `${project.projectName}_result.csv`;
-                                document.body.appendChild(a);
-                                a.click();
-                                window.URL.revokeObjectURL(url);
-                                document.body.removeChild(a);
-                              })
-                              .catch(error => {
-                                console.error('결과 파일 다운로드 실패:', error);
-                                alert('결과 파일 다운로드에 실패했습니다.');
-                              });
-                          }}
-                          style={{
-                            marginLeft: '8px',
-                            padding: '6px 16px',
-                            backgroundColor: '#667eea',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '0.85rem',
-                            fontWeight: '500',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = '#5568d3';
-                            e.target.style.transform = 'scale(1.05)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = '#667eea';
-                            e.target.style.transform = 'scale(1)';
-                          }}
-                        >
-                          <img src={downloadIcon} alt="download" style={{ width: 18, height: 20, verticalAlign: 'middle', marginRight: 6 }} />
-                          다운로드
-                        </button>
-                      </>
-                    ) : (
-                      '결과물: none'
-                    )}
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <div style={{color: '#6b7280', fontSize: '0.9rem'}}>
+                    {information.status === "done" ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadHandler(id, information.projectName);
+                        }}
+                        style={{
+                              marginLeft: '8px',
+                              padding: '6px 16px',
+                              backgroundColor: '#667eea',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              fontSize: '0.85rem',
+                              fontWeight: '500',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#5568d3';
+                              e.target.style.transform = 'scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#667eea';
+                              e.target.style.transform = 'scale(1)';
+                            }}
+                      >
+                        <img src={downloadIcon} alt="download" style={{ width: 18, height: 20, verticalAlign: 'middle', marginRight: 6 }} />
+                        다운로드
+                      </button>
+                    ) : ("결과물: 처리 중...")}
                   </div>
                 </div>
               </div>
@@ -462,9 +261,10 @@ const Analysis = () => {
       {/* 프로젝트 상세 모달 */}
       {selectedProject && (
         <ProjectDetail 
-          project={selectedProject} 
-          onClose={() => setSelectedProject(null)} 
-        />
+          selectedProject={selectedProject} 
+          setSelectedProject={setSelectedProject}
+          setProjects={setProjects} 
+          onClose={() => setSelectedProject(null)}/>
       )}
     </div>
   );

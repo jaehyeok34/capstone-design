@@ -5,7 +5,7 @@ import MarkdownViewer from '../components/MarkdownViewer';
 import convertIcon from '../assets/illustration/converter_white.png';
 import folderIcon from '../assets/illustration/folder.png';
 
-function Home() {
+function Convert() {
   const [markdownFiles, setMarkdownFiles] = useState([]); // 여러 파일의 마크다운 결과 저장
   const [loading, setLoading] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState('md');
@@ -492,4 +492,4 @@ function Home() {
   );
 }
 
-export default Home;
+export default Convert;

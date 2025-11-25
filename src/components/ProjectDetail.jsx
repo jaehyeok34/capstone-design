@@ -1,22 +1,24 @@
 import { useState, useEffect } from "react";
 import downloadIcon from '../assets/illustration/download_white.png';
-import checkIcon from '../assets/illustration/check.png';
-import sendwatchIcon from '../assets/illustration/sendwatch.png';
-import pauseIcon from '../assets/illustration/pause.png';
 import keyIcon from '../assets/illustration/key.png';
-import folderIcon from '../assets/illustration/folder.png';
+import { getStatusColor, getStatusIcon, getStatusText, downloadHandler } from "../utils";  
 
-const ProjectDetail = ({ project, onClose }) => {
-  const [projectData, setProjectData] = useState(project);
+const ProjectDetail = ({ selectedProject, setSelectedProject, setProjects, onClose }) => {
+  const [project, setProject] = useState(selectedProject);
   const [previewingFile, setPreviewingFile] = useState(null);
   const [filePreviewContent, setFilePreviewContent] = useState("");
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
   if (!project) return null;
 
+  useEffect(() => {
+    setProject(selectedProject);
+  }, [selectedProject]);
+
+
   // 파일 미리보기 함수
-  const handleFilePreview = async (fileName) => {
-    setPreviewLoading(true);
+  const filePreviewHandler = async (fileName) => {
+    setIsFetching(true);
     setPreviewingFile(fileName);
     
     try {
@@ -37,115 +39,59 @@ const ProjectDetail = ({ project, onClose }) => {
       const dummyContent = generateDummyContent(fileName);
       setFilePreviewContent(dummyContent);
     } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  // 더미 콘텐츠 생성 (실제 API 구현 전 임시용)
-  const generateDummyContent = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase();
-    
-    switch (extension) {
-      case 'csv':
-        return `이름,나이,성별,직업
-김철수,28,남,개발자
-이영희,32,여,디자이너
-박민수,25,남,학생
-최지영,29,여,마케터
-홍길동,35,남,영업`;
-        
-      case 'xlsx':
-      case 'xls':
-        return `Excel 파일 미리보기:
-        
-A1: 제품명    B1: 가격     C1: 수량
-A2: 노트북    B2: 1,200    C2: 5
-A3: 마우스    B3: 25       C3: 20
-A4: 키보드    B4: 75       C4: 15
-A5: 모니터    B5: 300      C5: 8`;
-        
-      case 'json':
-        return `{
-  "users": [
-    {
-      "id": 1,
-      "name": "김철수",
-      "email": "kim@example.com",
-      "age": 28
-    },
-    {
-      "id": 2,
-      "name": "이영희",
-      "email": "lee@example.com",
-      "age": 32
-    }
-  ],
-  "total": 2
-}`;
-        
-      default:
-        return `파일명: ${fileName}
-파일 형식: ${extension.toUpperCase()}
-
-이 파일의 미리보기를 지원하지 않습니다.
-지원 형식: CSV, Excel, JSON`;
+      setIsFetching(false);
     }
   };
 
   const getFileIcon = (fileName) => {
-    const extension = fileName.split('.').pop().toLowerCase();
-    switch (extension) {
-      case 'csv': return '📊';
-      case 'xlsx':
-      case 'xls': return '📗';
-      case 'json': return '📄';
-      case 'txt': return '📝';
-      default: return '📄';
-    }
+    return {
+      "csv": "📊",
+      "xlsx": "📗",
+      "xls": "📗",
+      "json": "📄",
+      "txt": "📝"
+    }[fileName.split('.').pop().toLowerCase()] || "📄";
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return '#10b981';
-      case 'processing': return '#f59e0b';
-      case 'pending': return '#6b7280';
-      case 'failed': return '#ef4444';
-      default: return '#6b7280';
+  const createCiHandler = async (projectId) => {
+    const response = await fetch(`http://localhost:8000/api/create_ci/${projectId}`)
+    if (!response.ok) {
+      alert(`결합 연계정보 생성 요청 실패: ${response.status}`);
+      return;
     }
-  };
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'completed': return '완료';
-      case 'processing': return '진행중';
-      case 'pending': return '대기중';
-      case 'failed': return '실패';
-      default: return '알 수 없음';
-    }
-  };
+    updateProject(projectId);
+  }
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed':
-        return <img src={checkIcon} alt="completed" style={{ width: 16, height: 16 }} />;
-      case 'processing':
-        return <img src={sendwatchIcon} alt="processing" style={{ width: 16, height: 16 }} />;
-      case 'pending':
-        return <img src={pauseIcon} alt="pending" style={{ width: 16, height: 16 }} />;
-      case 'failed':
-        return '❌';
-      default:
-        return '❓';
+  const joinHandler = async () => {
+    const response = await fetch(`http://localhost:8000/api/join/${project.id}`)
+    if (!response.ok) {
+      alert(`결합 요청 실패: ${response.status}`);
+      return;
     }
-  };
+
+    updateProject(project.id);
+  }
+
+  const updateProject = async (projectId) => {
+    const response = await fetch(`http://localhost:8000/api/project/${projectId}`);
+    if (!response.ok) {
+      alert(`프로젝트 정보 요청 실패: ${response.status}, ${(await response.json())?.detail}`);
+      return;
+    }
+
+    const information = await response.json();
+    setProjects(prev => ({
+      ...prev,
+      [projectId]: information
+    }));
+    setSelectedProject(() => ({ id: projectId, ...information }));
+  }
 
   return (
     <div style={{
       position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
+      top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(0, 0, 0, 0.5)',
       display: 'flex',
       justifyContent: 'center',
@@ -172,19 +118,10 @@ A5: 모니터    B5: 300      C5: 8`;
           paddingBottom: '20px'
         }}>
           <div>
-            <h2 style={{
-              fontSize: '1.8rem',
-              fontWeight: '700',
-              color: '#1f2937',
-              margin: '0 0 10px 0'
-            }}>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: '700', color: '#1f2937', margin: '0 0 10px 0' }}>
                {project.projectName}
             </h2>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px'
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -206,6 +143,7 @@ A5: 모니터    B5: 300      C5: 8`;
             </div>
           </div>
           
+          {/* 닫기 버튼 */}
           <button
             onClick={onClose}
             style={{
@@ -233,68 +171,27 @@ A5: 모니터    B5: 300      C5: 8`;
         </div>
 
         {/* 프로젝트 정보 */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '20px',
-          marginBottom: '30px'
-        }}>
-          <div style={{
-            backgroundColor: '#f8fafc',
-            borderRadius: '12px',
-            padding: '20px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <h3 style={{
-              fontSize: '1rem',
-              fontWeight: '600',
-              color: '#374151',
-              margin: '0 0 8px 0'
-            }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+          <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', margin: '0 0 8px 0' }}>
               기본 정보
             </h3>
             <div style={{ color: '#6b7280', fontSize: '0.9rem', lineHeight: '1.6' }}>
-              <div>처리 유형: {project.processingType}</div>
-              <div>파일 수: {project.fileCount}개</div>
+              <div>파일 수: {project.files.length}개</div>
+              <div>결합 연계정보 생성 여부: {project.ci ? "O" : "X"}</div>
             </div>
           </div>
 
-          <div style={{
-            backgroundColor: '#f8fafc',
-            borderRadius: '12px',
-            padding: '20px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <h3 style={{
-              fontSize: '1rem',
-              fontWeight: '600',
-              color: '#374151',
-              margin: '0 0 8px 0'
-            }}>
+          <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', margin: '0 0 8px 0' }}>
               결과물
             </h3>
             <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
-              {project.status === 'completed' && project.reviewStatus === 'approved' ? (
+              {project.status === 'done' ? (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    // 결과 파일 다운로드
-                    fetch(`http://localhost:8000/api/admin/join-requests/${project.id}/result`)
-                      .then(response => response.blob())
-                      .then(blob => {
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${project.projectName}_result.csv`;
-                        document.body.appendChild(a);
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        document.body.removeChild(a);
-                      })
-                      .catch(error => {
-                        console.error('결과 파일 다운로드 실패:', error);
-                        alert('결과 파일 다운로드에 실패했습니다.');
-                      });
+                    downloadHandler(project.id, project.projectName);
                   }}
                   style={{
                     padding: '10px 20px',
@@ -318,94 +215,53 @@ A5: 모니터    B5: 300      C5: 8`;
                     e.target.style.backgroundColor = '#0ea5e9';
                     e.target.style.transform = 'scale(1)';
                   }}
-                >다운로드
-                <img src={downloadIcon} alt="download" style={{ width: 18, height: 20, verticalAlign: 'middle', marginRight: 6 }} />
-                                  
+                >
+                  다운로드
+                  <img src={downloadIcon} alt="download" style={{ width: 18, height: 20, verticalAlign: 'middle', marginRight: 6 }} />
                 </button>
               ) : (
-                'none'
+                '없음'
               )}
             </div>
           </div>
         </div>
 
         {/* 결합키 정보 */}
-        <div style={{
-          backgroundColor: '#f0f9ff',
-          borderRadius: '16px',
-          padding: '24px',
-          border: '1px solid #0ea5e9',
-          marginBottom: '30px'
-        }}>
+        <div style={{ backgroundColor: '#f0f9ff', borderRadius: '16px', padding: '24px', border: `1px solid rgba(34, 197, 94, 0.93)`, marginBottom: '30px' }}>
           <h3 style={{
             fontSize: '1.2rem',
             fontWeight: '600',
-            color: '#0c4a6e',
+            color: '#059669',
             margin: '0 0 16px 0',
             display: 'flex',
             alignItems: 'center',
             gap: '8px'
           }}>
-            <img src={keyIcon} alt="key" style={{ width: 20, height: 20, marginRight: 6 }} />
+            <img src={keyIcon} alt="key" style={{ width: 20, height: 20, marginRight: 6 }}/>
             결합키 정보
           </h3>
-          
-          {project.joinKeys && project.joinKeys.length > 0 ? (
-            <div>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '12px',
-                marginBottom: '16px'
-              }}>
-                {project.joinKeys.map((key, index) => {
-                  // key가 객체인 경우 (예: {column: 'id', matchedColumn: 'user_id'})
-                  const displayText = typeof key === 'object' 
-                    ? `${key.column || key.dataA_column || ''} ↔ ${key.matchedColumn || key.dataB_column || ''}`
-                    : key;
-                  
-                  return (
-                    <div key={index} style={{
-                      backgroundColor: '#0ea5e9',
-                      color: 'white',
-                      padding: '8px 16px',
-                      borderRadius: '20px',
-                      fontSize: '0.9rem',
-                      fontWeight: '500',
-                      boxShadow: '0 2px 4px rgba(14, 165, 233, 0.2)'
-                    }}>
-                      {displayText}
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{
-                color: '#0c4a6e',
-                fontSize: '0.9rem',
-                fontWeight: '500'
-              }}>
-                총 {project.joinKeys.length}개의 결합키가 발견되었습니다.
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              color: '#6b7280',
-              fontSize: '0.9rem',
-              textAlign: 'center',
-              padding: '20px'
+          {Object.entries(project.candidateColumns).map(([fileName, columns]) => (
+            <div key={fileName} style={{
+              backgroundColor: "rgba(34, 197, 94, 0.1)",
+              border: `1px solid rgba(34, 197, 94, 0.3)`,
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '8px',
+              fontSize: '1rem',
+              fontWeight: '500',
+              whiteSpace: "nowrap",
+              overflos: "hidden",
+              textOverflow: "ellipsis",
+              boxShadow: '0 2px 4px rgba(14, 165, 233, 0.2)',
+              color: '#033013ff'
             }}>
-              결합키 정보가 없습니다.
+              {fileName}: [<span style={{color: "#059669", fontWeight: "700"}}>{columns.join(", ")}</span>]
             </div>
-          )}
+          ))}
         </div>
 
         {/* 파일 목록 */}
-        <div style={{
-          backgroundColor: '#f9fafb',
-          borderRadius: '16px',
-          padding: '24px',
-          border: '1px solid #d1d5db'
-        }}>
+        <div style={{ backgroundColor: '#f9fafb', borderRadius: '16px', padding: '24px', border: '1px solid #d1d5db' }}>
           <h3 style={{
             fontSize: '1.2rem',
             fontWeight: '600',
@@ -414,16 +270,9 @@ A5: 모니터    B5: 300      C5: 8`;
             display: 'flex',
             alignItems: 'center',
             gap: '8px'
-          }}>
-             업로드된 파일
-          </h3>
-          
+          }}>업로드된 파일</h3>
           {project.files && project.files.length > 0 ? (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {project.files.map((file, index) => (
                 <div key={index} style={{
                   backgroundColor: 'white',
@@ -443,19 +292,12 @@ A5: 모니터    B5: 300      C5: 8`;
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '1rem'
-                  }}>
-                    {getFileIcon(file)}
-                  </div>
-                  <div style={{
-                    flex: 1,
-                    fontSize: '0.9rem',
-                    fontWeight: '500',
-                    color: '#374151'
-                  }}>
+                  }}>{getFileIcon(file)}</div>
+                  <div style={{ flex: 1, fontSize: '0.9rem', fontWeight: '500', color: '#374151' }}>
                     {file}
                   </div>
                   <button
-                    onClick={() => handleFilePreview(file)}
+                    onClick={() => filePreviewHandler(file)}
                     style={{
                       padding: '6px 12px',
                       backgroundColor: '#3b82f6',
@@ -465,10 +307,9 @@ A5: 모니터    B5: 300      C5: 8`;
                       fontSize: '0.8rem',
                       fontWeight: '500',
                       cursor: 'pointer',
-                      opacity: previewLoading && previewingFile === file ? 0.6 : 1,
+                      opacity: isFetching && previewingFile === file ? 0.6 : 1,
                       transition: 'all 0.2s ease'
                     }}
-                    disabled={previewLoading && previewingFile === file}
                     onMouseEnter={(e) => {
                       if (!e.target.disabled) {
                         e.target.style.backgroundColor = '#2563eb';
@@ -479,22 +320,41 @@ A5: 모니터    B5: 300      C5: 8`;
                         e.target.style.backgroundColor = '#3b82f6';
                       }
                     }}
-                  >
-                    {previewLoading && previewingFile === file ? '로딩...' : '미리보기'}
-                  </button>
+                  >{isFetching && previewingFile === file ? '로딩...' : '미리보기'}</button>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{
-              color: '#6b7280',
-              fontSize: '0.9rem',
-              textAlign: 'center',
-              padding: '20px'
-            }}>
+            <div style={{ color: '#6b7280', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>
               파일 정보가 없습니다.
             </div>
           )}
+        </div>
+
+        {/* 결합 연계정보 생성 요청, 결합 요청 버튼 */}
+        <div style={{ display: "flex", gap: "12px", paddingTop: "24px"}}>
+          <button 
+            onClick={() => createCiHandler(project.id)}
+            disabled={project.ci}
+            style={{ 
+              padding: "8px 16px", 
+              borderRadius: "6px", 
+              border: project.ci ? '1px solid rgba(209, 213, 219, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+              backgroundColor: project.ci ? 'rgba(209, 213, 219, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+              color: project.ci ? '#9ca3af' : '#d97706',
+              cursor: project.ci ? 'not-allowed' : 'pointer'
+            }}>결합 연계정보 생성 요청</button>
+          <button 
+            onClick={joinHandler}
+            disabled={(!project.ci && project.status !== "active") || (project.status === "done")}
+            style={{ 
+              padding: "8px 16px", 
+              borderRadius: "6px",
+              backgroundColor: ((!project.ci && project.status !== "active") || (project.status === "done")) ? 'rgba(209, 213, 219, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+              border: ((!project.ci && project.status !== "active") || (project.status === "done")) ? '1px solid rgba(209, 213, 219, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+              color: ((!project.ci && project.status !== "active") || (project.status === "done")) ? '#9ca3af' : '#059669',
+              cursor: ((!project.ci && project.status !== "active") || (project.status === "done")) ? 'not-allowed' : 'pointer'
+          }}>결합 요청</button>
         </div>
       </div>
 
@@ -502,10 +362,7 @@ A5: 모니터    B5: 300      C5: 8`;
       {previewingFile && (
         <div style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+          top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
           display: 'flex',
           alignItems: 'center',
@@ -532,18 +389,9 @@ A5: 모니터    B5: 300      C5: 8`;
               paddingBottom: '16px',
               borderBottom: '1px solid #e5e7eb'
             }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '1.2rem' }}>{getFileIcon(previewingFile)}</span>
-                <h3 style={{
-                  margin: 0,
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  color: '#111827'
-                }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: '#111827' }}>
                   {previewingFile}
                 </h3>
               </div>
@@ -561,15 +409,9 @@ A5: 모니터    B5: 300      C5: 8`;
                   fontSize: '1.2rem',
                   color: '#6b7280'
                 }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#f3f4f6';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = 'transparent';
-                }}
-              >
-                ✕
-              </button>
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+              >✕</button>
             </div>
 
             {/* 미리보기 내용 */}
@@ -580,16 +422,14 @@ A5: 모니터    B5: 300      C5: 8`;
               borderRadius: '8px',
               padding: '16px'
             }}>
-              {previewLoading ? (
+              {isFetching ? (
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   height: '200px',
                   color: '#6b7280'
-                }}>
-                  로딩 중...
-                </div>
+                }}>로딩 중...</div>
               ) : (
                 <pre style={{
                   margin: 0,
@@ -599,9 +439,7 @@ A5: 모니터    B5: 300      C5: 8`;
                   color: '#374151',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word'
-                }}>
-                  {filePreviewContent}
-                </pre>
+                }}>{filePreviewContent}</pre>
               )}
             </div>
           </div>
