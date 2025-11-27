@@ -1,6 +1,7 @@
 package capstone.design.topic;
 
-import java.util.Collection;
+import java.util.function.Supplier;
+
 import org.jspecify.annotations.Nullable;
 
 import capstone.design.message.Message;
@@ -18,7 +19,7 @@ public interface Topic {
     @Nullable TopicRecord pull(Message message);
     boolean seek(Message message);
     int find(Message message);
-    int subscribe(Message message, Collection<Object> out);
+    int subscribe(Message message, Supplier<Boolean> callback);
     void unsubscribe(Message message, int key);
     int count(Message message);
     void clean();

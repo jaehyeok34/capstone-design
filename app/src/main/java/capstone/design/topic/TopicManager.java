@@ -3,13 +3,17 @@ package capstone.design.topic;
 import capstone.design.message.Message;
 import capstone.design.message.MessageCleaner;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import capstone.design.message.MessageProcessor;
@@ -27,6 +31,7 @@ public class TopicManager implements MessageProcessor {
     // field =====
     private final Map<String, Topic> topics = new ConcurrentHashMap<>();
     private final MessageCleaner cleaner;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     // constructor =====
     private TopicManager(Map<String, Topic> topics, long cleanInterval) {
@@ -49,13 +54,19 @@ public class TopicManager implements MessageProcessor {
     // override =====
     @Override
     public void process(ChannelHandlerContext context, Message message) {
-        switch (message.type()) {
-            case REQ_PUSH -> push(context, message);
-            case REQ_PULL -> pull(context, message);
-            case REQ_FIND -> find(context, message);
-            case REQ_SEEK -> seek(context, message);
-            default -> {}
+        Map<MessageType, BiConsumer<ChannelHandlerContext, Message>> handlers = Map.of(
+            MessageType.REQ_PUSH, this::push,
+            MessageType.REQ_PULL, this::pull,
+            MessageType.REQ_FIND, this::find,
+            MessageType.REQ_SEEK, this::seek
+        );
+
+        BiConsumer<ChannelHandlerContext, Message> handler = handlers.get(message.type());
+        if (handler == null) {
+            return;
         }
+
+        handler.accept(context, message);
     }
 
     // private method =====
@@ -85,67 +96,92 @@ public class TopicManager implements MessageProcessor {
     }
 
     private void pull(ChannelHandlerContext context, Message message) {
-        int count = Integer.parseInt(message.header("count", "1"));
-        long timeout = Long.parseLong(message.header("timeout", "0"));
-        List<Message> results = new ArrayList<>();
+        message.setType(MessageType.RES_PULL);
 
-        try {
-            Topic topic = topic(message);
-            if (topic == null) {
-                throw new Exception("토픽 없음");
-            }
-
-            int existingCount = topic.count(message);
-            List<Message> pulled = pull(topic, message, Math.min(count, existingCount));
-            if (pulled.size() < count && timeout > 0) {
-                subscribe( // 구독하여 부족한 메시지 채우기
-                    topic, message, timeout, 
-                    () -> {
-                        TopicRecord record = topic.pull(message);
-                        if (record != null) {
-                            pulled.add(record.message());
-                        }
-                    }, 
-                    () -> pulled.size() < count
-                );
-            }
-
-            for (Message msg : pulled) {
-                msg.setType(MessageType.RES_PULL).addHeader(message.header());
-                results.add(msg);
-            }
-        } catch (Exception e) {
-            System.err.println("? TopicManager.pull(): " + e);
-        }
-
-        // 토픽에서 획득한 메시지 write
-        for (Message msg : results) {
-            context.channel().write(msg);
-        }
-
-        // 부족한 개수만큼 실패 메시지 write
-        for (int i = results.size(); i < count; i++) {
-            message.addHeader("error", "메시지 획득 실패");
-            context.channel().write(message);
-        }
-
-        context.channel().flush();
-    }
-
-    private void seek(ChannelHandlerContext context, Message message) {
+        int count = message.header("count", 1);
+        long timeout = message.header("timeout", 0L);
         Topic topic = topic(message);
         if (topic == null) {
-            System.err.println("? TopicManager.seek(): 토픽 없음");
+            message.addHeader("error", "topic is null");
+            for (int i = 0; i < count; i++) {
+                context.channel().write(message);
+            }
+
+            context.channel().flush();
             return;
         }
 
-        boolean ok = topic.seek(message);
-        message.setType(MessageType.RES_SEEK);
-        if (!ok) {
-            message.addHeader("error", "seek 실패");
+        List<Message> pulled = Collections.synchronizedList(new ArrayList<>());
+        AtomicInteger subscribeKey = new AtomicInteger();
+        AtomicBoolean cancel = new AtomicBoolean(false);
+        Runnable write = () -> {
+            pulled.forEach(msg -> {
+                msg.setType(MessageType.RES_PULL)
+                    .addHeader(message.header());
+
+                context.channel().write(msg);
+            });
+
+            // 부족한 개수만큼 실패 메시지 전송
+            for (int i = pulled.size(); i < count; i++) {
+                message.addHeader("error", "메시지 획득 실패");
+                context.channel().write(message);
+            }
+            context.channel().flush();
+        };
+        Supplier<Boolean> callback = new Supplier<Boolean>() {
+            @Override
+            public Boolean get() {
+                // 현재 토픽/파티션에 남아있는 메시지 개수와 요청한 개수를 비교하여 메시지 획득
+                pulled.addAll(pull(topic, message, Math.min(count, topic.count(message))));
+                if (cancel.get()) {
+                    return false;
+                }
+
+                if (pulled.size() < count) {
+                    int key = topic.subscribe(message, this);
+                    subscribeKey.set(key);
+
+                    return true;
+                }
+
+                write.run();
+
+                return true;
+            }
+        };  
+
+        // 구독 해제 예약
+        scheduler.schedule(() -> {
+            cancel.set(true);
+            topic.unsubscribe(message, subscribeKey.get());
+            write.run();
+        }, timeout, TimeUnit.MILLISECONDS);
+
+        // 최초 호출(이후 구독 진행시 내부적으로 재구독 동작)
+        callback.get();
+    }
+
+    private void seek(ChannelHandlerContext context, Message message) {
+        Message.Builder builder = Message.builder()
+            .type(MessageType.RES_SEEK)
+            .header(message.header());
+        try {
+            Topic topic = topic(message);
+            if (topic == null) {
+                throw new NullPointerException("topic is null");
+            }
+
+            boolean ok = topic.seek(message);
+            if (!ok) {
+                throw new IllegalStateException("seek 실패");
+            }
+        } catch (Exception e) {
+            System.err.println("? TopicManager.seek(): " + e);
+            builder.header("error", e.getMessage());
         }
 
-        context.channel().writeAndFlush(message);
+        context.channel().writeAndFlush(builder.build());
     }
 
     private void find(ChannelHandlerContext context, Message message) {
@@ -156,60 +192,50 @@ public class TopicManager implements MessageProcessor {
         }
 
         long timeout = Long.parseLong(message.header("timeout", "0"));
-        AtomicInteger offset = new AtomicInteger(topic.find(message));
+        AtomicInteger subscribeKey = new AtomicInteger();
+        AtomicBoolean cancel = new AtomicBoolean(false);
+        Consumer<Integer> write = (offset) -> {
+            message.setType(MessageType.RES_FIND)
+                .addHeader("offset", String.valueOf(offset));
 
-        /*
-         * 다음 조건을 모두 만족하면, 구독 및 반복 조회 수행
-         * 1. 찾은 offset이 음수(유효하지 않은 값)
-         * 2. timeout이 설정 됨(0 초과)
-         */
-        if (offset.get() < 0 && timeout > 0) {
-            subscribe(
-                topic, message, timeout, 
-                () -> offset.set(topic.find(message)), // callback
-                () -> offset.get() < 0 // condition
-            );
-        }
+            if (offset < 0) {
+                message.addHeader("error", "find 실패");
+            }
 
-        message.setType(MessageType.RES_FIND).addHeader("offset", String.valueOf(offset.get()));
-        if (offset.get() < 0) {
-            message.addHeader("error", "해당 조건에 맞는 메시지 없음");
-        }
+            context.channel().writeAndFlush(message);
+        };
+        Supplier<Boolean> callback = new Supplier<Boolean>() {
+            @Override
+            public Boolean get() {
+                int offset = topic.find(message);
+                if (cancel.get()) {
+                    return false;
+                }
 
-        context.channel().writeAndFlush(message);
+                if (offset < 0) {
+                    int key = topic.subscribe(message, this);
+                    subscribeKey.set(key);
+                    return true;
+                }
+
+                write.accept(offset);
+
+                return true;
+            }
+        };
+
+        scheduler.schedule(() -> {
+            cancel.set(true);
+            topic.unsubscribe(message, subscribeKey.get());
+            write.accept(-1);
+        }, timeout, TimeUnit.MILLISECONDS);
+
+        callback.get();
     }
 
     /**
-     * 특정 토픽/파티션을 구독하여, 다음 조건이 만족될 때 까지 대기하며 callback 실행
-     * 1. strict 모드가 아닐 경우 한 번만 대기 후 callback 실행
-     * 2. strict 모드이면서 남은 timeout이 존재하다면 condition이 true를 반환할 때까지 반복 대기
-     * 
-     * 반환 직전 unsubscribe 수행함
-     * 
-     * @param callback 구독한 토픽/파티션에 메시지가 갱신됐을 경우 실행할 콜백 함수
-     */
-    private void subscribe(Topic topic, Message message, long timeout, Runnable callback, Supplier<Boolean> condition) {
-        BlockingQueue<Object> notifiedQueue = new LinkedBlockingQueue<>();
-        int key = topic.subscribe(message, notifiedQueue);
-
-        do {
-            long start = System.currentTimeMillis();
-
-            try {
-                notifiedQueue.poll(timeout, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException ignored) {}
-
-            callback.run();
-            timeout -= (System.currentTimeMillis() - start);
-        } while(timeout > 0 && condition.get());
-
-        topic.unsubscribe(message, key);
-    }
-
-    /**
-     * 이를 호출하기 전에, {@code topic.count()}를 통해 동일한 조건(group, offset)의 메시지 개수를 획득하여
-     * {@code count}로 전달하기 때문에, 실제 {@code topic.pull()}에서 {@code null}이 반환되는 경우는 없을 것으로 예상
-     * 다만, 완전하지 않으므로 반환하는 메시지 리스트의 개수는 {@code count}보다 작을 수 있으므로, 개수를 보장하지 않음
+     * 토픽/파티션에서 count 만큼 pull 시도.
+     * 다만, 메시지가 만료되는 등 실패 가능성이 있기 때문에 반환 메시지의 개수는 count보다 작을 수 있음.
      */
     private List<Message> pull(Topic topic, Message message, int count) {
         List<Message> messages = new ArrayList<>();

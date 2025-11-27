@@ -1,16 +1,23 @@
 package capstone.design;
 
-import java.util.HashMap;
-import java.util.Map;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import org.junit.jupiter.api.Test;
+
+import capstone.design.message.Message;
+import capstone.design.message.MessageType;
 
 class AppTest {
 
     @Test
     void test() {
-        Map<String, Map<String, Object>> data = new HashMap<>();
-        data.put("key1", Map.of("field1", 123, "field2", "345"));
-        System.out.println(data);
+        Message msg = Message.builder()
+            .type(MessageType.REQ_PUSH)
+            .header("int", "10")
+            .header("long", "20")
+            .build();
+
+        assertInstanceOf(Long.class, msg.header("long", 0L));
+        assertInstanceOf(Integer.class, msg.header("int", 0));
     }
 }

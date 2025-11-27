@@ -2,6 +2,7 @@ package capstone.design.message;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 
@@ -23,8 +24,10 @@ public class Message {
     // getters =========================================
     public MessageType type() { return type; }
     public Map<String, String> header() { return header; }
-    public String header(String key) { return header.get(key); }
-    public String header(String key, String defualtValue) { return header.getOrDefault(key, defualtValue); }
+    public @Nullable String header(String key) { return header.get(key); }
+    public String header(String key, String defaultValue) { return header.getOrDefault(key, defaultValue); }
+    public int header(String key, int defaultValue) { return parseHeader(key, defaultValue, Integer::parseInt); }
+    public long header(String key, long defaultValue) { return parseHeader(key, defaultValue, Long::parseLong); }
     public @Nullable Object payload() { return payload; }
 
     // methods =========================================
@@ -58,6 +61,16 @@ public class Message {
 
     public Message copy() {
         return new Message(type, header, payload);
+    }
+
+    private <T> T parseHeader(String key, T defaultValue, Function<String, T> parser) {
+        String value = header.get(key);
+        try {
+            return parser.apply(value);
+        } catch (Exception e) {
+            return defaultValue;
+        }
+
     }
 
     // override =========================================

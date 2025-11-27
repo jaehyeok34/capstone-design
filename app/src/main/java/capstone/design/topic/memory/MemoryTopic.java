@@ -1,13 +1,13 @@
 package capstone.design.topic.memory;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 import org.jspecify.annotations.Nullable;
 
@@ -64,9 +64,10 @@ public class MemoryTopic implements Topic {
             return new ConcurrentHashMap<>();
         });
 
-        // 논리 오프셋 할당 및 갱신
-        int offset = offsets.getOrDefault(partition, 0);
-        offsets.put(partition, offset + 1);
+        // 논리 오프셋 획득 및 갱신
+        int offset = offsets.compute(partition, (ignored, old) -> {
+            return (old == null) ? 1 : old + 1;
+        });
 
         // 메시지 저장
         storage.put(offset, new TopicRecord(message));
@@ -89,7 +90,6 @@ public class MemoryTopic implements Topic {
         }
 
         Map<Integer, TopicRecord> storage = storages.get(partition);
-
         if (storage == null || storage.isEmpty()) {
             System.err.println("? MemoryTopic.pull(): 파티션에 메시지 없음");
             return null;
@@ -169,7 +169,7 @@ public class MemoryTopic implements Topic {
             }
         }
 
-        // 조건에 맞는 첫 번째 메시지의 offset 반환을 위하여 key(offset)을 기준으로 정렬 후 탐색
+        // 조건에 맞는 메시지의 오프셋을 모두 획득
         List<Integer> finded = new ArrayList<>();
         for (Map.Entry<Integer, TopicRecord> entry : storage.entrySet()) {
             TopicRecord record = entry.getValue();
@@ -183,18 +183,19 @@ public class MemoryTopic implements Topic {
             return -1;
         }
 
+        // 가장 작은 오프셋(FIFO)을 반환
         return Collections.min(finded);
     }
 
     @Override
-    public int subscribe(Message message, Collection<Object> out) {
+    public int subscribe(Message message, Supplier<Boolean> callback) {
         String partition = message.header("partition", "");
         if (partition.isEmpty()) {
             System.err.println("? MemoryTopic.subscribe(): 필수 옵션 누락");
             return -1;
         }
 
-        return subscribeManager.subscribe(partition, out);
+        return subscribeManager.subscribe(partition, callback);
     }
 
     @Override

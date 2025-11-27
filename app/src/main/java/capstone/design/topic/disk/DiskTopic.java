@@ -1,7 +1,9 @@
 package capstone.design.topic.disk;
 
-import java.util.Collection;
 import capstone.design.topic.TopicRecord;
+
+import java.util.function.Supplier;
+
 import org.jspecify.annotations.Nullable;
 import capstone.design.message.Message;
 import capstone.design.topic.Topic;
@@ -39,7 +41,7 @@ public class DiskTopic implements Topic {
     }
 
     @Override
-    public int subscribe(Message message, Collection<Object> out) {
+    public int subscribe(Message message, Supplier<Boolean> callback) {
         // TODO Auto-generated method stub
         return 0;
     }
