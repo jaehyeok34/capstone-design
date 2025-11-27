@@ -1,5 +1,6 @@
 package capstone.design.topic;
 
+import java.util.Map;
 import java.util.function.Supplier;
 
 import org.jspecify.annotations.Nullable;
@@ -8,21 +9,24 @@ import capstone.design.message.Message;
 
 public interface Topic {
     String name();
-
-    /**
-     * 메시지 저장
-     * @param message {@code partition, payload} 필수
-     * @return 저장 성공 시 {@code offset}, 실패 시 {@code -1} 반환
-     */
-    int push(Message message);
-    
-    @Nullable TopicRecord pull(Message message);
-    boolean seek(Message message);
-    int find(Message message);
-    int subscribe(Message message, Supplier<Boolean> callback);
-    void unsubscribe(Message message, int key);
-    int count(Message message);
+    int push(String partition, Message message);
+    @Nullable TopicRecord peek(String partition, String clientId, Message message);
+    void commit(String partition, String clientId, int offset, Message message);
+    int find(String partition, Map<String, String> condition, Message message);
+    boolean seek(String partition, String clientId, int offset, Message message);
+    int subscribe(String partition, Supplier<Boolean> callback);
+    void unsubscribe(String partition, int key);
+    int count(String partition, Message message);
     void clean();
+
+    // @Nullable TopicRecord peek(Message message);
+    // void commit(Message message);
+    // boolean seek(Message message);
+    // int find(Message message);
+    // int subscribe(Message message, Supplier<Boolean> callback);
+    // void unsubscribe(Message message, int key);
+    // int count(Message message);
+    // void clean();
 
     public enum Type { MEMORY, DISK }
 }

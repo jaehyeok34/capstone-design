@@ -48,18 +48,15 @@ public class SubscribeManager {
 
     public void notify(String partition) {
         partitionKeys.computeIfPresent(partition, (ignored, keys) -> {
-            Integer key = keys.poll();
-            if (key == null) {
-                return keys;
+            Integer key;
+            while ((key = keys.poll()) != null) {
+                Supplier<Boolean> callback = subscribes.remove(key);
+                if (callback.get()) {
+                    return keys; // 메시지 처리 완료, 남은 키들 반환
+                }
             }
 
-            subscribes.computeIfPresent(key, (_ignored, callback) -> {
-                callback.get();
-
-                return null;
-            });
-
-            return keys;
+            return null; // keys에 아무것도 없으므로 맵에서 제거
         });
 
         log("notify");

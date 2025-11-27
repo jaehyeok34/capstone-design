@@ -2,6 +2,7 @@ package capstone.design.topic.disk;
 
 import capstone.design.topic.TopicRecord;
 
+import java.util.Map;
 import java.util.function.Supplier;
 
 import org.jspecify.annotations.Nullable;
@@ -13,56 +14,63 @@ public class DiskTopic implements Topic {
     @Override
     public String name() {
         // TODO Auto-generated method stub
-        return null;
+        throw new UnsupportedOperationException("Unimplemented method 'name'");
     }
 
     @Override
-    public int push(Message message) {
+    public int push(String partition, Message message) {
         // TODO Auto-generated method stub
-        return 0;
+        throw new UnsupportedOperationException("Unimplemented method 'push'");
     }
 
     @Override
-    public @Nullable TopicRecord pull(Message message) {
+    public @Nullable TopicRecord peek(String partition, String clientId, Message message) {
         // TODO Auto-generated method stub
-        return null;
+        throw new UnsupportedOperationException("Unimplemented method 'peek'");
     }
 
     @Override
-    public boolean seek(Message message) {
+    public void commit(String partition, String clientId, int offset, Message message) {
         // TODO Auto-generated method stub
-        return false;
+        throw new UnsupportedOperationException("Unimplemented method 'commit'");
     }
 
     @Override
-    public int find(Message message) {
+    public int find(String partition, Map<String, String> condition, Message message) {
         // TODO Auto-generated method stub
-        return 0;
+        throw new UnsupportedOperationException("Unimplemented method 'find'");
     }
 
     @Override
-    public int subscribe(Message message, Supplier<Boolean> callback) {
+    public boolean seek(String partition, String clientId, int offset, Message message) {
         // TODO Auto-generated method stub
-        return 0;
+        throw new UnsupportedOperationException("Unimplemented method 'seek'");
     }
 
     @Override
-    public void unsubscribe(Message message, int key) {
+    public int subscribe(String partition, Supplier<Boolean> callback) {
         // TODO Auto-generated method stub
-        
+        throw new UnsupportedOperationException("Unimplemented method 'subscribe'");
     }
 
     @Override
-    public int count(Message message) {
+    public void unsubscribe(String partition, int key) {
         // TODO Auto-generated method stub
-        return 0;
+        throw new UnsupportedOperationException("Unimplemented method 'unsubscribe'");
+    }
+
+    @Override
+    public int count(String partition, Message message) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'count'");
     }
 
     @Override
     public void clean() {
         // TODO Auto-generated method stub
-        
+        throw new UnsupportedOperationException("Unimplemented method 'clean'");
     }
+
 
 
 

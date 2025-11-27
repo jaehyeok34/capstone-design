@@ -30,6 +30,25 @@ public class Message {
     public long header(String key, long defaultValue) { return parseHeader(key, defaultValue, Long::parseLong); }
     public @Nullable Object payload() { return payload; }
 
+    public String topicName() { return header("topic.name", ""); }
+    public String partition() { return header("partition", ""); }
+    public String clientId() { return header("client.id", ""); }
+    public int offset() { return header("offset", -1); }
+    public long timeout() { return header("timeout", 0L); }
+    public int count() { return header("count", 1); }
+
+    public Map<String, String> condition() {
+        Map<String, String> condition = new HashMap<>();
+        for (Map.Entry<String, String> header : header.entrySet()) {
+            String key = header.getKey();
+            if (key.startsWith("condition.")) {
+                condition.put(key.substring("condition.".length()), header.getValue());
+            }
+        }
+
+        return condition;
+    }
+
     // methods =========================================
     public Message setType(MessageType type) {
         this.type = type;
@@ -40,7 +59,12 @@ public class Message {
         header.put(key, value);
         return this;
     }
-    
+
+    public Message addHeader(String key, Object value) {
+        header.put(key, String.valueOf(value));
+        return this;
+    }
+
     public Message addHeader(Map<String, String> header) {
         this.header.putAll(header);
         return this;
@@ -70,7 +94,6 @@ public class Message {
         } catch (Exception e) {
             return defaultValue;
         }
-
     }
 
     // override =========================================
@@ -172,6 +195,11 @@ public class Message {
 
         public Builder payload(Object payload) {
             this.payload = payload;
+            return this;
+        }
+
+        public Builder error(String msg) {
+            header.put("error", msg);
             return this;
         }
     }

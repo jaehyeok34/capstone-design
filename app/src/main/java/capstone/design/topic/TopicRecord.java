@@ -15,6 +15,7 @@ public class TopicRecord {
     }
 
     public Message message() { return message; }
+    public boolean isExpired(long retention) { return (System.currentTimeMillis() - createdAt) > retention; }
 
     public boolean matches(Map<String, String> condition) {
         Map<String, String> header = message.header();
@@ -31,9 +32,6 @@ public class TopicRecord {
         return true;
     }
 
-    public boolean isExpired(long retention) {
-        return (System.currentTimeMillis() - createdAt) > retention;
-    }
 
     @Override
     public String toString() {

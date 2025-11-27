@@ -2,7 +2,6 @@ package capstone.design.topic.memory;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -50,29 +49,23 @@ public class MemoryTopic implements Topic {
         );
     }
 
-    @Override public String name() { return name; }
+    @Override public String name() { 
+        return name; 
+    }
 
     @Override
-    public int push(Message message) {
-        String partition = message.header("partition", "");
-        if (partition.isEmpty()) {
-            System.err.println("? MemoryTopic.push(): 필수 옵션 누락");
-            return -1;
-        }
-
+    public int push(String partition, Message message) {
         Map<Integer, TopicRecord> storage = storages.computeIfAbsent(partition, ignored -> {
             return new ConcurrentHashMap<>();
         });
 
-        // 논리 오프셋 획득 및 갱신
         int offset = offsets.compute(partition, (ignored, old) -> {
             return (old == null) ? 1 : old + 1;
         });
 
-        // 메시지 저장
+        message.addHeader("offset", String.valueOf(offset));
         storage.put(offset, new TopicRecord(message));
 
-        // 알림 전송
         subscribeManager.notify(partition);
 
         log("push");
@@ -81,62 +74,74 @@ public class MemoryTopic implements Topic {
     }
 
     @Override
-    public @Nullable TopicRecord pull(Message message) {
-        String partition = message.header("partition", "");
-        String clientId = message.header("client.id", "");
-        if (partition.isEmpty() || clientId.isEmpty()) {
-            System.err.println("? MemoryTopic.pull(): 필수 옵션 누락");
-            return null;
-        }
-
+    public @Nullable TopicRecord peek(String partition, String clientId, Message message) {
         Map<Integer, TopicRecord> storage = storages.get(partition);
         if (storage == null || storage.isEmpty()) {
-            System.err.println("? MemoryTopic.pull(): 파티션에 메시지 없음");
-            return null;
+            System.err.println("? MemoryTopic.peek(): 파티션에 메시지 없음");
+            return null;            
         }
 
-        /*
-         * client offset 획득.
-         * 
-         * client id에 해당하는 offset이 없는 경우(최초 요청) default offset으로 설정.
-         * 또한, client offset이 default offset보다 작은 경우(메시지 만료로 인한 삭제 등)에도
-         * default offset으로 조정.
-         */
         int defaultOffset = Collections.min(storage.keySet());
         int clientOffset = clientOffsets.computeIfAbsent(partition, ignored -> {
             return new ConcurrentHashMap<>();
         }).getOrDefault(clientId, defaultOffset);
+        
+        clientOffset = Math.max(clientOffset, defaultOffset);
 
-        clientOffset = Math.max(defaultOffset, clientOffset); // offset 조정
-
-        /*
-         * 메모리 토픽의 경우 메시지 재처리를 지원하지 않기 때문에
-         * storage.get()이 아닌, remove()를 통해 메시지를 꺼냄과 동시에 삭제함
-         */
-        TopicRecord record = storage.remove(clientOffset);
+        TopicRecord record = storage.get(clientOffset);
         if (record == null || record.isExpired(retention)) {
-            System.err.println("? MemoryTopic.pull(): 유효하지 않은 메시지");
+            System.err.println("? MemoryTopic.peek(): 유효하지 않은 메시지");
             return null;
         }
 
-        // 유효한 record를 획득한 경우 offset 갱신
-        clientOffsets.get(partition).put(clientId, clientOffset + 1);
-
-        log("pull");
+        log("peek");
 
         return record;
     }
 
     @Override
-    public boolean seek(Message message) {
-        String partition = message.header("partition", "");
-        String clientId = message.header("client.id", "");
-        int offset = Integer.parseInt(message.header("offset", "-1"));
-        if (partition.isEmpty() || clientId.isEmpty() || offset < 0) {
-            System.err.println("? MemoryTopic.seek(): 필수 옵션 누락");
-            return false;
-        }
+    public void commit(String partition, String clientId, int offset, Message message) {
+        storages.computeIfPresent(partition, (ignored, storage) -> {
+            storage.remove(offset);
 
+            return storage;
+        });
+
+        clientOffsets.computeIfAbsent(partition, ignored -> {
+            return new ConcurrentHashMap<>();
+        }).put(clientId, offset + 1);
+
+        log("commit");
+    }
+
+    @Override
+    public int find(String partition, Map<String, String> condition, Message message) {
+        Map<Integer, TopicRecord> storage = storages.get(partition);
+        if (storage == null || storage.isEmpty()) {
+            System.err.println("? MemoryTopic.find(): 빈 파티션");
+            return -1;
+        }
+        
+        // 조건에 맞는 메시지의 오프셋을 모두 획득
+        List<Integer> finded = new ArrayList<>();
+        for (Map.Entry<Integer, TopicRecord> entry : storage.entrySet()) {
+            TopicRecord record = entry.getValue();
+            if (record.matches(condition) && !record.isExpired(retention)) {
+                finded.add(entry.getKey());
+            }
+        }
+        
+        if (finded.isEmpty()) {
+            System.err.println("? MemoryTopic.find(): 탐색 실패: " + name + "." + partition);
+            return -1;
+        }
+        
+        // 가장 작은 오프셋(FIFO)을 반환
+        return Collections.min(finded);
+    }
+
+    @Override
+    public boolean seek(String partition, String clientId, int offset, Message message) {
         clientOffsets.computeIfAbsent(partition, ignored -> {
             return new ConcurrentHashMap<>();
         }).put(clientId, offset);
@@ -147,76 +152,17 @@ public class MemoryTopic implements Topic {
     }
 
     @Override
-    public int find(Message message) {
-        String partition = message.header("partition", "");
-        if (partition.isEmpty()) {
-            System.err.println("? MemoryTopic.find(): 필수 옵션 누락");
-            return -1;
-        }
-
-        Map<Integer, TopicRecord> storage = storages.get(partition);
-        if (storage == null || storage.isEmpty()) {
-            System.err.println("? MemoryTopic.find(): 빈 파티션");
-            return -1;
-        }
-
-        // find 조건 추출
-        Map<String, String> condition = new HashMap<>();
-        for (Map.Entry<String, String> header : message.header().entrySet()) {
-            String key = header.getKey();
-            if (key.startsWith("condition.")) {
-                condition.put(key.substring("condition.".length()), header.getValue());
-            }
-        }
-
-        // 조건에 맞는 메시지의 오프셋을 모두 획득
-        List<Integer> finded = new ArrayList<>();
-        for (Map.Entry<Integer, TopicRecord> entry : storage.entrySet()) {
-            TopicRecord record = entry.getValue();
-            if (record.matches(condition) && !record.isExpired(retention)) {
-                finded.add(entry.getKey());
-            }
-        }
-
-        if (finded.isEmpty()) {
-            System.err.println("? MemoryTopic.find(): 탐색 실패: " + name + "." + partition);
-            return -1;
-        }
-
-        // 가장 작은 오프셋(FIFO)을 반환
-        return Collections.min(finded);
-    }
-
-    @Override
-    public int subscribe(Message message, Supplier<Boolean> callback) {
-        String partition = message.header("partition", "");
-        if (partition.isEmpty()) {
-            System.err.println("? MemoryTopic.subscribe(): 필수 옵션 누락");
-            return -1;
-        }
-
+    public int subscribe(String partition, Supplier<Boolean> callback) {
         return subscribeManager.subscribe(partition, callback);
     }
 
     @Override
-    public void unsubscribe(Message message, int key) {
-        String partition = message.header("partition", "");
-        if (partition.isEmpty()) {
-            System.err.println("? MemoryTopic.unsubscribe(): 필수 옵션 누락");
-            return;
-        }
-        
+    public void unsubscribe(String partition, int key) {
         subscribeManager.unsubscribe(partition, key);
     }
 
     @Override
-    public int count(Message message) {
-        String partition = message.header("partition", "");
-        if (partition.isEmpty()) {
-            System.err.println("? MemoryTopic.count(): 필수 옵션 누락");
-            return 0;
-        }
-        
+    public int count(String partition, Message message) {
         Map<Integer, TopicRecord> storage = storages.get(partition);
         if (storage == null || storage.isEmpty()) {
             return 0;
