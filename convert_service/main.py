@@ -1,23 +1,29 @@
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 
-from convert import run_convert
-from export import run_export
+from convert import CONVERT, convert_service
+from export import EXPORT, export_service
 from py_client.agent import Agent
+from utils import consume
 
 
 def main():
     host, port = 'localhost', 3401
     client_id = "converter"
-    topic_name = "convert_file"
+    topic_name = "convert"
     stop = Event()
     
     with (
         Agent.of(host=host, port=port, client_id=client_id) as agent,
         ThreadPoolExecutor(max_workers=10) as executor
     ):
-        for service in [run_convert, run_export]:
-            executor.submit(service, agent, topic_name, executor, stop)
+        service_informations = [
+            (CONVERT, convert_service),
+            (EXPORT, export_service)
+        ]
+
+        for partition, service in service_informations:
+            executor.submit(consume, agent, topic_name, partition, executor, stop, service)
 
         try:
             Event().wait() # main thread 대기

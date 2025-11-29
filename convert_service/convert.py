@@ -4,53 +4,38 @@ from threading import Event
 
 from py_client.agent import Agent
 from py_client.message.message import Message
-from utils import DIR_PATH
+from utils import MARKDOWN_PATH
 
-CONVERTER = 1
+CONVERT = 1
 
-def run_convert(agent: Agent, topic_name: str, executor: ThreadPoolExecutor, stop: Event):
-    def handler(msg: Message):
-        print("! convert 시작")
-        try:
-            payload = msg.payload
-            file_name = msg.get_header("file.name", "")
-            if (payload is None) or (len(payload) == 0) or (not file_name):
-                raise ValueError("필수 옵션 누락")
-            
-            markdown = convert_and_save(file_name=file_name, payload=payload)
-            if markdown is None:
-                raise ValueError("변환 실패")
-            
-            agent.producer.asyncProduce(
-                topic_name=topic_name, partition=str(-CONVERTER),
-                header=msg.header, payload=markdown
-            )
-        except Exception as e:
-            header = msg.header | {"error": str(e)}
-            agent.producer.asyncProduce(topic_name=topic_name, partition=str(-CONVERTER), header=header)
-            
-        print("! convert 종료")
-
-    while not stop.is_set():
-        consumed = agent.consumer.consume(topic_name=topic_name, partition=str(CONVERTER))[0]
-        if not consumed.get_header("ok", "false").lower() == "true":
-            print("! consumed.header.ok: false")
-            continue
+def convert_service(agent: Agent, topic_name: str, message: Message):
+    markdown = None
+    try:
+        if not (file_name := message.get_header("file.name")):
+            raise ValueError("file.name header is missing")
         
-        executor.submit(handler, consumed)
+        if (markdown := convert_and_save(file_name=file_name, payload=message.payload)) is None:
+            raise ValueError("Unsupported file format or conversion failed")
+    except Exception as e:
+        print(f"? convert_service(): {e}")
+        message.add_header("error", str(e))
+
+    agent.producer.asyncProduce(
+        topic_name=topic_name, partition=str(-CONVERT),
+        header=message.header, payload=markdown
+    )
 
 def convert_and_save(file_name: str, payload: bytes | bytearray):
-    os.makedirs(DIR_PATH, exist_ok=True)
-    with open(DIR_PATH / file_name, mode="wb") as f:
+    os.makedirs(MARKDOWN_PATH, exist_ok=True)
+    with open(MARKDOWN_PATH / file_name, mode="wb") as f:
         f.write(payload)
 
-    markdown = to_markdown(datas=payload)
-    if markdown is None:
+    if (markdown := to_markdown(datas=payload)) is None:
         return None
-        
+    
     return markdown.encode("utf-8")
     
-def to_markdown(datas: bytes):
+def to_markdown(datas: bytes) -> str | None:
     from io import BytesIO
     import pandas as pd
 

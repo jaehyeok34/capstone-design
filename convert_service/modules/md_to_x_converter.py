@@ -1,166 +1,110 @@
-import tempfile
-import os
+from typing import Callable, Dict, cast
 from markdown2 import markdown
 import pdfkit  
 import pandas as pd
-from io import StringIO
-import json
+from io import BytesIO, StringIO
 from docx import Document
+import pandas as pd 
 
-def convert_markdown_to_format(md_content: str, fmt: str | None) -> str:
-    tmp_dir = tempfile.gettempdir()
+def convert_markdown_to_format(md_content: str, fmt: str) -> bytes | None:
+    handlers: Dict[str, Callable[[str], bytes]] = {
+        "html": to_html,
+        "pdf": to_pdf,
+        "csv": to_csv,
+        "xlsx": to_xlsx,
+        "json": to_json,
+        "docx": to_docx
+    }
 
-    if fmt == "html":
-        html_content = markdown(md_content, extras=["tables"])
-        styled_html = f"""
+    return handlers.get(fmt, lambda _: None)(md_content)
+
+def to_html(content: str) -> bytes:
+    return f"""
         <html>
-        <head>
-        <meta charset="utf-8">
-        <style>
-            body {{
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            padding: 20px;
-            }}
-            table {{
-            border-collapse: collapse;
-            width: 100%;
-            margin-top: 20px;
-            }}
-            th, td {{
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-            }}
-            th {{
-            background-color: #f4f4f4;
-            font-weight: bold;
-            }}
-            tr:nth-child(even) {{
-            background-color: #fafafa;
-            }}
-        </style>
-        </head>
-        <body>
-        {html_content}
-        </body>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{ font-family: "Apple SD Gothic Neo", "Nanum Gothic", sans-serif; line-height: 1.6; padding: 20px; font-size: 12pt; }}
+                    table {{ border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 10pt; }}
+                    th, td {{ border: 1px solid #444; padding: 8px 12px; text-align: center; }}
+                    th {{ background-color: #f2f2f2; font-weight: bold; }}
+                    tr:nth-child(even) {{ background-color: #fafafa; }}
+                </style>
+            </head>
+            <body>
+                {markdown(content, extras=["tables"])}
+            </body>
         </html>
-        """
-        output_path = os.path.join(tmp_dir, "output.html")
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(styled_html)
+    """.encode("utf-8")
 
-    elif fmt == "pdf":
-        html_content = markdown(md_content, extras=["tables"])
-        styled_html = f"""
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <style>
-            body {{
-            font-family: "Apple SD Gothic Neo", "Nanum Gothic", sans-serif;
-            line-height: 1.6;
-            padding: 20px;
-            font-size: 12pt;
-            }}
-            table {{
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-            font-size: 10pt;
-            }}
-            th, td {{
-            border: 1px solid #444;
-            padding: 8px 12px;
-            text-align: center;
-            }}
-            th {{
-            background-color: #f2f2f2;
-            font-weight: bold;
-            }}
-            tr:nth-child(even) {{
-            background-color: #fafafa;
-            }}
-        </style>
-        </head>
-        <body>
-        {html_content}
-        </body>
-        </html>
-        """
+def to_pdf(content: str) -> bytes:
+    html = to_html(content).decode("utf-8")
+    pdf = pdfkit.from_string(html, False)
+    return cast(bytes, pdf)
 
-        html_path = os.path.join(tmp_dir, "temp.html")
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(styled_html)
+def to_csv(content: str) -> bytes:
+    # df = to_dataframe(content)
+    df = pd.read_csv(StringIO(content))
 
-        output_path = os.path.join(tmp_dir, "output.pdf")
-        pdfkit.from_file(html_path, output_path)
+    buffer = BytesIO()
+    df.to_csv(buffer, index=False, encoding="utf-8")
+    return buffer.getvalue()
 
-    elif fmt == "csv":
-        lines = [line for line in md_content.splitlines() if "|" in line and "---" not in line]
-        if len(lines) < 2:
-            raise ValueError("유효한 마크다운 테이블이 아닙니다.")
-        table = "\n".join(lines)
-        df = pd.read_csv(StringIO(table), sep="|", engine="python", skipinitialspace=True)
-        df = df.dropna(axis=1, how="all")  # 빈 열 제거
-        output_path = os.path.join(tmp_dir, "output.csv")
-        df.to_csv(output_path, index=False)
+def to_xlsx(content: str) -> bytes:
+    # df = to_dataframe(content)
+    df = pd.read_csv(StringIO(content))
 
-    elif fmt == "xlsx":
-        lines = [line for line in md_content.splitlines() if "|" in line and "---" not in line]
-        if len(lines) < 2:
-            raise ValueError("유효한 마크다운 테이블이 아닙니다.")
-        table = "\n".join(lines)
-        df = pd.read_csv(StringIO(table), sep="|", engine="python", skipinitialspace=True)
-        df = df.dropna(axis=1, how="all")
-        output_path = os.path.join(tmp_dir, "output.xlsx")
-        df.to_excel(output_path, index=False)
+    buffer = BytesIO()
+    df.to_excel(buffer, index=False)
+    return buffer.getvalue()
 
-    elif fmt == "json":
-        lines = [line for line in md_content.splitlines() if "|" in line and "---" not in line]
-        if len(lines) < 2:
-            raise ValueError("유효한 마크다운 테이블이 아닙니다.")
-        table = "\n".join(lines)
-        df = pd.read_csv(StringIO(table), sep="|", engine="python", skipinitialspace=True)
-        df = df.dropna(axis=1, how="all")
-        output_path = os.path.join(tmp_dir, "output.json")
-        df.to_json(output_path, orient="records", force_ascii=False, indent=2)
+def to_json(content: str) -> bytes:
+    # df = to_dataframe(content)
+    df = pd.read_csv(StringIO(content))
+    return df.to_json(orient="records", force_ascii=False, indent=2).encode("utf-8")
 
-    elif fmt == "docx":
-        document = Document()
-        lines = [line.strip() for line in md_content.splitlines() if "|" in line and "---" not in line]
+def to_dataframe(content: str) -> pd.DataFrame:
+    lines = [line for line in content.splitlines() if "|" in line and "---" not in line]
+    if len(lines) < 2:
+        raise ValueError("유효한 마크다운 테이블이 아닙니다.")
+    
+    table = "\n".join(lines)
+    df = pd.read_csv(StringIO(table), sep="|", engine="python", skipinitialspace=True)
+    df = df.dropna(axis=1, how="all")  # 빈 열 제거
 
-        if lines:
-            # 첫 줄은 헤더
-            header = [h.strip() for h in lines[0].split("|") if h.strip()]
-            rows = [[c.strip() for c in row.split("|") if c.strip()] for row in lines[1:]]
+    return df
 
-            # 표 생성
-            table = document.add_table(rows=1, cols=len(header))
-            table.style = "Table Grid"
+def to_docx(content: str) -> bytes:
+    document = Document()
+    lines = [line.strip() for line in content.splitlines() if "|" in line and "---" not in line]
+    if lines:
+        # 첫 줄은 헤더
+        header = [h.strip() for h in lines[0].split("|") if h.strip()]
+        rows = [[c.strip() for c in row.split("|") if c.strip()] for row in lines[1:]]
 
-            # 헤더 채우기
-            hdr_cells = table.rows[0].cells
-            for i, h in enumerate(header):
-                hdr_cells[i].text = h
+        # 표 생성
+        table = document.add_table(rows=1, cols=len(header))
+        table.style = "Table Grid"
 
-            # 데이터 채우기
-            for row in rows:
-                row_cells = table.add_row().cells
-                for i, c in enumerate(row):
-                    row_cells[i].text = c
+        # 헤더 채우기
+        hdr_cells = table.rows[0].cells
+        for i, h in enumerate(header):
+            hdr_cells[i].text = h
 
-            document.add_paragraph("\n")  # 표 이후 여백
+        # 데이터 채우기
+        for row in rows:
+            row_cells = table.add_row().cells
+            for i, c in enumerate(row):
+                row_cells[i].text = c
 
-        # 표 외 텍스트도 출력
-        for line in md_content.splitlines():
-            if "|" not in line:
-                document.add_paragraph(line)
+        document.add_paragraph("\n")  # 표 이후 여백
 
-        output_path = os.path.join(tmp_dir, "output.docx")
-        document.save(output_path)
+    # 표 외 텍스트도 출력
+    for line in content.splitlines():
+        if "|" not in line:
+            document.add_paragraph(line)
 
-    else:
-        raise ValueError("지원하지 않는 포맷")
+    buffer = BytesIO()
+    document.save(buffer)
 
-    return output_path
+    return buffer.getvalue()
