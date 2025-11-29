@@ -16,6 +16,7 @@ class ProjectStatus():
 PROJECT_DIR = Path('./projects/')
 CI_FILE_NAME = "connecting_information.csv"
 JOINED_FILE_NAME = "joined.csv"
+PSEUDONYMIZED_FILE_NAME = "pseudonymized.csv"
 
 def consume(agent: Agent, topic_name: str, partition: int, executor: ThreadPoolExecutor, stop: Event, handler: Callable[[Agent, str, Message], None]):
     while not stop.is_set():

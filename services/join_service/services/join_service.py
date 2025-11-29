@@ -1,14 +1,14 @@
 
-import io
 from pathlib import Path
 from typing import Dict, List
 import pandas as pd
 from py_client.agent import Agent
 from py_client.message.message import Message
-from utils import CI_FILE_NAME, JOINED_FILE_NAME, PROJECT_DIR, ProjectStatus, add_project_option, get_project_information
+from utils import CI_FILE_NAME, JOINED_FILE_NAME, PROJECT_DIR, PSEUDONYMIZED_FILE_NAME, ProjectStatus, add_project_option, get_project_information
+from modules.pseudonymize import pseudonymize_dataframe
 
 JOIN = 5
-GET_JOINED_FILE = 7
+GET_PSEUDONYMIZED_FILE = 7
 
 def join_service(agent: Agent, topic_name: str, message: Message):
     try:
@@ -18,8 +18,10 @@ def join_service(agent: Agent, topic_name: str, message: Message):
         if (joined := join(project_id)) is None:
             raise ValueError("데이터 결합 실패")
         
-        buffer = io.BytesIO()
-        joined.to_csv(buffer, index=False)
+        pseudonymized = pseudonymize_dataframe(df=joined)
+        with open(PROJECT_DIR / project_id / PSEUDONYMIZED_FILE_NAME, "w", encoding="utf-8") as f:
+            pseudonymized.to_csv(f, index=False)
+
         add_project_option(project_id=project_id, key="status", value=ProjectStatus.DONE)
         
     except Exception as e:
@@ -30,22 +32,22 @@ def join_service(agent: Agent, topic_name: str, message: Message):
 
     print(f"! join_service(): 데이터 결합 완료")
 
-def get_joined_file_service(agent: Agent, topic_name: str, message: Message):
+def get_pseudonymized_file_service(agent: Agent, topic_name: str, message: Message):
     file_content = None
     try:
         if not (project_id := message.get_header("project.id")):
             raise ValueError("헤더에 project_id가 없음")
         
-        if not (file_content := get_joined_file(project_id)):
+        if not (file_content := get_pseudonymized_file(project_id)):
             raise ValueError("결합된 파일이 없음")
 
     except Exception as e:
-        print(f"? get_joined_file_service(): {e}")
+        print(f"? get_pseudonymized_file_service(): {e}")
         message.add_header("error", str(e))
 
-    agent.producer.asyncProduce(topic_name=topic_name, partition=str(-GET_JOINED_FILE), header=message.header, payload=file_content)
+    agent.producer.asyncProduce(topic_name=topic_name, partition=str(-GET_PSEUDONYMIZED_FILE), header=message.header, payload=file_content)
 
-    print(f"! get_joined_file_service(): 완료")
+    print(f"! get_pseudonymized_file_service(): 완료")
 
 def join(project_id: str) -> pd.DataFrame | None:
     if not (project_information := get_project_information(project_id)):
@@ -87,6 +89,14 @@ def join(project_id: str) -> pd.DataFrame | None:
         joined.to_csv(f, index=False)
 
     return joined
+
+def get_pseudonymized_file(project_id: str) -> bytes | None:
+    pseudonymized_path = PROJECT_DIR / project_id / PSEUDONYMIZED_FILE_NAME
+    if not pseudonymized_path.exists():
+        return None
+
+    with open(pseudonymized_path, "rb") as f:
+        return f.read()
 
 def get_joined_file(project_id: str) -> bytes | None:
     joined_path = PROJECT_DIR / project_id / JOINED_FILE_NAME

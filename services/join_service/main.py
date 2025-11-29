@@ -5,7 +5,7 @@ from services.create_ci_service import CREATE_CI, create_ci_service
 from services.create_project_service import CREATE_PROJECT, create_project_service
 from services.find_candidate_column_service import FIND_CANDIDATE_COLUMN, find_candidate_column_service
 from services.get_projects_service import GET_PROJECT, GET_PROJECTS, get_project_service, get_projects_service
-from services.join_service import GET_JOINED_FILE, JOIN, get_joined_file_service, join_service
+from services.join_service import GET_PSEUDONYMIZED_FILE, JOIN, get_pseudonymized_file_service, join_service
 from utils import consume
 
 
@@ -26,7 +26,7 @@ def main():
             (CREATE_CI, create_ci_service), # 4
             (JOIN, join_service), # 5
             (GET_PROJECT, get_project_service), # 6
-            (GET_JOINED_FILE, get_joined_file_service), # 7
+            (GET_PSEUDONYMIZED_FILE, get_pseudonymized_file_service), # 7
         ]
 
         for partition, service in service_infos:
