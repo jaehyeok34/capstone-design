@@ -2,6 +2,3 @@ venv/
 .DS_Store/
 .vscode/
 __pycache__/
-/gui
-/message_broker
-/py_client

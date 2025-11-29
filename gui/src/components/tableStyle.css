@@ -1,0 +1,18 @@
+
+.custom-table table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+.custom-table th,
+.custom-table td {
+  border: 1px solid #ccc;
+  text-align: center;       /* 가운데 정렬 */
+  padding: 8px;
+}
+
+.custom-table th {
+  background-color: #2c2c2c;
+  color: white;
+}
