@@ -5,7 +5,6 @@ from fastapi import APIRouter, File, Form, Response, UploadFile, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from service.user_service import UserService
-from utils import is_valid_file
 
 
 router = APIRouter()
@@ -13,20 +12,14 @@ service = UserService()
 
 @router.post("/convert")
 async def convert_file(file: UploadFile = File(...)):
-    if not is_valid_file(file.filename or ""):
-        raise HTTPException(status_code=400, detail="지원하지 않는 파일 형식")
-    
-    markdown = await service.convert_file(file)
-    if markdown is None:
+    if (markdown := await service.convert_file(file)) is None:
         raise HTTPException(status_code=500, detail="파일 변환 실패")
     
     return JSONResponse(content={"markdown": markdown})
 
 @router.post("/export")
 async def export_file(format: str = Form(...), file_name: str = Form(...)):
-
-    file_content = await service.export_file(format=format, file_name=file_name)
-    if file_content is None:
+    if (file_content := await service.export_file(format=format, file_name=file_name)) is None:
         raise HTTPException(status_code=500, detail="파일 내보내기 실패")
     
     return StreamingResponse(BytesIO(file_content), media_type="application/octet-stream")
