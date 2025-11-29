@@ -1,6 +1,0 @@
-.venv/
-
-.env.[dp]*
-
-*-worktree/
-model/
