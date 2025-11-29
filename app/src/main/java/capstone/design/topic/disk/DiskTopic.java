@@ -1,8 +1,10 @@
 package capstone.design.topic.disk;
 
 import capstone.design.topic.TopicRecord;
+import capstone.design.topic.disk.segment.SegmentManager;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 import org.jspecify.annotations.Nullable;
@@ -11,10 +13,32 @@ import capstone.design.topic.Topic;
 
 public class DiskTopic implements Topic {
 
+    private static final String DEFAULT_TOPIC_DIR = "./disk_topics";
+    private static final long DEFAULT_DURATION = 10 * (60 * 1000); // 10분
+    private static final long DEFAULT_RETENTION = 30 * (60 * 1000); // 30분
+
+    private final String name; 
+    private final long duration;
+    private final long retention;
+    private final Map<String, SegmentManager> segmentManagers = new ConcurrentHashMap<>();
+
+    private DiskTopic(String name, long duration, long retention) {
+        this.name = name;
+        this.duration = duration;
+        this.retention = retention;
+    }
+
+    public static DiskTopic of(String name) {
+        return new DiskTopic(name, DEFAULT_DURATION, DEFAULT_RETENTION);
+    }
+
+    public static DiskTopic of(String name, long duration, long retention) {
+        return new DiskTopic(name, duration, retention);
+    }
+
     @Override
     public String name() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'name'");
+        return name;
     }
 
     @Override
@@ -75,9 +99,7 @@ public class DiskTopic implements Topic {
 
 
     // // field =====
-    // private static final String DEFAULT_TOPIC_DIR = "./disk_topics";
-    // private static final long DEFAULT_DURATION = 10 * (60 * 1000); // 10분
-    // private static final long DEFAULT_RETENTION = 30 * (60 * 1000); // 30분
+
 
     // private final Path rootDir;
     // private final Path partitionsDir;

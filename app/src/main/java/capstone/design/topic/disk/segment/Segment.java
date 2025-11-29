@@ -1,36 +1,37 @@
 package capstone.design.topic.disk.segment;
 
+import java.nio.file.Path;
+
 public class Segment {
-    
-    // private final Path log;
-    // private final Path idx;
-    // private final int baseOffset;
-    // private int nextOffset;
-    // private final long createdTime;
-    // private final long retention;
 
-    // public Segment(Path log, Path idx, int baseOffset, int nextOffset, long createdTime, long retention) {
-    //     Utils.validate(log, idx);
+    private final Path log;
+    private final Path idx;
+    private final int startOffset;
+    private int endOffset;
+    private final long createdAt;
 
-    //     this.log = log;
-    //     this.idx = idx;
-    //     this.baseOffset = baseOffset;
-    //     this.nextOffset = nextOffset;
-    //     this.createdTime = createdTime;
-    //     this.retention = retention;
-    // }
+    private Segment(Path log, Path idx, int startOffset, int endOffset, long createdAt) {
+        this.log = log;
+        this.idx = idx;
+        this.startOffset = startOffset;
+        this.endOffset = endOffset;
+        this.createdAt = createdAt;
+    }
 
-    // public static Builder builder(Path log, Path idx) {
-    //     return new Builder(log, idx);
-    // }
+    public static Segment of(Path log, Path idx, int startOffset, long createdAt) {
+        return new Segment(log, idx, startOffset, startOffset, createdAt);
+    }
 
-    // public Path log() { return log; }
-    // public Path idx() { return idx; }
-    // public int baseOffset() { return baseOffset; }
-    // public int nextOffset() { return nextOffset; }
-    // public long createdTime() { return createdTime; }
-    // public int count() { return nextOffset - baseOffset; }
-    // public boolean isExpired() { return System.currentTimeMillis() - createdTime > retention; }
+    public static Segment of(Path log, Path idx, int startOffset, int endOffset, long createdAt) {
+        return new Segment(log, idx, startOffset, endOffset, createdAt);
+    }   
+
+    public Path log() { return log; }
+    public Path idx() { return idx; }
+    public int startOffset() { return startOffset; } 
+    public int endOffset() { return endOffset; }
+    public int count() { return endOffset - startOffset; }
+    public boolean isExpired(long retention) { return (System.currentTimeMillis() - createdAt) > retention; }
 
     // public boolean write(byte[] buf) {
     //     OpenOption[] options = new OpenOption[] {

@@ -103,7 +103,6 @@ public class MemoryTopic implements Topic {
     public void commit(String partition, String clientId, int offset, Message message) {
         storages.computeIfPresent(partition, (ignored, storage) -> {
             storage.remove(offset);
-
             return storage;
         });
 
@@ -147,7 +146,6 @@ public class MemoryTopic implements Topic {
         }).put(clientId, offset);
 
         log("seek");
-
         return true;
     }
 
