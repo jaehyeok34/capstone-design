@@ -15,6 +15,7 @@ const Analysis = () => {
 
   // 실제 결합 프로젝트 데이터 가져오기
   useEffect(() => {
+    console.log("이거 두번씩 됨");
     (async () => {
       setIsFetching(true);
 

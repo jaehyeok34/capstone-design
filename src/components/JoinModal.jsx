@@ -122,31 +122,34 @@ const JoinModal = ({isOpen, onClose}) => {
 
   // 결합 요청 처리
   const submitHandler = async () => {
-    setIsProcessing(true);
-    
-    const formData = new FormData();
-    formData.append('projectName', projectName);
-    // formData.append('processingType', processingType);
-  
-    if (Object.keys(candidateColumns).length > 0) {
-      formData.append("candidateColumns", JSON.stringify(candidateColumns))
+    try{
+      setIsProcessing(true);
+      
+      const formData = new FormData();
+      formData.append('projectName', projectName);
+      // formData.append('processingType', processingType);
+      
+      if (Object.keys(candidateColumns).length > 0) {
+        formData.append("candidateColumns", JSON.stringify(candidateColumns))
+      }
+      
+      uploadedFiles.forEach((file) => formData.append('files', file));
+      
+      const response = await fetch("http://localhost:8000/api/create_project", {
+        method: "POST", 
+        body: formData
+      });
+      
+      if (!response.ok) {
+        alert(`프로젝트 생성 실패: ${response.status}`);
+        return;
+      }
+      
+      const projectId = await response.text();
+      closeHandler();
+    } finally {
+      setIsProcessing(false);
     }
-    
-    uploadedFiles.forEach((file) => formData.append('files', file));
-
-    const response = await fetch("http://localhost:8000/api/create_project", {
-      method: "POST", 
-      body: formData
-    });
-
-    if (!response.ok) {
-      alert(`프로젝트 생성 실패: ${response.status}`);
-      return;
-    }
-
-    const projectId = await response.text();
-    alert(`프로젝트 "${projectName}"가 성공적으로 생성되었습니다! (ID: ${projectId})`);
-    closeHandler();
   };
 
   if (!isOpen) {
@@ -529,7 +532,7 @@ const JoinModal = ({isOpen, onClose}) => {
                             overflos: "hidden",
                             textOverflow: "ellipsis"
                           }}>
-                            {fileName}: [<span style={{color: "#059669", fontWeight: "700"}}>{columns.join(", ")}</span>]
+                            {fileName}: [<span style={{color: "#059669", fontWeight: "700"}}>{columns ? (columns.join(", ")) : ""}</span>]
                           </div>
                         ))}
                       </div>
@@ -638,7 +641,7 @@ const JoinModal = ({isOpen, onClose}) => {
                       e.target.style.boxShadow = 'none';
                     }}
                   >
-                    <option value="join">📄 결합 신청</option>
+                    <option value="join">📄 프로젝트 생성</option>
                   </select>
                 </div>
               </div>
@@ -664,12 +667,12 @@ const JoinModal = ({isOpen, onClose}) => {
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   marginBottom: '16px'
-                }}>결합 요청</h2>
+                }}>프로젝트 생성</h2>
                 <p style={{
                   color: '#64748b',
                   fontSize: '18px',
                   fontWeight: '500'
-                }}>설정을 확인하고 결합 요청을 완료하세요.</p>
+                }}>설정을 확인하고 프로젝트 생성을 완료하세요.</p>
               </div>
               <div style={{
                 background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(16, 185, 129, 0.1))',
@@ -698,7 +701,7 @@ const JoinModal = ({isOpen, onClose}) => {
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent'
                     }}>
-                      {processingType === 'join' ? "결합 신청" : "알 수 없음"}
+                      {processingType === 'join' ? "프로젝트 생성" : "알 수 없음"}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -758,7 +761,7 @@ const JoinModal = ({isOpen, onClose}) => {
           }
           isProcessing={isProcessing}
           nextButtonText="다음"
-          submitButtonText="결합 요청하기"
+          submitButtonText="생성하기"
         />
       </div>
 

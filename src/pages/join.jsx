@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import JoinModal from "../components/JoinModal";
 import joinIcon from '../assets/illustration/join_white.png';
 import startIcon from '../assets/illustration/start_white.png';   
@@ -30,11 +30,11 @@ function Join() {
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <img src={joinIcon} alt="join" style={{ width: 250, height: 200, verticalAlign: 'middle', marginBottom: 12 }} />
-            <span>데이터 결합 신청</span>
+            <span>데이터 결합 프로젝트 생성</span>
           </div>
         </h1>
         <h2 style={{fontSize: '1.8rem', fontWeight: '400', margin: '0 0 10px 0', opacity: '0.9'}}>
-          데이터를 결합하세요.
+          데이터 결합을 위해 프로젝트를 생성하세요.
         </h2>
       </div>
       <div style={{
@@ -101,7 +101,7 @@ function Join() {
             <span>
               <img src={startIcon} alt="start" style={{ width: 30, height: 30, verticalAlign: 'middle', marginBottom: 1 }} />
             </span>
-            결합 요청 시작하기
+            결합 프로젝트 생성하기
           </button>
         </div>
       </div>
