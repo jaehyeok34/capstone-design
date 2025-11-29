@@ -1,1 +1,5 @@
-markdowns/
+.DS_Store
+.vscode/
+.venv/
+worktree*/
+__pycache__/
