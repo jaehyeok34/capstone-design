@@ -101,7 +101,7 @@ function Convert() {
       
       for (const markdownFile of markdownFiles) {
         const formData = new FormData();
-        formData.append('markdown', markdownFile.markdown);
+        formData.append("file_name", markdownFile.fileName);
         formData.append('format', selectedFormat);
 
         const res = await axios.post(
