@@ -1,6 +1,6 @@
 import base64
 import json
-from typing import Any, Dict, List
+from typing import Dict, List
 from fastapi import UploadFile
 
 from py_client.agent import Agent
@@ -56,7 +56,7 @@ class UserService:
                 print(f"? export_file(): {error}")
                 return None
 
-            if agent.find_and_seek(topic_name=topic_name, partition=str(-partition), condition=header):
+            if not agent.find_and_seek(topic_name=topic_name, partition=str(-partition), condition=header):
                 return None
             
             response = agent.consumer.consume(topic_name=topic_name, partition=str(-partition))[0]
