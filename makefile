@@ -2,6 +2,9 @@ init:
 	# gui 의존성 설치
 	cd gui && npm install
 
+	# message broker 빌드
+	cd message_broker && ./gradlew shadowJar
+
 	# api gateway 가상환경 생성 및 의존성 설치
 	cd api_gateway && python3 -m venv .venv && \
 		source .venv/bin/activate && pip install -r requirements.txt
