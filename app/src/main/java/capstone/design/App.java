@@ -4,7 +4,6 @@ import capstone.design.broker.Broker;
 import capstone.design.topic.memory.MemoryTopic;
 
 public class App {
-
     public static void main(String[] args) throws Exception {
         long retention = 1 * 60 * 1000; // 1분
         String convert = "convert";
