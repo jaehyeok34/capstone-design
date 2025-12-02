@@ -131,7 +131,7 @@ public class TopicManager implements MessageProcessor {
         Supplier<Boolean> callback = new Supplier<Boolean>() {
             @Override
             public Boolean get() {
-                int offset = peek(topic, message, count, pulled);
+                int offset = peek(topic, message, count - pulled.size(), pulled);
                 if (cancel.get()) {
                     return false;
                 }
