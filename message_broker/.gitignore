@@ -4,11 +4,6 @@
 # Ignore Gradle build output directory
 build
 
-# MacOS
+.vscode
 .DS_Store
-
-.vscode/
-
-disk_topics/
-
-memo.txt
+disk_topics

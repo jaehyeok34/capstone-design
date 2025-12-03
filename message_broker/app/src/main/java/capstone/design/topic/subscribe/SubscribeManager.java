@@ -15,15 +15,15 @@ public class SubscribeManager {
 
     public int subscribe(String partition, Supplier<Boolean> callback) {
         int key = this.key.getAndIncrement();
-
+        
         // 키 맵에 추가
         partitionKeys.computeIfAbsent(partition, ignored -> {
             return new ConcurrentLinkedQueue<>();
         }).add(key);
-
+        
         // 콜백 맵에 추가
         subscribes.put(key, callback);
-
+        
         log("subscribe");
 
         return key;
@@ -66,7 +66,7 @@ public class SubscribeManager {
         System.out.println(
             "! === SubscribeManager 상태(" + caller + ") ===" + "\n" + 
             "partitionKeys: " + partitionKeys + "\n" + 
-            // "subscribes: " + subscribes + "\n" +
+            "subscribes: " + subscribes + "\n" +
             " next key: " + key.get()
         );
     }

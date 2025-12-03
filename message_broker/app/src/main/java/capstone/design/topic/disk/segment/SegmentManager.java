@@ -1,295 +1,355 @@
 package capstone.design.topic.disk.segment;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.jspecify.annotations.Nullable;
+
+import capstone.design.message.Message;
+import capstone.design.topic.TopicRecord;
+
 public class SegmentManager {
 
-    // private static final String LOG_FILE_EXT = ".log";
-    // private static final String IDX_FILE_EXT = ".idx";
+    private static final String SEGMENTS_FILE = "segments.log";
+    private static final String CLIENT_OFFSETS_FILE = "client_offsets.log";
+    private static final String LOG_FILE_EXTENTION = ".log";
+    private static final String IDX_FILE_EXTENTION = ".idx";
 
-    // private final Path directory;
+    private final Path root;
+    private final List<Segment> segments = Collections.synchronizedList(new ArrayList<>());
+    private final long duration; // 세그먼트 롤오버 기간(ms)
+    private final long retention; // 세그먼트 보관 기간(ms)
+    private Segment activeSegment;
+    private final AtomicInteger segmentIndex = new AtomicInteger(0);
+    private final AtomicInteger nextOffset = new AtomicInteger(0);
+    private final Map<String, Integer> clientOffsets = new ConcurrentHashMap<>();
+    private FileChannel clientOffsetsFile;
 
-    // private final List<Segment> segments = new ArrayList<>();
-    // private final long duration; // 세그먼트 롤오버 기간(ms)
-    // private final long retention; // 세그먼트 보관 기간(ms)
-    // private final Properties metadata = new Properties();
-    // private final File metaFile;
-    // private Segment currentSegment;
+    public SegmentManager(Path root, long duration, long retention) throws IOException {
+        this.root = root;
+        this.duration = duration;
+        this.retention = retention;
 
-    // public SegmentManager(Path dir, long duration, long retention) {
-    //     Utils.validate(dir);
+        Files.createDirectories(root);
 
-    //     this.directory = dir;
+        loadSegments();
+        loadClientOffsets();
+    }
 
-    //     this.duration = duration;
-    //     this.retention = retention;
-    //     this.metaFile = dir.resolve("segments.meta").toFile();
+    public String root() { return root.toString(); }
 
-    //     this.offsetsFile = dir.resolve("offsets.properties").toFile();
+    public int write(Message message) {
+        if (activeSegment == null || !activeSegment.isActive(duration)) {
+            rollover();
+        }
 
-    //     loadSegments(); // 기존 segment 로드
-    //     loadOffsets(); // 기존 (클라이언트 논리)오프셋 로드
-    // }
+        message.addHeader("offset", String.valueOf(nextOffset.get()));
+        if (!activeSegment.write(message.toFrame())) {
+            return -1;
+        }
 
-    // public int segmentCount() { return segments.size(); }
+        return nextOffset.getAndIncrement();
+    }
 
-    // public long offset(String clientId) { return Long.parseLong(offsets.getProperty(clientId, "-1")); }
+    public @Nullable TopicRecord peek(String clientId) {
+        List<Segment> validSegments = segments.stream()
+            .filter(segment -> activeSegment == segment || !segment.isExpired(retention))
+            .toList();
 
-    // public boolean write(Message message) {
-    //     // long now = System.currentTimeMillis();
-    //     // if (currentSegment == null || (now - currentSegment.createdTime()) > duration) {
-    //     //     rollover(now);
-    //     // }
+        int defaultOffset = validSegments.stream()
+            .mapToInt(Segment::startOffset) // 유효한 세그먼트들의 start offset
+            .min() // 중 최소값
+            .orElse(0); // 없으면 0
 
-    //     // return currentSegment.write(buf);
-    //     return true;
-    // }
+        /**
+         * client id에 해당하는 offset이 없다면, default offset으로 설정
+         * 있다면, default offset과 비교하여 더 큰 값으로 설정
+         * default offset > offset인 경우는 세그먼트가 만료되어 기존 offset이 유효하지 않은 경우.
+         */
+        int clientOffset = clientOffsets.compute(clientId, (ignored, offset) -> {
+            return offset == null ? defaultOffset : Math.max(offset, defaultOffset);
+        });
 
-    // @Nullable
-    // public TopicRecord read(String clientId, long offset) {
-    //     /*
-    //      * offset이 0 이상(유효값)이면 해당 오프셋을 사용하고,
-    //      * 음수(유효하지 않은 값이면) 클라이언트의 오프셋 사용,
-    //      * 그마저도 없으면 가장 오래된 세그먼트의 base offset 사용
-    //      */
-    //     if (offset < 0) {
-    //         long clientOffset = offset(clientId);
-    //         offset = (clientOffset >= 0) ? clientOffset : segments.getFirst().baseOffset();
-    //     }
+        return validSegments.stream()
+            .filter(segment -> clientOffset >= segment.startOffset() && clientOffset < segment.endOffset())
+            .findFirst()
+            .map(segment -> segment.read(clientOffset - segment.startOffset()))
+            .orElse(null);
+    }
 
-    //     for (Segment segment : segments) {
-    //         /*
-    //          * segment가 존재하더라도, 만료 됐다면(cleaner에 의해 삭제되지 않았다면)
-    //          * 유효하지 않은 값으로 간주하고 건너뜀
-    //          */
-    //         if (segment.isExpired()) {
-    //             System.err.println("SegmentManager.read(): 만료된 세그먼트: " + segment.index());
-    //             continue;
-    //         }
+    public void commit(String clientId, int offset) {
+        int updatedOffset = offset + 1;
 
-    //         if (offset >= segment.baseOffset() && offset < segment.nextOffset()) {
-    //             // TopicRecord record = segment.read(offset - segment.baseOffset());
-    //             // if (record != null) {
-    //             //     addOffset(clientId, offset + 1);
-    //             // }
+        clientOffsets.put(clientId, updatedOffset); // 메모리에 반영
+        appendClientOffset(clientId, updatedOffset); // 파일에 반영
+    }
 
-    //             // return record;
-    //         }
-    //     }
+    public int find(Map<String, String> condition) {
+        for (Segment segment: segments) {
+            if (activeSegment != segment && segment.isExpired(retention)) {
+                continue;
+            }
 
-    //     return null;
-    // }
+            int offset = segment.find(condition);
+            if (offset >= 0) {
+                return segment.startOffset() + offset;
+            }
+        }
 
-    // /**
-    //  * 기존 세그먼트를 파일에 저장하고, 새로운 새그먼트 생성
-    //  * 외부에서 명시적으로 새로운 파일에 기록하고자 할 때도 호출 가능
-    //  */
-    // public void rollover(long now) {
-    //     addMetadata(); // 이전 세그먼트 메타데이터 저장
+        return -1;
+    }
 
-    //     int index = 0;
-    //     int baseOffset = 0;
+    public boolean seek(String clientId, int offset) {
+        if (offset < 0 || offset >= nextOffset.get()) {
+            return false;
+        }
 
-    //     if (currentSegment != null) {
-    //         index = currentSegment.index() + 1;
-    //         baseOffset = currentSegment.nextOffset();
-    //     }
+        clientOffsets.put(clientId, offset);
 
-    //     Path log = directory.resolve(index + LOG_FILE_EXT);
-    //     Path idx = directory.resolve(index + IDX_FILE_EXT);
+        return true;
+    }
 
-    //     currentSegment = new Segment(index, log, idx, baseOffset, now, retention);
-    //     segments.add(currentSegment);
-    // }
+    /**
+     * 유효한 segment 들의 메시지의 합 반환.
+     * active segment는 만료되더라도 유효하다고 판단.
+     */
+    public int count() {
+        return segments.stream()
+            .filter(segment -> activeSegment == segment || !segment.isExpired(retention))
+            .mapToInt(Segment::count)
+            .sum();
+    }
 
-    // public long messageCount() {
-    //     long count = 0;
-    //     for (Segment segment : segments) {
-    //         count += segment.count();
-    //     }
+    /**
+     * retention 기준으로 만료된 세그먼트 캐시를 정리.
+     * 단, active 세그먼트는 정리하지 않으며 segmsnts.log 파일은 갱신하지 않음(메모리만 정리).
+     * segments.log 파일을 갱신하게 될 경우 clean interval이 짧을 경우 I/O가 자주 발생할 수 있기 때문.
+     */
+    public void clean() {
+        Iterator<Segment> iterator = segments.iterator();
+        while (iterator.hasNext()) {
+            Segment segment = iterator.next();
+            if (segment != activeSegment && segment.isExpired(retention)) {
+                segment.clear(); // log, idx 파일 삭제
+                iterator.remove();
+            }
+        }
+    }
 
-    //     return count;
-    // }
+    public boolean clearAll() {
+        try {
+            // 모든 세그먼트 파일 삭제
+            for (Segment segment: segments) {
+                segment.clear();
+            }
 
-    // /*
-    //  * segment 내 모든 메시지가 retention 기간을 초과했는지 검사하고,
-    //  * 초과한 segment를 삭제
-    //  * 현재 사용 중인 segment가 삭제 대상이 될 경우 currentSegment를 null로 설정
-    //  */
-    // public void clean() {
-    //     Iterator<Segment> it = segments.iterator();
-    //     while (it.hasNext()) {
-    //         Segment segment = it.next();
-    //         if (segment != currentSegment && segment.isExpired()) {
-    //             segment.clear(); // log, idx 파일 삭제
-    //             removeMetadata(segment.index());
+            segments.clear();
 
-    //             it.remove();
-    //         }
-    //     }
+            // 메타 파일 및 오프셋 파일 삭제
+            Files.deleteIfExists(root.resolve(SEGMENTS_FILE));
+            Files.deleteIfExists(root.resolve(CLIENT_OFFSETS_FILE));
 
-    //     removeOffset(segments.getFirst().baseOffset());
-    // }
+            // 루트 디렉토리 삭제
+            Files.deleteIfExists(root);
 
-    // public void clearAll() {
-    //     try {
-    //         // 세그먼트 파일 삭제
-    //         for (Segment segment : segments) {
-    //             segment.clear();
-    //         }
+            return true;
+        } catch (Exception e) {
+            System.err.println("SegmentManager.clearAll(): " + e);
+            return false;
+        }
+    }
 
-    //         // 메타데이터, 오프셋 파일 삭제
-    //         Files.deleteIfExists(metaFile.toPath());
-    //         Files.deleteIfExists(offsetsFile.toPath());
+    private void rollover() {
+        int index = segmentIndex.getAndIncrement();
+        Path log = root.resolve(index + LOG_FILE_EXTENTION);
+        Path idx = root.resolve(index + IDX_FILE_EXTENTION);
+        int startOffset = nextOffset.get();
 
-    //         // 디렉토리 삭제
-    //         Files.deleteIfExists(directory);
-    //     } catch (IOException e) {
-    //         System.err.println("SegmentManager.clear(): " + e);
-    //     }
-    // }
+        activeSegment = new Segment(index, log, idx, startOffset, System.currentTimeMillis());
+        segments.add(activeSegment);
 
-    // private void loadSegments() {
-    //     // 파일에서 세그먼트 메타데이터 로드
-    //     try (FileInputStream in = new FileInputStream(metaFile)) {
-    //         metadata.load(in);
-    //     } catch (Exception e) {
-    //         System.err.println("SegmentManager.loadSegments(): " + e);
-    //         return;
-    //     }
+        appendActiveSegment();
+    }
 
-    //     // 세그먼트 메타데이터 기반으로 세그먼트 객체 생성
-    //     int count = Integer.parseInt(metadata.getProperty("count", "0"));
-    //     segments.clear();
+    private boolean appendActiveSegment() {
+        OpenOption[] options = new OpenOption[] {
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.APPEND  
+        };
 
-    //     /*
-    //      * 로드된 metadata의 키를 순회하여 세그먼트 빌더에 반영
-    //      * 1. 인덱스 추출 후 실제 log, idx 파일이 존재하는지 확인
-    //      * 2. 존재하지 않는다면, 해당 인덱스는 건너뛰고 존재하면 segment builder에 반영
-    //      */
-    //     Map<Integer, Segment.Builder> builders = new HashMap<>();
-    //     while (count-- > 0) {
-    //         Iterator<Object> it = metadata.keySet().iterator();
-    //         while (it.hasNext()) {
-    //             String key = it.next().toString();
-    //             if (key.equals("count")) {
-    //                 continue;
-    //             }
-                
-    //             int index = Integer.parseInt(key.substring(0, key.indexOf('.')));
-    //             Path log = directory.resolve(index + LOG_FILE_EXT);
-    //             Path idx = directory.resolve(index + IDX_FILE_EXT);
-    //             if (!Files.exists(log) || !Files.exists(idx)) {
-    //                 System.err.println("SegmentManager.loadSegments(): 파일이 존재하지 않음: " + log + ", " + idx);
-    //                 continue;
-    //             }
+        try (FileChannel segmentsFile = FileChannel.open(root.resolve(SEGMENTS_FILE), options)) {
+            segmentsFile.write(activeSegment.toBuffer());
+            return true;
+        } catch (Exception e) {
+            System.err.println("? SegmentManager.appendActiveSegment(): " + e);
+            return false;
+        }
+    }
 
-    //             Segment.Builder builder = builders.computeIfAbsent(index, ignored -> Segment.builder(index, log, idx));
-    //             builder.keyAndValue(key, metadata.getProperty(key));
-    //         }
-    //     }
+    private boolean appendClientOffset(String clientId, int offset) {
+        OpenOption[] options = new OpenOption[] {
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.APPEND
+        };
 
-    //     /*
-    //      * segment 생성
-    //      * 인덱스 순서대로 정렬하여 segments 리스트에 추가
-    //      */
-    //     Object[] keys = builders.keySet().toArray();
-    //     Arrays.sort(keys, Comparator.comparingInt(o -> (int) o));
+        try {
+            if (clientOffsetsFile == null) {
+                clientOffsetsFile = FileChannel.open(root.resolve(CLIENT_OFFSETS_FILE), options);
+            }
 
-    //     for (Object key :  keys) {
-    //         Segment segment = builders.get(key).retention(retention).build();
-    //         segments.add(segment);
-    //         currentSegment = segment;
-    //     }
-    // }
+            byte[] clientIdBytes = clientId.getBytes(StandardCharsets.UTF_8);
+            ByteBuffer buffer = ByteBuffer.allocate((Integer.BYTES * 2) + clientIdBytes.length);
+            buffer.putInt(clientIdBytes.length)
+                .put(clientIdBytes)
+                .putInt(offset);
+            clientOffsetsFile.write(buffer.flip());
 
-    // /**
-    //  * 세그먼트 메타데이터 업데이트 시도.
-    //  * 실패 하더라도, 저장하려는 세그먼트만 유실되고 프로그램은 계속 진행됨
-    //  */
-    // private void addMetadata() {
-    //     if (currentSegment == null) {
-    //         return;
-    //     }
+            return true;
+        } catch (Exception e) {
+            System.err.println("? SegmentManager.appendClientOffset(): " + e);
+            return false;
+        }
+    }
 
-    //     // 현재 세그먼트를 메타데이터에 저장
-    //     int index = currentSegment.index();
-    //     metadata.setProperty("count", String.valueOf(segments.size()));
-    //     metadata.setProperty(index + ".baseOffset", String.valueOf(currentSegment.baseOffset()));
-    //     metadata.setProperty(index + ".nextOffset", String.valueOf(currentSegment.nextOffset()));
-    //     metadata.setProperty(index + ".createdTime", String.valueOf(currentSegment.createdTime()));
+    private boolean updateSegments() {
+        OpenOption[] options = new OpenOption[] {
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        };
 
-    //     updateMetadata();
-    // }
+        try (FileChannel segmentsFile = FileChannel.open(root.resolve(SEGMENTS_FILE), options)) {
+            for (Segment segment : segments) {
+                segmentsFile.write(segment.toBuffer());
+            }
 
-    // private void removeMetadata(int index) {
-    //     boolean removed = false;
-    //     Iterator<Object> it = metadata.keySet().iterator();
-    //     while (it.hasNext()) {
-    //         if (it.next().toString().startsWith(index + ".")) {
-    //             it.remove();
-    //             removed = true;
-    //         }
-    //     }
+            return true;
+        } catch (Exception e) {
+            System.err.println("? SegmentManager.updateSegments(): " + e);
+            return false;
+        }
+    }
 
-    //     if (removed) {
-    //         int count = Integer.parseInt(metadata.getProperty("count"));
-    //         metadata.setProperty("count", String.valueOf(count - 1));
-    //     }
+    private boolean updateClientOffsets() {
+        OpenOption[] options = new OpenOption[] {
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        };
 
-    //     updateMetadata();
-    // }
+        try (FileChannel file = FileChannel.open(root.resolve(CLIENT_OFFSETS_FILE), options)) {
+            for (Map.Entry<String, Integer> entry : clientOffsets.entrySet()) {
+                byte[] clientIdBytes = entry.getKey().getBytes(StandardCharsets.UTF_8);
+                ByteBuffer buffer = ByteBuffer.allocate((Integer.BYTES * 2) + clientIdBytes.length);
+                buffer.putInt(clientIdBytes.length)
+                    .put(clientIdBytes)
+                    .putInt(entry.getValue());
+                file.write(buffer.flip());
+            }
 
-    // private void updateMetadata() {
-    //     try (FileOutputStream out = new FileOutputStream(metaFile)) {
-    //         metadata.store(out, "Segments Metadata");
-    //     } catch (IOException e) {
-    //         System.err.println("SegmentManager.updateSegmentsMetadata(): " + e);
-    //     }
-    // }
+            return true;
+        } catch (Exception e) {
+            System.err.println("? SegmentManager.updateClientOffsets(): " + e);
+            return false;
+        }
+    }
 
-    // /**
-    //  * properties 객체에 우선 반영 후 파일에 저장
-    //  */
-    // private void addOffset(String clientId, long offset) {
-    //     offsets.setProperty(clientId, String.valueOf(offset));
-    //     updateOffsets();
-    // }
+    private boolean loadSegments() {
+        ByteBuffer buffer = loadFile(root.resolve(SEGMENTS_FILE));
+        if (buffer == null) {
+            return false;
+        }
 
-    // /**
-    //  * 모든 offset 정보 중에서 pivot보다 작은 offset을 갖는 항목 삭제
-    //  */
-    // private void removeOffset(long pivot) {
-    //     Iterator<Object> it = offsets.keySet().iterator();
-    //     while (it.hasNext()) {
-    //         String clientId = it.next().toString();
-    //         long offset = Long.parseLong(offsets.getProperty(clientId));
-    //         if (offset < pivot) {
-    //             it.remove();
-    //         }
-    //     }
-    //     updateOffsets();
-    // }
+        while (buffer.hasRemaining()) {
+            int index = buffer.getInt();
+            Path[] paths = new Path[2];
+            for (int i = 0; i < 2; i++) {
+                int length = buffer.getInt();
+                byte[] pathBytes = new byte[length];
+                buffer.get(pathBytes);
+                paths[i] = Path.of(new String(pathBytes, StandardCharsets.UTF_8));
+            }
+            int satrtOffset = buffer.getInt();
+            long createdAt = buffer.getLong();
 
-    // /**
-    //  * 실제 offsets.properties 파일에 반영
-    //  */
-    // private void updateOffsets() {
-    //     try (FileOutputStream out = new FileOutputStream(offsetsFile)) {
-    //         offsets.store(out, "offsets");
-    //     } catch (Exception e) {
-    //         System.err.println("SegmentManager.updateOffsets(): " + e);
-    //     }
-    // }
+            /**
+             * 만료된 세그먼트는 복원하지 않고 파일도 제거함.
+             * 단, next offset은 갱신 함.
+             */
+            Segment segment = new Segment(index, paths[0], paths[1], satrtOffset, createdAt);
+            segmentIndex.set(index + 1);
+            nextOffset.set(Math.max(nextOffset.get(), segment.endOffset()));
 
-    // public void removeOffsets(String clientId) {
-    //     offsets.remove(clientId);
-    //     updateOffsets();
-    // }
+            if (segment.isExpired(retention)) {
+                segment.clear();
+                continue;
+            }
+            
+            segments.add(segment);
+        }
+        
+        // 유효한 세그먼트를 기준으로 segments.log 파일 갱신
+        updateSegments();
 
-    // private void loadOffsets() {
-    //     try (FileInputStream in = new FileInputStream(offsetsFile)) {
-    //         offsets.load(in);
-    //     } catch (Exception e) {
-    //         System.err.println("SegmentManager.loadOffsets(): " + e);
-    //     }
-    // }
+        return true;
+    }
+
+    private boolean loadClientOffsets() {
+        ByteBuffer buffer = loadFile(root.resolve(CLIENT_OFFSETS_FILE));
+        if (buffer == null) {
+            return false;
+        }
+
+        while (buffer.hasRemaining()) {
+            int clientIdLength = buffer.getInt();
+            byte[] clientIdBytes = new byte[clientIdLength];
+            buffer.get(clientIdBytes);
+            String clientId = new String(clientIdBytes, StandardCharsets.UTF_8);
+            int offset = buffer.getInt();
+
+            clientOffsets.put(clientId, offset);
+        }
+
+        clientOffsets.entrySet().stream()
+            .filter(entry -> entry.getValue() > nextOffset.get()) 
+            .forEach(entry -> {
+                entry.setValue(nextOffset.get());
+            });
+
+        updateClientOffsets();
+
+        return true;
+    }
+
+    private @Nullable ByteBuffer loadFile(Path path) {
+        try (FileChannel file = FileChannel.open(path, StandardOpenOption.READ)) {
+            ByteBuffer buffer = ByteBuffer.allocate((int) file.size());
+            while (buffer.hasRemaining()) {
+                if (file.read(buffer) == -1) {
+                    break;
+                }
+            }
+
+            buffer.flip();
+            return buffer;
+        } catch (Exception e) {
+            System.err.println("? SegmentManager.loadFile(): " + e);
+            return null;
+        }
+    }
 }

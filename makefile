@@ -31,7 +31,7 @@ run.api.gateway:
 b: run.message.broker
 m: run.message.broker
 run.message.broker:
-	cd message_broker && java -jar app/build/libs/app.jar 
+	cd message_broker && java -jar app/build/libs/app-all.jar 
 
 # convert service 실행
 c: run.convert.service

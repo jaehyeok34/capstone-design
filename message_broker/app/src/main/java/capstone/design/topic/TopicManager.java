@@ -73,18 +73,22 @@ public class TopicManager implements MessageProcessor {
         Message.Builder builder = Message.builder()
             .type(MessageType.RES_PUSH)
             .header(message.header());
+        Topic topic = null;
+        boolean success = false;
 
         try {
-            Topic topic = topics.get(message.topicName());
+            topic = topics.get(message.topicName());
             if (topic == null) {
                 throw new Exception("topic.name 없음");
             }
 
-            int offset = topic.push(message.partition(), message);
+            String partition = message.partition();
+            int offset = topic.push(partition, message);
             if (offset < 0) {
                 throw new Exception("메시지 저장 실패");
             }
 
+            success = true;
             builder.offset(offset);
         } catch (Exception e) {
             System.err.println("? TopicManager.push(): " + e);
@@ -92,6 +96,11 @@ public class TopicManager implements MessageProcessor {
         }
 
         context.channel().writeAndFlush(builder.build());
+
+        // 알림 전송(실제로는 callback 호출) 로직은 푸시 성공 후, ack 전송 이후에 수행
+        if (topic != null && success) {
+            topic.notify(message.partition());
+        }
     }
 
     private void pull(ChannelHandlerContext context, Message message) {
@@ -112,7 +121,18 @@ public class TopicManager implements MessageProcessor {
         List<Message> pulled = new ArrayList<>();
         AtomicInteger subscribeKey = new AtomicInteger();
         AtomicBoolean cancel = new AtomicBoolean(false);
+        AtomicBoolean isWrite = new AtomicBoolean(false);
         Runnable write = () -> {
+            /**
+             * callback에서 메시지를 획득하여 한 번 호출 하게 되는데,
+             * 구독 해제 예약 코드에서 구독 해제 로직 동작 시 다시 한 번 호출 되는 경우가 발생하여
+             * 중복 동작 방지를 위해 isWrite 플래그로 반드시 한 번만 동작하도록 처리.
+             */
+            if (isWrite.get()) {
+                return;
+            }
+
+            isWrite.set(true);
             synchronized (pulled) {
                 pulled.forEach(msg -> {
                     msg.setType(MessageType.RES_PULL)
@@ -126,12 +146,18 @@ public class TopicManager implements MessageProcessor {
                     context.channel().write(message);
                 }
             }
+
             context.channel().flush();
         };
         Supplier<Boolean> callback = new Supplier<Boolean>() {
+            /**
+             * @return 현재 메시지에 대하여 다음 구독자에게 넘기지 않고 종료할지 여부(is done 느낌)
+             * false: 현재 메시지를 확인했지만, 아무 동작하지 않고 다음 구독자에게 넘긴다는 의미
+             * true: 메시지를 확인했고(유효하면 꺼냄), 더 이상 다음 구독자에게 넘기지 않는다는 의미
+             */
             @Override
             public Boolean get() {
-                int offset = peek(topic, message, count, pulled);
+                int offset = peek(topic, message, count - pulled.size(), pulled);
                 if (cancel.get()) {
                     return false;
                 }
@@ -141,10 +167,16 @@ public class TopicManager implements MessageProcessor {
                     subscribeKey.set(key);
                 } else {
                     write.run();
+
+                    /**
+                     * 메시지를 처리한 것으로 간주하고 처리한 메시지에 대하여 커멧을 수행.
+                     * DiskTopic의 경우 client offset을 갱신(메모리 + 파일)
+                     * MemoryTopic의 경우 storage에서 메시지 제거 및 client offset 갱신(메모리)
+                     */
+                    topic.commit(message.partition(), message.clientId(), offset, message);
                 }
 
-                topic.commit(message.partition(), message.clientId(), offset, message);
-                return true;
+                return true;    
             };
         };
 
@@ -152,6 +184,11 @@ public class TopicManager implements MessageProcessor {
         scheduler.schedule(() -> {
             cancel.set(true);
             topic.unsubscribe(message.partition(), subscribeKey.get());
+
+            /**
+             * 구독 해제 시점에 callback이 아직 메시지를 처리(write.run())하지 못한 상태일 수도 있으므로
+             * 지금까지 쌓인 메시지(pulled)를 전송하고, 부족한 만큼 실패 메시지를 전송하기 위해 호출.
+             */
             write.run();
         }, message.timeout(), TimeUnit.MILLISECONDS);
 
@@ -168,7 +205,13 @@ public class TopicManager implements MessageProcessor {
 
         AtomicInteger subscribeKey = new AtomicInteger();
         AtomicBoolean cancel = new AtomicBoolean(false);
+        AtomicBoolean isWrite = new AtomicBoolean(false);
         Consumer<Integer> write = (offset) -> {
+            if (isWrite.get()) {
+                return;
+            }
+
+            isWrite.set(true);
             message.setType(MessageType.RES_FIND)
                 .addHeader("offset", offset);
 

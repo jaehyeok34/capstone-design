@@ -66,8 +66,6 @@ public class MemoryTopic implements Topic {
         message.addHeader("offset", String.valueOf(offset));
         storage.put(offset, new TopicRecord(message));
 
-        subscribeManager.notify(partition);
-
         log("push");
 
         return offset;
@@ -157,6 +155,11 @@ public class MemoryTopic implements Topic {
     @Override
     public void unsubscribe(String partition, int key) {
         subscribeManager.unsubscribe(partition, key);
+    }
+
+    @Override
+    public void notify(String partition) {
+        subscribeManager.notify(partition);
     }
 
     @Override
