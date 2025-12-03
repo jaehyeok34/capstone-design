@@ -4,6 +4,7 @@ import java.util.Map;
 
 import capstone.design.message.Message;
 
+
 public class TopicRecord {
 
     private final Message message;
@@ -31,7 +32,6 @@ public class TopicRecord {
         
         return true;
     }
-
 
     @Override
     public String toString() {

@@ -7,6 +7,7 @@ import capstone.design.Utils;
 import capstone.design.netty.server.NettyServer;
 import capstone.design.topic.Topic;
 import capstone.design.topic.TopicManager;
+import capstone.design.topic.disk.DiskTopic;
 import capstone.design.topic.memory.MemoryTopic;
 
 public class Broker implements AutoCloseable {
@@ -64,8 +65,7 @@ public class Broker implements AutoCloseable {
                 try {
                     topics.put(name, switch (type) {
                         case MEMORY -> MemoryTopic.of(name);
-                        // case DISK -> DiskTopic.of(name);
-                        case DISK -> null;
+                        case DISK -> DiskTopic.of(name);
                     });
                 } catch (Exception ignored) {}
             }

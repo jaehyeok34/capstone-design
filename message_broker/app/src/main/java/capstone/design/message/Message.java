@@ -1,10 +1,15 @@
 package capstone.design.message;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.FileRegion;
 
 public class Message {
     private MessageType type; // non-null. builder에서 반드시 설정하도록 설계함
@@ -85,6 +90,42 @@ public class Message {
 
     public Message copy() {
         return new Message(type, header, payload);
+    }
+
+    public Frame toFrame() {
+        Frame.Builder builder = Frame.builder();
+
+        // type + header 부분을 ByteBuf로 인코딩
+        ByteBuf headerBuf = Unpooled.directBuffer()
+            .writeByte(type.getByte()) // 메시지 타입 추가
+            .writeByte(header.size()); // header 개수 추가
+        
+        for (Map.Entry<String, String> entry: header.entrySet()) {
+            byte[] key = entry.getKey().getBytes(StandardCharsets.UTF_8);
+            byte[] value = entry.getValue().getBytes(StandardCharsets.UTF_8);
+
+            // header의 key, value 추가
+            headerBuf.writeShort(key.length).writeBytes(key)
+                .writeInt(value.length).writeBytes(value);
+        }
+
+        builder.header(headerBuf);
+
+        switch (payload) {
+            case byte[] bytes -> builder.payload(Unpooled.directBuffer().writeBytes(bytes));
+            case ByteBuf buf -> builder.payload(buf);
+            case FileRegion region -> builder.payload(region);
+            case null -> {}
+            default -> {
+                byte[] bytes = String.valueOf(payload).getBytes(StandardCharsets.UTF_8);
+                ByteBuf payloadBuf = Unpooled.directBuffer()
+                    .writeBytes(bytes);
+
+                builder.payload(payloadBuf);
+            }
+        }
+
+        return builder.build();
     }
 
     private <T> T parseHeader(String key, T defaultValue, Function<String, T> parser) {

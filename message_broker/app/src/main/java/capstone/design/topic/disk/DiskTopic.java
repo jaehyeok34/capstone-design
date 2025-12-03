@@ -2,7 +2,16 @@ package capstone.design.topic.disk;
 
 import capstone.design.topic.TopicRecord;
 import capstone.design.topic.disk.segment.SegmentManager;
+import capstone.design.topic.subscribe.SubscribeManager;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -13,277 +22,190 @@ import capstone.design.topic.Topic;
 
 public class DiskTopic implements Topic {
 
-    private static final String DEFAULT_TOPIC_DIR = "./disk_topics";
+    private static final Path TOPIC_DIRECTORY = Path.of("./disk_topics");
+    private static final String SEGMENT_MANAGERS_FILE = "segment_managers.log";
     private static final long DEFAULT_DURATION = 10 * (60 * 1000); // 10분
     private static final long DEFAULT_RETENTION = 30 * (60 * 1000); // 30분
 
     private final String name; 
     private final long duration;
     private final long retention;
+    private final Path root;
     private final Map<String, SegmentManager> segmentManagers = new ConcurrentHashMap<>();
+    private final SubscribeManager subscribeManager = new SubscribeManager();
 
     private DiskTopic(String name, long duration, long retention) {
         this.name = name;
         this.duration = duration;
         this.retention = retention;
+
+        this.root = TOPIC_DIRECTORY.resolve(name);
+
+        loadSegmentManagers();
     }
 
-    public static DiskTopic of(String name) {
-        return new DiskTopic(name, DEFAULT_DURATION, DEFAULT_RETENTION);
-    }
-
-    public static DiskTopic of(String name, long duration, long retention) {
-        return new DiskTopic(name, duration, retention);
-    }
+    public static DiskTopic of(String name) { return new DiskTopic(name, DEFAULT_DURATION, DEFAULT_RETENTION); }
+    public static DiskTopic of(String name, long duration, long retention) { return new DiskTopic(name, duration, retention); }
 
     @Override
-    public String name() {
-        return name;
-    }
+    public String name() { return name; }
 
     @Override
     public int push(String partition, Message message) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'push'");
+        SegmentManager segmentManager = segmentManagers.computeIfAbsent(partition, ignored -> {
+            try {
+                SegmentManager newSegmentManager = new SegmentManager(root.resolve(partition), duration, retention);
+
+                if (!appendSegmentManager(newSegmentManager)) {
+                    return null;
+                }
+                
+                return newSegmentManager;
+            } catch (IOException e) {
+                System.err.println("? DiskTopic.push(): " + e);
+                return null;
+            }
+        });
+        
+        if (segmentManager == null) {
+            return -1;
+        }
+
+        return segmentManager.write(message);
     }
 
     @Override
     public @Nullable TopicRecord peek(String partition, String clientId, Message message) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'peek'");
+        SegmentManager segmentManager = segmentManagers.get(partition);
+        if (segmentManager == null) {
+            return null;
+        }
+
+        return segmentManager.peek(clientId);
     }
 
     @Override
     public void commit(String partition, String clientId, int offset, Message message) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'commit'");
+        SegmentManager segmentManager = segmentManagers.get(partition);
+        if (segmentManager == null) {
+            return;
+        }
+
+        segmentManager.commit(clientId, offset);
     }
 
     @Override
     public int find(String partition, Map<String, String> condition, Message message) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'find'");
+        SegmentManager segmentManager = segmentManagers.get(partition);
+        if (segmentManager == null) {
+            return -1;
+        }
+
+        return segmentManager.find(condition);
     }
 
     @Override
     public boolean seek(String partition, String clientId, int offset, Message message) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'seek'");
+        SegmentManager segmentManager = segmentManagers.get(partition);
+        if (segmentManager == null) {
+            return false;
+        }
+
+        return segmentManager.seek(clientId, offset);
     }
 
     @Override
     public int subscribe(String partition, Supplier<Boolean> callback) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'subscribe'");
+        return subscribeManager.subscribe(partition, callback);
     }
 
     @Override
     public void unsubscribe(String partition, int key) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'unsubscribe'");
+        subscribeManager.unsubscribe(partition, key);
+    }
+
+    @Override
+    public void notify(String partition) {
+        subscribeManager.notify(partition);
     }
 
     @Override
     public int count(String partition, Message message) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'count'");
+        SegmentManager segmentManager = segmentManagers.get(partition);
+        if (segmentManager == null) {
+            return -1;
+        }
+
+        return segmentManager.count();
     }
 
     @Override
     public void clean() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'clean'");
+        segmentManagers.values().forEach(segmentManger -> {
+            segmentManger.clean();
+        });
     }
 
+    public void clearAll() {
+        segmentManagers.values().forEach(segmentaManager -> {
+            segmentaManager.clearAll();
+        });
 
+        try {
+            Files.deleteIfExists(root.resolve(SEGMENT_MANAGERS_FILE));
+            Files.deleteIfExists(root);
+        } catch (IOException e) {
+            System.err.println("? DiskTopic.clearAll(): " + e);
+        }
+    }
 
+    private boolean appendSegmentManager(SegmentManager segmentManager) {
+        OpenOption[] options = new OpenOption[] {
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.APPEND
+        };
 
-    // // field =====
+        try (FileChannel file = FileChannel.open(root.resolve(SEGMENT_MANAGERS_FILE), options)) {
+            byte[] pathBytes = segmentManager.root().getBytes(StandardCharsets.UTF_8);
+            ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES + pathBytes.length);
+            buffer.putInt(pathBytes.length)
+                .put(pathBytes);
+                 
+            file.write(buffer.flip());
 
+            return true;
+        } catch (IOException e) {
+            System.err.println("? DiskTopic.appendSegmentManager(): " + e);
+            return false;
+        }
+    }
 
-    // private final Path rootDir;
-    // private final Path partitionsDir;
-    // private final long duration;
-    // private final long retention;
-    // // private final SubscribeManager subscribeManager = new SubscribeManager();
-    // private final Map<String, SegmentManager> segmentManagers = new HashMap<>();
-    
-    // private final String name;
+    private boolean loadSegmentManagers() {
+        try (FileChannel file = FileChannel.open(root.resolve(SEGMENT_MANAGERS_FILE), StandardOpenOption.READ)) {
+            ByteBuffer buffer = ByteBuffer.allocate((int) file.size());
+            while (buffer.hasRemaining()) {
+                if (file.read(buffer) == -1) {
+                    break;
+                }
+            }
 
-    // // constructor =====
-    // private DiskTopic(String name, long duration, long retention) throws IOException {
-    //     this.duration = duration;
-    //     this.retention = retention;
+            buffer.flip();
+            while (buffer.hasRemaining()) {
+                int pathLength = buffer.getInt();
+                byte[] pathBytes = new byte[pathLength];
+                buffer.get(pathBytes);
 
-    //     this.rootDir = Files.createDirectories(Paths.get(DEFAULT_TOPIC_DIR, name));
-    //     this.partitionsDir = Files.createDirectories(rootDir.resolve("partitions"));
+                Path path = Path.of(new String(pathBytes, StandardCharsets.UTF_8));
+                SegmentManager segmentManager = new SegmentManager(path, duration, retention);
 
-    //     this.name = name;
-    // }
+                segmentManagers.put(path.getFileName().toString(), segmentManager);
+            }
 
-    // // static method =====
-    // public static DiskTopic of(String name) throws IOException {
-    //     return new DiskTopic(name, DEFAULT_DURATION, DEFAULT_RETENTION);
-    // }
-
-    // public static DiskTopic of(String name, long segmentDuration, long segmentRetention) throws IOException {
-    //     return new DiskTopic(name, segmentDuration, segmentRetention);
-    // }
-
-    // // getter =====
-    // public SegmentManager segmentManager(String partition) { return segmentManagers.get(partition);  }
-
-    // // override =====
-    // @Override
-    // public int push(Message message) {
-    //     String partition = message.header("partition", "");
-    //     if (partition.isEmpty()) {
-    //         System.err.println("! DiskTopic.push(): 필수 옵션 누락");
-    //         return -1;
-    //     }
-        
-    //     try {
-    //         Path dir = Files.createDirectories(partitionsDir.resolve(partition));
-            
-    //         return 0;
-    //     } catch (Exception e) {
-    //         System.err.println("! DiskTopic.push(): " + e);
-    //         return -1;
-    //     }
-    // }
-    // // @Override
-    // // public boolean push(Message message) {
-    // //     String partition = message.header("partition", "");
-    // //     if (partition.isEmpty()) {
-    // //         System.err.println("! DiskTopic.push(): 필수 옵션 누락");
-    // //         return false;
-    // //     }
-
-    // //     try {
-    // //         Path dir = Files.createDirectories(root.resolve(partition));
-    // //         SegmentManager segmentManager = segmentManagers.computeIfAbsent(partition, ignored -> {
-    // //             return new SegmentManager(dir, duration, retention);
-    // //         });
-
-    // //         boolean ok = segmentManager.write(message);
-
-
-    // //         return ok;
-    // //     } catch (Exception e) {
-    // //         System.err.println("!DiskTopic.push(): " + e);
-    // //         return false;
-    // //     }
-    // // }
-
-    // @Override
-    // public @Nullable TopicRecord pull(int partition, String clientId) {
-    //     return pull(partition, clientId, -1);
-    // }
-
-    // @Nullable
-    // @Override
-    // public TopicRecord pull(int partition, String clientId, long offset) {
-    //     if (!Utils.isValid(clientId)) {
-    //         return null;
-    //     }   
-
-    //     SegmentManager segmentManager = segmentManagers.get(partition);
-    //     if (segmentManager == null) {
-    //         return null;
-    //     }
-
-    //     return segmentManager.read(clientId, offset);
-    // }
-
-    // @Override
-    // public void subscribe(ChannelHandlerContext context, int partition, String clientId) {
-    //     subscriberManager.registry(context, partition, clientId);
-    // }
-
-    // @Override
-    // public void unsubscribe(int partition, String clientId) {
-    //     subscriberManager.unsubscribe(partition, clientId);
-    // }
-
-    // @Override
-    // public long count(int partition, String clientId) {
-    //     SegmentManager segmentManager = segmentManagers.get(partition);
-    //     if (segmentManager == null) {
-    //         return 0;
-    //     }
-
-    //     return segmentManager.messageCount();
-    // }
-
-    // @Override
-    // public long offset(int partition, String clientId) {
-    //     SegmentManager segmentManager = segmentManagers.get(partition);
-    //     if (segmentManager == null) {
-    //         return -1;
-    //     }
-
-    //     return segmentManager.offset(clientId);
-    // }
-
-    // @Override
-    // public void clean() {
-    //     for (Map.Entry<Integer, SegmentManager> entry : segmentManagers.entrySet()) {
-    //         int partition = entry.getKey();
-    //         SegmentManager segmentManager = entry.getValue();
-
-    //         segmentManager.clean();
-    //         System.out.println("DiskTopic.clean(): " + name + "." + partition + "=" + segmentManager.messageCount());
-    //     }
-    // }
-
-    // @Override
-    // public String name() {
-    //     return name;
-    // }
-
-    // // method =====
-    // /**
-    //  * 토픽의 모든 파일 및 디렉토리 삭제
-    //  */
-    // public void clearAll() {
-    //     for (SegmentManager segmentManager : segmentManagers.values()) {
-    //         segmentManager.clearAll();
-    //     }
-
-    //     try {
-    //         Files.deleteIfExists(rootDir);
-    //     } catch (IOException e) {
-    //         System.err.println("DiskTopic.clearAll(): " + e);   
-    //     }
-    // }
-
-    // /**
-    //  * 특정 파티션의 모든 파일 삭제
-    //  */
-    // public void clear(int partition) {
-    //     SegmentManager segmentManager = segmentManagers.get(partition);
-    //     if (segmentManager == null) {
-    //         return;
-    //     }
-
-    //     segmentManager.clearAll();
-    // }
-
-    // public int segmentCount(int partition) {
-    //     SegmentManager segmentManager = segmentManagers.get(partition);
-    //     if (segmentManager == null) {
-    //         return 0;
-    //     }
-
-    //     return segmentManager.segmentCount();
-    // }
-
-    // private void loadSegmentManagers() {
-    //     for (File dir : rootDir.toFile().listFiles(File::isDirectory)) {
-    //         int key = Integer.parseInt(dir.getName());
-    //         SegmentManager value = new SegmentManager(dir.toPath(), duration, retention);
-
-    //         segmentManagers.put(key, value);
-    //     }
-    // }
+            return true;
+        } catch (IOException e) {
+            System.err.println("? DiskTopic.loadSegmentManagers(): " + e);
+            return false;
+        }
+    }
 }
