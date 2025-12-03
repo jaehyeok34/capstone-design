@@ -16,6 +16,7 @@ public interface Topic {
     boolean seek(String partition, String clientId, int offset, Message message);
     int subscribe(String partition, Supplier<Boolean> callback);
     void unsubscribe(String partition, int key);
+    void notify(String partition);
     int count(String partition, Message message);
     void clean();
 

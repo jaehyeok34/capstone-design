@@ -19,7 +19,9 @@ import org.jspecify.annotations.Nullable;
 import capstone.design.message.Frame;
 import capstone.design.message.Message;
 import capstone.design.topic.TopicRecord;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.DefaultFileRegion;
+import io.netty.channel.FileRegion;
 
 public class Segment {
 
@@ -29,6 +31,7 @@ public class Segment {
     private final int startOffset;
     private final long createdAt;
     private final AtomicInteger endOffset = new AtomicInteger(0);
+    private final Object fileLock = new Object();
 
     public Segment(int index, Path log, Path idx, int startOffset, long createdAt) {
         this.index = index;
@@ -51,7 +54,6 @@ public class Segment {
         try {
             return (int) Files.size(idx) / Long.BYTES;
         } catch (IOException e) {
-            System.err.println("? Segment.count(): " + e);
             return 0;
         }
     }
@@ -63,62 +65,68 @@ public class Segment {
             StandardOpenOption.APPEND  
         };
 
-        try (
-            FileChannel logFile = FileChannel.open(log, options);
-            FileChannel idxFile = FileChannel.open(idx, options);
-        ) {
-            long position = writeLog(logFile, frame);
-            writeIdx(idxFile, position);
-            endOffset.incrementAndGet();
-
-            return true;
-        } catch (IOException e) {
-            System.err.println("? Segment.write(): " + e);
-            return false;
+        synchronized (fileLock) {
+            try (
+                FileChannel idxFile = FileChannel.open(idx, options);
+                FileChannel logFile = FileChannel.open(log, options);
+            ) {
+                long position = writeLog(logFile, frame);
+                writeIdx(idxFile, position);
+                endOffset.incrementAndGet();
+                
+                return true;
+            } catch (IOException e) {
+                System.err.println("? Segment.write(): " + e);
+                return false;
+            }
         }
     }
 
     public @Nullable TopicRecord read(int offset) {
-        try (RandomAccessFile idxFile = new RandomAccessFile(idx.toFile(), "r")) {
-            // idx 파일에서 메시지 실제 위치 획득
-            idxFile.seek(offset * Long.BYTES);
-            long position = idxFile.readLong();
-
-            // 실제 위치 기반 메시지 읽기(길이 먼저)
-            FileChannel logFile = FileChannel.open(log, StandardOpenOption.READ);
-            ByteBuffer lengthBuf = ByteBuffer.allocate(Integer.BYTES * 2);
-            logFile.read(lengthBuf, position);
-            lengthBuf.flip();
-
-            // header와 payload 길이 획득
-            int headerLength = lengthBuf.getInt();
-            int payloadLength = lengthBuf.getInt();
-
-            // header 읽기
-            long headerPos = position + Integer.BYTES * 2;
-            Message.Builder builder = readHeader(logFile, headerPos, headerLength);
-
-            // payload 읽기(FileRegion 생성)
-            long payloadPos = headerPos + headerLength;
-            builder.payload(new DefaultFileRegion(logFile, payloadPos, payloadLength));
-
-            return new TopicRecord(builder.build());            
-        } catch (Exception e) {
-            System.err.println("Segment.read(): " + e);
-            return null;
+        synchronized (fileLock) {
+            try (
+                FileChannel logFile = FileChannel.open(log, StandardOpenOption.READ);
+                RandomAccessFile idxFile = new RandomAccessFile(idx.toFile(), "r")
+            ) {
+                // idx 파일에서 메시지 실제 위치 획득
+                idxFile.seek(offset * Long.BYTES);
+                long position = idxFile.readLong();
+                
+                // 실제 위치 기반 메시지 읽기(길이 먼저)
+                ByteBuffer lengthBuf = ByteBuffer.allocate(Integer.BYTES * 2);
+                logFile.read(lengthBuf, position);
+                lengthBuf.flip();
+                
+                // header와 payload 길이 획득
+                int headerLength = lengthBuf.getInt();
+                int payloadLength = lengthBuf.getInt();
+                
+                // header 읽기
+                long headerPos = position + Integer.BYTES * 2;
+                Message.Builder builder = readHeader(logFile, headerPos, headerLength);
+                
+                // payload 읽기(FileRegion 생성)
+                long payloadPos = headerPos + headerLength;
+                FileRegion region = new DefaultFileRegion(log.toFile(), payloadPos, payloadLength);
+                builder.payload(region);
+                
+                return new TopicRecord(builder.build());            
+            } catch (Exception e) {
+                System.err.println("Segment.read(): " + e + " " + idx);
+                return null;
+            }
         }
     }
 
     public int find(Map<String, String> condition) {
-        for (int offset = startOffset; offset < endOffset.get(); offset++) {
+        int count = count();
+        for (int offset = 0; offset < count; offset++) {
             TopicRecord record = read(offset);
-            if (record == null) {
+            if (record == null || !record.matches(condition)) {
                 continue;
-            }
+            }   
 
-            if (record.matches(condition)) {
-                return offset;
-            }
+            return offset;
         }
 
         return -1;
@@ -126,13 +134,14 @@ public class Segment {
 
     public boolean clear() {
         try {
-            Files.deleteIfExists(log);
-            Files.deleteIfExists(idx);
+            synchronized (fileLock) {
+                Files.deleteIfExists(log);
+                Files.deleteIfExists(idx);
+            }
 
             return true;
         } catch (IOException e) {
             System.err.println("Segment.clear(): " + e);
-
             return false;
         }
     }
@@ -169,11 +178,17 @@ public class Segment {
         // 메시지 길이 기록
         ByteBuffer lengthBuf = ByteBuffer.allocate(Integer.BYTES * 2)
             .putInt(frame.headerLength())
-            .putInt(frame.payloadLength())
-            .flip();
+            .putInt(frame.payloadLength());
+        file.write(lengthBuf.flip());  
 
-        file.write(lengthBuf);  
-        file.write(frame.toByteBuf().nioBuffer());
+        ByteBuf header = frame.header();
+        file.write(header.nioBuffer());
+        header.release();
+
+        if (frame.payload() instanceof ByteBuf payload) {
+            file.write(payload.nioBuffer());
+            payload.release();
+        }
 
         // frame.payload()가 FileRegion일 수도 있는데, segment에 write를 할 때는 그럴 경우가 없을것으로 예상되어 고려하지 않음
         return position;

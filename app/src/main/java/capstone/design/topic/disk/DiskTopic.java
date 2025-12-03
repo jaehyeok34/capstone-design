@@ -125,6 +125,11 @@ public class DiskTopic implements Topic {
     }
 
     @Override
+    public void notify(String partition) {
+        subscribeManager.notify(partition);
+    }
+
+    @Override
     public int count(String partition, Message message) {
         SegmentManager segmentManager = segmentManagers.get(partition);
         if (segmentManager == null) {

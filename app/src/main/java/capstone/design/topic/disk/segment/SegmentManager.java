@@ -65,22 +65,29 @@ public class SegmentManager {
     }
 
     public @Nullable TopicRecord peek(String clientId) {
-        int clientOffset = clientOffsets.computeIfAbsent(clientId, ignored -> 0);
-        if (clientOffset >= nextOffset.get()) {
-            return null;
-        }
+        List<Segment> validSegments = segments.stream()
+            .filter(segment -> activeSegment == segment || !segment.isExpired(retention))
+            .toList();
 
-        for (Segment segment: segments) {
-            if (segment.isExpired(retention)) {
-                continue;
-            }
+        int defaultOffset = validSegments.stream()
+            .mapToInt(Segment::startOffset) // 유효한 세그먼트들의 start offset
+            .min() // 중 최소값
+            .orElse(0); // 없으면 0
 
-            if (clientOffset >= segment.startOffset() && clientOffset < segment.endOffset()) {
-                return segment.read(clientOffset - segment.startOffset()); // offset 보정
-            }
-        }
+        /**
+         * client id에 해당하는 offset이 없다면, default offset으로 설정
+         * 있다면, default offset과 비교하여 더 큰 값으로 설정
+         * default offset > offset인 경우는 세그먼트가 만료되어 기존 offset이 유효하지 않은 경우.
+         */
+        int clientOffset = clientOffsets.compute(clientId, (ignored, offset) -> {
+            return offset == null ? defaultOffset : Math.max(offset, defaultOffset);
+        });
 
-        return null;
+        return validSegments.stream()
+            .filter(segment -> clientOffset >= segment.startOffset() && clientOffset < segment.endOffset())
+            .findFirst()
+            .map(segment -> segment.read(clientOffset - segment.startOffset()))
+            .orElse(null);
     }
 
     public void commit(String clientId, int offset) {
@@ -92,7 +99,7 @@ public class SegmentManager {
 
     public int find(Map<String, String> condition) {
         for (Segment segment: segments) {
-            if (segment.isExpired(retention)) {
+            if (activeSegment != segment && segment.isExpired(retention)) {
                 continue;
             }
 
@@ -115,17 +122,21 @@ public class SegmentManager {
         return true;
     }
 
+    /**
+     * 유효한 segment 들의 메시지의 합 반환.
+     * active segment는 만료되더라도 유효하다고 판단.
+     */
     public int count() {
         return segments.stream()
-            .mapToInt(segment -> segment.isExpired(retention) ? 0 : segment.count())
+            .filter(segment -> activeSegment == segment || !segment.isExpired(retention))
+            .mapToInt(Segment::count)
             .sum();
     }
 
     /**
      * retention 기준으로 만료된 세그먼트 캐시를 정리.
-     * 단, active 세그먼트는 정리하지 않으며 segments.meta 파일에 반영하지 않음(메모리만 정리)
-     * 따라서, segments.meta에는 만료된 세그먼트의 정보도 존재하지만 loadSegments()에서 유효 세그먼트만 복원 되고,
-     * 복원 이후 segments.meta 파일을 갱신하기 때문에 문제 X
+     * 단, active 세그먼트는 정리하지 않으며 segmsnts.log 파일은 갱신하지 않음(메모리만 정리).
+     * segments.log 파일을 갱신하게 될 경우 clean interval이 짧을 경우 I/O가 자주 발생할 수 있기 때문.
      */
     public void clean() {
         Iterator<Segment> iterator = segments.iterator();
@@ -165,7 +176,7 @@ public class SegmentManager {
         int index = segmentIndex.getAndIncrement();
         Path log = root.resolve(index + LOG_FILE_EXTENTION);
         Path idx = root.resolve(index + IDX_FILE_EXTENTION);
-        int startOffset = (segments.isEmpty()) ? 0 : segments.getLast().endOffset();
+        int startOffset = nextOffset.get();
 
         activeSegment = new Segment(index, log, idx, startOffset, System.currentTimeMillis());
         segments.add(activeSegment);
@@ -230,7 +241,30 @@ public class SegmentManager {
             return true;
         } catch (Exception e) {
             System.err.println("? SegmentManager.updateSegments(): " + e);
+            return false;
+        }
+    }
 
+    private boolean updateClientOffsets() {
+        OpenOption[] options = new OpenOption[] {
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.TRUNCATE_EXISTING
+        };
+
+        try (FileChannel file = FileChannel.open(root.resolve(CLIENT_OFFSETS_FILE), options)) {
+            for (Map.Entry<String, Integer> entry : clientOffsets.entrySet()) {
+                byte[] clientIdBytes = entry.getKey().getBytes(StandardCharsets.UTF_8);
+                ByteBuffer buffer = ByteBuffer.allocate((Integer.BYTES * 2) + clientIdBytes.length);
+                buffer.putInt(clientIdBytes.length)
+                    .put(clientIdBytes)
+                    .putInt(entry.getValue());
+                file.write(buffer.flip());
+            }
+
+            return true;
+        } catch (Exception e) {
+            System.err.println("? SegmentManager.updateClientOffsets(): " + e);
             return false;
         }
     }
@@ -253,22 +287,24 @@ public class SegmentManager {
             int satrtOffset = buffer.getInt();
             long createdAt = buffer.getLong();
 
-            // 세그먼트 복원, 만료된 경우에는 복원하지 않음
+            /**
+             * 만료된 세그먼트는 복원하지 않고 파일도 제거함.
+             * 단, next offset은 갱신 함.
+             */
             Segment segment = new Segment(index, paths[0], paths[1], satrtOffset, createdAt);
-            if (segment.isExpired(createdAt)) {
+            segmentIndex.set(index + 1);
+            nextOffset.set(Math.max(nextOffset.get(), segment.endOffset()));
+
+            if (segment.isExpired(retention)) {
+                segment.clear();
                 continue;
             }
             
             segments.add(segment);
         }
-
-        if (!segments.isEmpty()) {
-            updateSegments();
-
-            Segment lastSegment = segments.getLast();
-            segmentIndex.set(lastSegment.index() + 1);
-            nextOffset.set(lastSegment.endOffset());
-        }
+        
+        // 유효한 세그먼트를 기준으로 segments.log 파일 갱신
+        updateSegments();
 
         return true;
     }
@@ -288,6 +324,14 @@ public class SegmentManager {
 
             clientOffsets.put(clientId, offset);
         }
+
+        clientOffsets.entrySet().stream()
+            .filter(entry -> entry.getValue() > nextOffset.get()) 
+            .forEach(entry -> {
+                entry.setValue(nextOffset.get());
+            });
+
+        updateClientOffsets();
 
         return true;
     }

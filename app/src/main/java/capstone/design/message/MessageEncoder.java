@@ -5,6 +5,7 @@ import java.util.List;
 import capstone.design.Utils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
@@ -20,16 +21,16 @@ public class MessageEncoder extends ChannelOutboundHandlerAdapter {
     public List<Object> encode(ByteBufAllocator allocator, Message message) {
         List<Object> out = new ArrayList<>();
         
-        // ByteBuf messageBuf = message.toByteBuf();
         Frame frame = message.toFrame();
         ByteBuf headerBuf = allocator.directBuffer()
             .writeInt(Utils.MAGIC)
-            .writeLong(frame.length());
+            .writeLong(frame.length() + Integer.BYTES);
 
         out.add(headerBuf);
-        out.add(frame.toByteBuf());
+        out.add(frame.header());
 
-        if (frame.isPayloadFileRegion()) {
+        out.add(Unpooled.buffer().writeInt(frame.payloadLength()));
+        if (frame.isPayload()) {
             out.add(frame.payload());
         }
 

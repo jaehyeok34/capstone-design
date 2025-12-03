@@ -112,35 +112,14 @@ public class Message {
         builder.header(headerBuf);
 
         switch (payload) {
-            case byte[] bytes -> {
-                ByteBuf payloadBuf = Unpooled.directBuffer()
-                    .writeInt(bytes.length).writeBytes(bytes);
-
-                builder.payload(payloadBuf);
-            }
-
-            case ByteBuf buf -> {
-                ByteBuf payloadBuf = Unpooled.directBuffer()
-                    .writeInt(buf.readableBytes()).writeBytes(buf);
-
-                builder.payload(payloadBuf);
-            }
-
-            case FileRegion region -> {
-                builder.payload(region);
-            }
-
-            case null -> {
-                ByteBuf payloadBuf = Unpooled.directBuffer()
-                    .writeInt(0); // payload 없음 표시
-
-                builder.payload(payloadBuf);
-            }
-
+            case byte[] bytes -> builder.payload(Unpooled.directBuffer().writeBytes(bytes));
+            case ByteBuf buf -> builder.payload(buf);
+            case FileRegion region -> builder.payload(region);
+            case null -> {}
             default -> {
                 byte[] bytes = String.valueOf(payload).getBytes(StandardCharsets.UTF_8);
                 ByteBuf payloadBuf = Unpooled.directBuffer()
-                    .writeInt(bytes.length).writeBytes(bytes);
+                    .writeBytes(bytes);
 
                 builder.payload(payloadBuf);
             }
